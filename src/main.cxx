@@ -1,3 +1,6 @@
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -15,13 +18,13 @@ main(int, char **argv) {
             ++pp_arg;
         }
         else if (**pp_arg == '-') {
-            std::cerr << "unknown option: " << *pp_arg << "\n";
+            fmt::print(std::cerr, "unknown option: {}\n", *pp_arg);
             return 1;
         }
     }
 
     if (!pp_arg[0] || pp_arg[1]) {
-        std::cerr << "usage: " << argv[0] << " source.pas\n";
+        fmt::print(std::cerr, "usage: {} source.pas\n", argv[0]);
         return 1;
     }
 
@@ -36,7 +39,8 @@ main(int, char **argv) {
             source_file.open(source_path, std::ios::binary);
         }
         catch (std::system_error& e) {
-            std::cerr << source_path.string() << ": unable to open file (" << e.code().message() << ")\n";
+            fmt::print(std::cerr, "{}: unable to open file ({})\n",
+                source_path.string(), e.code().message());
             return 1;
         }
 
@@ -46,7 +50,8 @@ main(int, char **argv) {
                 std::istreambuf_iterator<char>());
         }
         catch (std::system_error& e) {
-            std::cerr << source_path.string() << ": unable to read file (" << e.code().message() << ")\n";
+            fmt::print(std::cerr, "{}: unable to read file ({})\n",
+                source_path.string(), e.code().message());
             return 1;
         }
     }
