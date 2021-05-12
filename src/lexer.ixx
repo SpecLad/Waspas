@@ -11,18 +11,18 @@ using int32 = std::int32_t;
 export
 class Locus {
 public:
-    Locus(const std::string& file, int32 line, int32 column)
-        : file_(file)
-        , line_(line)
+    Locus(int32 line, int32 column)
+        : line_(line)
         , column_(column)
     {
-        assert(file_.size() > 0);
-        assert(line_ > 0);
-        assert(column_ > 0);
+        assert(line_ >= 0);
+        assert(column_ >= 0);
     }
 
+    int32 line() const { return line_; }
+    int32 column() const { return column_; }
+
 private:
-    std::string file_;
     int32 line_;
     int32 column_;
 };
