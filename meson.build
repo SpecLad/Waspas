@@ -14,6 +14,7 @@ endif
 executable('waspas',
     'src/io.cpp',
     'src/io.ixx',
+    'src/lexer.cpp',
     'src/lexer.ixx',
     'src/main.cxx',
     link_args : link_args,

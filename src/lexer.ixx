@@ -2,7 +2,9 @@ module;
 
 #include <cassert>
 #include <cstdint>
-#include <string>
+#include <memory>
+#include <string_view>
+#include <vector>
 
 export module lexer;
 
@@ -75,3 +77,7 @@ class TokenCharacterString : public Token {
 public:
     using Token::Token;
 };
+
+export
+std::vector<std::unique_ptr<Token>>
+lex(std::string_view source);

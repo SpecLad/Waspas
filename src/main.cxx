@@ -6,6 +6,7 @@
 #include <string>
 
 import io;
+import lexer;
 
 int
 main(int, char **argv) {
@@ -52,6 +53,14 @@ main(int, char **argv) {
                 source_path.string(), e.code().message());
             return 1;
         }
+    }
+
+    std::vector<std::unique_ptr<Token>> tokens = lex(source_text);
+
+    for (const auto &p_token : tokens) {
+        const auto &locus = p_token->locus();
+
+        print_error("{}:{}:{}-{}\n", source_path.string(), locus.line() + 1, locus.column() + 1, locus.column() + p_token->length() + 1);
     }
 
     return 0;
