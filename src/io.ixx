@@ -1,8 +1,8 @@
 module;
 
-#include <fmt/core.h>
-
 #include <cstdio>
+#include <format>
+#include <iostream>
 #include <string_view>
 #include <utility>
 
@@ -22,14 +22,14 @@ export
 template <typename ...Args>
 void
 print_error(std::string_view format, Args &&...args) {
+    std::string message = std::format(format, std::forward<Args>(args)...);
+
 #if _WIN32
     if (is_console(stderr)) {
-        print_console(
-            stderr,
-            fmt::format(format, std::forward<Args>(args)...));
+        print_console(stderr, message);
         return;
     }
 #endif
 
-    fmt::print(stderr, format, std::forward<Args>(args)...);
+    std::cerr << message;
 }

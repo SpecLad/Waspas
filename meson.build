@@ -20,5 +20,4 @@ executable('waspas',
     link_args : link_args,
     link_depends : manifest_inputs,
     extra_files : manifest_inputs,
-    dependencies : [dependency('fmt')],
 )
