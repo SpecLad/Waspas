@@ -28,25 +28,14 @@ lex(std::string_view source) {
     std::vector<std::unique_ptr<Token>> tokens;
 
     auto it = source.begin();
-    int32 line = 0, column = 0;
 
     for (; ;) {
-        auto after_ws = skip_whitespace(it, source.end());
-
-        for (; it < after_ws; ++it) {
-            if (*it == '\n') {
-                ++line;
-                column = 0;
-            }
-            else {
-                ++column;
-            }
-        }
+        it = skip_whitespace(it, source.end());
 
         if (it == source.end()) return tokens;
 
-        tokens.push_back(std::make_unique<TokenPlus>(Locus(line, column), 1));
+        tokens.push_back(std::make_unique<TokenPlus>(std::string_view(it, it + 1)));
+
         ++it;
-        ++column;
     }
 }

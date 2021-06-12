@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -7,6 +8,49 @@
 
 import io;
 import lexer;
+
+class Locus {
+public:
+    Locus(std::size_t line, std::size_t column)
+        : line_(line)
+        , column_(column)
+    {}
+
+    std::size_t
+    line() const { return line_; }
+    std::size_t
+    column() const { return column_; }
+
+private:
+    std::size_t line_;
+    std::size_t column_;
+};
+
+class LineIndexer {
+public:
+    LineIndexer(std::string_view source) {
+        std::size_t line_start = 0;
+        line_starts_.push_back(line_start);
+
+        for (;;) {
+            std::size_t newline_index = source.find('\n', line_start);
+            if (newline_index == std::string_view::npos) return;
+
+            line_start = newline_index + 1;
+            line_starts_.push_back(line_start);
+        }
+    }
+
+    Locus
+    getLocusForOffset(std::size_t offset) {
+        auto it = std::ranges::upper_bound(line_starts_, offset) - 1;
+
+        return Locus(it - line_starts_.begin(), offset - *it);
+    }
+
+private:
+    std::vector<std::size_t> line_starts_;
+};
 
 int
 main(int, char **argv) {
@@ -55,12 +99,21 @@ main(int, char **argv) {
         }
     }
 
+    LineIndexer line_indexer(source_text);
+
     std::vector<std::unique_ptr<Token>> tokens = lex(source_text);
 
     for (const auto &p_token : tokens) {
-        const auto &locus = p_token->locus();
+        std::string_view token_view = p_token->view();
+        Locus locus_start = line_indexer.getLocusForOffset(
+            token_view.data() - source_text.data());
+        Locus locus_end = line_indexer.getLocusForOffset(
+            token_view.data() + token_view.size() - source_text.data());
 
-        print_error("{}:{}:{}-{}\n", source_path.string(), locus.line() + 1, locus.column() + 1, locus.column() + p_token->length() + 1);
+        print_error("{}:{}:{}-{}:{}: {}\n", source_path.string(),
+            locus_start.line() + 1, locus_start.column() + 1,
+            locus_end.line() + 1, locus_end.column() + 1,
+            token_view);
     }
 
     return 0;
