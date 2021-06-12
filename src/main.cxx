@@ -101,6 +101,18 @@ main(int, char **argv) {
 
     LineIndexer line_indexer(source_text);
 
+    {
+        auto non_ascii_it = std::find_if(source_text.begin(), source_text.end(),
+            [](char c) { return (unsigned char)c >= 0x80; });
+
+        if (non_ascii_it != source_text.end()) {
+            Locus locus = line_indexer.getLocusForOffset(non_ascii_it - source_text.begin());
+            print_error("{}:{}:{}: non-ASCII character\n",
+                source_path.string(), locus.line() + 1, locus.column() + 1);
+            return 1;
+        }
+    }
+
     std::vector<std::unique_ptr<Token>> tokens = lex(source_text);
 
     for (const auto &p_token : tokens) {
