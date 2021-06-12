@@ -12,9 +12,9 @@ if host_machine.system() == 'windows' and compiler.get_id() == 'msvc'
 endif
 
 executable('waspas',
-    'src/io.cpp',
+    'src/io.cxx',
     'src/io.ixx',
-    'src/lexer.cpp',
+    'src/lexer.cxx',
     'src/lexer.ixx',
     'src/main.cxx',
     link_args : link_args,
