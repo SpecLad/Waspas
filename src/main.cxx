@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -8,49 +7,7 @@
 
 import io;
 import lexer;
-
-class Locus {
-public:
-    Locus(std::size_t line, std::size_t column)
-        : line_(line)
-        , column_(column)
-    {}
-
-    std::size_t
-    line() const { return line_; }
-    std::size_t
-    column() const { return column_; }
-
-private:
-    std::size_t line_;
-    std::size_t column_;
-};
-
-class LineIndexer {
-public:
-    LineIndexer(std::string_view source) {
-        std::size_t line_start = 0;
-        line_starts_.push_back(line_start);
-
-        for (;;) {
-            std::size_t newline_index = source.find('\n', line_start);
-            if (newline_index == std::string_view::npos) return;
-
-            line_start = newline_index + 1;
-            line_starts_.push_back(line_start);
-        }
-    }
-
-    Locus
-    getLocusForOffset(std::size_t offset) {
-        auto it = std::ranges::upper_bound(line_starts_, offset) - 1;
-
-        return Locus(it - line_starts_.begin(), offset - *it);
-    }
-
-private:
-    std::vector<std::size_t> line_starts_;
-};
+import reporting;
 
 int
 main(int, char **argv) {
@@ -99,6 +56,7 @@ main(int, char **argv) {
         }
     }
 
+    Reporter reporter(source_path);
     LineIndexer line_indexer(source_text);
 
     {
@@ -107,8 +65,8 @@ main(int, char **argv) {
 
         if (non_ascii_it != source_text.end()) {
             Locus locus = line_indexer.getLocusForOffset(non_ascii_it - source_text.begin());
-            print_error("{}:{}:{}: non-ASCII character\n",
-                source_path.string(), locus.line() + 1, locus.column() + 1);
+            reporter.err(locus, "non-ascii-char",
+                "non-ASCII character (first byte is {:#x})", (unsigned char)*non_ascii_it);
             return 1;
         }
     }

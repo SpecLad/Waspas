@@ -1,0 +1,80 @@
+module;
+
+#include <algorithm>
+#include <cstdlib>
+#include <filesystem>
+#include <string_view>
+#include <vector>
+
+export module reporting;
+
+import io;
+
+export class Locus {
+public:
+    Locus(std::size_t line, std::size_t column)
+        : line_(line)
+        , column_(column)
+    {}
+
+    std::size_t
+    line() const { return line_; }
+    std::size_t
+    column() const { return column_; }
+
+private:
+    std::size_t line_;
+    std::size_t column_;
+};
+
+export class LineIndexer {
+public:
+    LineIndexer(std::string_view source) {
+        std::size_t line_start = 0;
+        line_starts_.push_back(line_start);
+
+        for (;;) {
+            std::size_t newline_index = source.find('\n', line_start);
+            if (newline_index == std::string_view::npos) return;
+
+            line_start = newline_index + 1;
+            line_starts_.push_back(line_start);
+        }
+    }
+
+    Locus
+    getLocusForOffset(std::size_t offset) {
+        auto it = std::ranges::upper_bound(line_starts_, offset) - 1;
+
+        return Locus(it - line_starts_.begin(), offset - *it);
+    }
+
+private:
+    std::vector<std::size_t> line_starts_;
+};
+
+export class Reporter {
+public:
+    Reporter(const std::filesystem::path &source_path)
+        : source_path_str_(source_path.string())
+    {}
+
+    template <typename ...Args>
+    void
+    err(const Locus &locus, std::string_view error_code,
+            std::string_view error_message_format, Args &&...error_message_args) {
+        errRaw(locus, error_code,
+            std::format(error_message_format, std::forward<Args>(error_message_args)...));
+    }
+
+private:
+    void
+    errRaw(const Locus &locus, std::string_view error_code, std::string_view error_message) {
+        print_error("{}:{}:{}: error: {} ({})\n",
+            source_path_str_, locus.line() + 1, locus.column() + 1,
+            error_message, error_code);
+    }
+
+
+    std::string source_path_str_;
+};
