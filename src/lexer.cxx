@@ -8,6 +8,21 @@ module;
 
 module lexer;
 
+const std::regex TokenIdentifier::PATTERN(R"([a-z][a-z0-9]*)",
+    std::regex_constants::ECMAScript | std::regex_constants::icase);
+
+std::unique_ptr<TokenIdentifier>
+TokenIdentifier::tryLex(std::string_view source_fragment) {
+    std::match_results<std::string_view::iterator> match;
+
+    if (!std::regex_search(source_fragment.begin(), source_fragment.end(),
+            match, PATTERN, std::regex_constants::match_continuous))
+        return nullptr;
+
+    return std::make_unique<TokenIdentifier>(
+        std::string_view(source_fragment.data(), match.length()));
+}
+
 // TODO: add comments
 const std::regex RE_WHITESPACE(R"(^[\t\n\v\f\r ]*)");
 
@@ -23,6 +38,18 @@ skip_whitespace(It begin, It end) {
     return begin + match.length();
 }
 
+std::unique_ptr<Token>
+lexOne(std::string_view source_fragment) {
+    std::unique_ptr<Token> token;
+
+    if ((token = TokenIdentifier::tryLex(source_fragment)))
+        return token;
+
+    // dummy fallback; TODO: remove this later
+    return std::make_unique<TokenPlus>(
+        std::string_view(source_fragment.data(), source_fragment.data() + 1));
+}
+
 std::vector<std::unique_ptr<Token>>
 lex(std::string_view source) {
     std::vector<std::unique_ptr<Token>> tokens;
@@ -34,8 +61,10 @@ lex(std::string_view source) {
 
         if (it == source.end()) return tokens;
 
-        tokens.push_back(std::make_unique<TokenPlus>(std::string_view(it, it + 1)));
+        std::unique_ptr<Token> token = lexOne(std::string_view(it, source.end()));
 
-        ++it;
+        it += token->view().size();
+
+        tokens.push_back(std::move(token));
     }
 }

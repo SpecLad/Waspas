@@ -2,6 +2,7 @@ module;
 
 #include <cassert>
 #include <memory>
+#include <regex>
 #include <string_view>
 #include <vector>
 
@@ -36,6 +37,11 @@ export
 class TokenIdentifier : public Token {
 public:
     using Token::Token;
+
+    static const std::regex PATTERN;
+
+    static std::unique_ptr<TokenIdentifier>
+    tryLex(std::string_view source_fragment);
 };
 
 export
