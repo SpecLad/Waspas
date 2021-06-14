@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+
+import re
+import os
+import subprocess
+import unittest
+
+from dataclasses import dataclass
+from pathlib import Path
+
+EXE_PATH = None
+TEST_CASE_DIR = Path(__file__).resolve().parent
+
+ERROR_MESSAGE_RE = re.compile(r'^(.+?):(\d+):(\d+): .+ \(([a-z-]+)\)$')
+
+@dataclass
+class ErrorMessage:
+    line_num: int
+    column_num: int
+    error_code: str
+
+class TestErrorMessages(unittest.TestCase):
+    def try_compile_ill_formed_source(self, source_name):
+        error_messages = []
+
+        file_path_arg = str(TEST_CASE_DIR / source_name)
+
+        with subprocess.Popen(
+            [str(EXE_PATH), '--', file_path_arg],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+        ) as process:
+            for line in process.stderr:
+                line = line.rstrip('\n')
+
+                self.assertRegex(line, ERROR_MESSAGE_RE)
+                match = ERROR_MESSAGE_RE.search(line)
+                
+                file_path, line_num, column_num, error_code = match.groups()
+                self.assertEqual(file_path, file_path_arg)
+                error_messages.append(ErrorMessage(
+                    line_num=int(line_num), column_num=int(column_num), error_code=error_code))
+
+        self.assertEqual(1, process.returncode)
+
+        return error_messages
+
+    def test_non_ascii_char(self):
+        self.assertIn(ErrorMessage(2, 1, 'non-ascii-char'),
+            self.try_compile_ill_formed_source('non_ascii.pas'))
+
+if __name__ == '__main__':
+    EXE_PATH = Path(os.environ['WASPAS_TEST_EXE_PATH'])
+    unittest.main()
