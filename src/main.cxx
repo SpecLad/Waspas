@@ -4,6 +4,7 @@
 #include <iterator>
 #include <stdexcept>
 #include <string>
+#include <typeinfo>
 
 import io;
 import lexer;
@@ -80,10 +81,10 @@ main(int, char **argv) {
         Locus locus_end = line_indexer.getLocusForOffset(
             token_view.data() + token_view.size() - source_text.data());
 
-        print_error("{}:{}:{}-{}:{}: {}\n", source_path.string(),
+        print_error("{}:{}:{}-{}:{}: {} ({})\n", source_path.string(),
             locus_start.line() + 1, locus_start.column() + 1,
             locus_end.line() + 1, locus_end.column() + 1,
-            token_view);
+            token_view, typeid(*p_token).name());
     }
 
     return 0;
