@@ -25,6 +25,7 @@ private:
     std::string_view view_;
 };
 
+export // the export is not needed, but without it, VC++ produces an ICE
 template<typename T>
 class TokenSpecialSymbol : public Token {
 public:
@@ -37,8 +38,7 @@ public:
 export
 class TokenPlus : public TokenSpecialSymbol<TokenPlus> {
 public:
-//    using TokenSpecialSymbol::TokenSpecialSymbol; <-- this results in an ICE with VC++ :-(
-    TokenPlus(std::string_view view) : TokenSpecialSymbol(view) {}
+    using TokenSpecialSymbol::TokenSpecialSymbol;
 
     static inline constexpr char REPRESENTATION[] = "+";
 };
