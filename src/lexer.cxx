@@ -24,13 +24,14 @@ TokenIdentifier::tryLex(std::string_view source_fragment) {
 }
 
 // TODO: add comments
-const std::regex RE_WHITESPACE(R"(^[\t\n\v\f\r ]*)");
+const std::regex RE_WHITESPACE(R"([\t\n\v\f\r ]*)");
 
 template <typename It>
 It
 skip_whitespace(It begin, It end) {
     std::match_results<It> match;
-    bool found = std::regex_search(begin, end, match, RE_WHITESPACE);
+    bool found = std::regex_search(begin, end, match, RE_WHITESPACE,
+        std::regex_constants::match_continuous);
 
     // the regex allows zero-length matches, so it should never fail
     assert(found);
