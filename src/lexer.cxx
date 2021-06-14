@@ -8,6 +8,18 @@ module;
 
 module lexer;
 
+template <typename T>
+std::unique_ptr<T>
+TokenSpecialSymbol<T>::tryLex(std::string_view source_fragment) {
+    if (source_fragment.starts_with(T::REPRESENTATION)) {
+        return std::make_unique<T>(
+            std::string_view(source_fragment.data(), sizeof T::REPRESENTATION - 1));
+    }
+
+    return nullptr;
+}
+
+
 const std::regex TokenIdentifier::PATTERN(R"([a-z][a-z0-9]*)",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
 
@@ -46,8 +58,11 @@ lexOne(std::string_view source_fragment) {
     if ((token = TokenIdentifier::tryLex(source_fragment)))
         return token;
 
+    if ((token = TokenPlus::tryLex(source_fragment)))
+        return token;
+
     // dummy fallback; TODO: remove this later
-    return std::make_unique<TokenPlus>(
+    return std::make_unique<Token>(
         std::string_view(source_fragment.data(), source_fragment.data() + 1));
 }
 

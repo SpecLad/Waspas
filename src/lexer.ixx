@@ -25,12 +25,22 @@ private:
     std::string_view view_;
 };
 
-export
-class TokenPlus : public Token {
+template<typename T>
+class TokenSpecialSymbol : public Token {
 public:
     using Token::Token;
 
-    static inline const char REPRESENTATION[] = "+";
+    static std::unique_ptr<T>
+    tryLex(std::string_view source_fragment);
+};
+
+export
+class TokenPlus : public TokenSpecialSymbol<TokenPlus> {
+public:
+//    using TokenSpecialSymbol::TokenSpecialSymbol; <-- this results in an ICE with VC++ :-(
+    TokenPlus(std::string_view view) : TokenSpecialSymbol(view) {}
+
+    static inline constexpr char REPRESENTATION[] = "+";
 };
 
 export
