@@ -51,19 +51,20 @@ skip_whitespace(It begin, It end) {
     return begin + match.length();
 }
 
+template <typename T0, typename ...Ts>
 std::unique_ptr<Token>
 lexOne(std::string_view source_fragment) {
-    std::unique_ptr<Token> token;
-
-    if ((token = TokenIdentifier::tryLex(source_fragment)))
+    if (auto token = T0::tryLex(source_fragment))
         return token;
 
-    if ((token = TokenPlus::tryLex(source_fragment)))
-        return token;
-
-    // dummy fallback; TODO: remove this later
-    return std::make_unique<Token>(
-        std::string_view(source_fragment.data(), source_fragment.data() + 1));
+    if constexpr (sizeof...(Ts) > 0) {
+        return lexOne<Ts...>(source_fragment);
+    }
+    else {
+        // dummy fallback; TODO: remove this later
+        return std::make_unique<Token>(
+            std::string_view(source_fragment.data(), source_fragment.data() + 1));
+    }
 }
 
 std::vector<std::unique_ptr<Token>>
@@ -77,7 +78,41 @@ lex(std::string_view source) {
 
         if (it == source.end()) return tokens;
 
-        std::unique_ptr<Token> token = lexOne(std::string_view(it, source.end()));
+        std::unique_ptr<Token> token = lexOne<
+            TokenIdentifier,
+
+            // special symbol tokens
+
+            // the two-character symbols have to go first in order to not get preempted
+            // by the tokens corresponding to their initial characters
+            TokenNotEqual,
+            TokenLessThanOrEqual,
+            TokenGreaterThanOrEqual,
+            TokenAssign,
+            TokenDotDot,
+
+            // these tokens have two-character alternative representations,
+            // so they have to be prioritized for the same reason
+            // TODO: actually implement alternative representations
+            TokenLeftBracket,
+            TokenRightBracket,
+
+            // rest of the special symbol tokens
+            TokenPlus,
+            TokenMinus,
+            TokenAsterisk,
+            TokenSlash,
+            TokenEqual,
+            TokenLessThan,
+            TokenGreaterThan,
+            TokenDot,
+            TokenComma,
+            TokenColon,
+            TokenSemicolon,
+            TokenCaret,
+            TokenLeftParenthesis,
+            TokenRightParenthesis
+        >(std::string_view(it, source.end()));
 
         it += token->view().size();
 

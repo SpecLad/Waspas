@@ -39,8 +39,147 @@ export
 class TokenPlus : public TokenSpecialSymbol<TokenPlus> {
 public:
     using TokenSpecialSymbol::TokenSpecialSymbol;
-
     static inline constexpr char REPRESENTATION[] = "+";
+};
+
+export
+class TokenMinus : public TokenSpecialSymbol<TokenMinus> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "-";
+};
+
+export
+class TokenAsterisk : public TokenSpecialSymbol<TokenAsterisk> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "*";
+};
+
+export
+class TokenSlash : public TokenSpecialSymbol<TokenSlash> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "/";
+};
+
+export
+class TokenEqual : public TokenSpecialSymbol<TokenEqual> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "=";
+};
+
+export
+class TokenLessThan : public TokenSpecialSymbol<TokenLessThan> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "<";
+};
+
+export
+class TokenGreaterThan : public TokenSpecialSymbol<TokenGreaterThan> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = ">";
+};
+
+export
+class TokenLeftBracket : public TokenSpecialSymbol<TokenLeftBracket> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "[";
+};
+
+export
+class TokenRightBracket : public TokenSpecialSymbol<TokenRightBracket> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "]";
+};
+
+export
+class TokenDot : public TokenSpecialSymbol<TokenDot> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = ".";
+};
+
+export
+class TokenComma : public TokenSpecialSymbol<TokenComma> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = ",";
+};
+
+export
+class TokenColon : public TokenSpecialSymbol<TokenColon> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = ":";
+};
+
+export
+class TokenSemicolon : public TokenSpecialSymbol<TokenSemicolon> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = ";";
+};
+
+export
+class TokenCaret : public TokenSpecialSymbol<TokenCaret> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "^";
+};
+
+export
+class TokenLeftParenthesis : public TokenSpecialSymbol<TokenLeftParenthesis> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "(";
+};
+
+export
+class TokenRightParenthesis : public TokenSpecialSymbol<TokenRightParenthesis> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = ")";
+};
+
+export
+class TokenNotEqual : public TokenSpecialSymbol<TokenNotEqual> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "<>";
+};
+
+export
+class TokenLessThanOrEqual : public TokenSpecialSymbol<TokenLessThanOrEqual> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "<=";
+};
+
+export
+class TokenGreaterThanOrEqual : public TokenSpecialSymbol<TokenGreaterThanOrEqual> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = ">=";
+};
+
+export
+class TokenAssign : public TokenSpecialSymbol<TokenAssign> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = ":=";
+};
+
+export
+class TokenDotDot : public TokenSpecialSymbol<TokenDotDot> {
+public:
+    using TokenSpecialSymbol::TokenSpecialSymbol;
+    static inline constexpr char REPRESENTATION[] = "..";
 };
 
 export
