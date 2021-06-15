@@ -19,6 +19,21 @@ TokenSpecialSymbol<T>::tryLex(std::string_view source_fragment) {
     return nullptr;
 }
 
+template <typename T>
+std::unique_ptr<T>
+TokenSpecialSymbolWithAlt<T>::tryLex(std::string_view source_fragment) {
+    if (source_fragment.starts_with(T::REPRESENTATION)) {
+        return std::make_unique<T>(
+            std::string_view(source_fragment.data(), sizeof T::REPRESENTATION - 1));
+    }
+
+    if (source_fragment.starts_with(T::ALTERNATIVE_REPRESENTATION)) {
+        return std::make_unique<T>(
+            std::string_view(source_fragment.data(), sizeof T::ALTERNATIVE_REPRESENTATION - 1));
+    }
+
+    return nullptr;
+}
 
 const std::regex TokenIdentifier::PATTERN(R"([a-z][a-z0-9]*)",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
@@ -93,7 +108,6 @@ lex(std::string_view source) {
 
             // these tokens have two-character alternative representations,
             // so they have to be prioritized for the same reason
-            // TODO: actually implement alternative representations
             TokenLeftBracket,
             TokenRightBracket,
 

@@ -35,6 +35,16 @@ public:
     tryLex(std::string_view source_fragment);
 };
 
+export // same as for the previous export
+template<typename T>
+class TokenSpecialSymbolWithAlt : public Token {
+public:
+    using Token::Token;
+
+    static std::unique_ptr<T>
+        tryLex(std::string_view source_fragment);
+};
+
 export
 class TokenPlus : public TokenSpecialSymbol<TokenPlus> {
 public:
@@ -85,17 +95,19 @@ public:
 };
 
 export
-class TokenLeftBracket : public TokenSpecialSymbol<TokenLeftBracket> {
+class TokenLeftBracket : public TokenSpecialSymbolWithAlt<TokenLeftBracket> {
 public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
+    using TokenSpecialSymbolWithAlt::TokenSpecialSymbolWithAlt;
     static inline constexpr char REPRESENTATION[] = "[";
+    static inline constexpr char ALTERNATIVE_REPRESENTATION[] = "(.";
 };
 
 export
-class TokenRightBracket : public TokenSpecialSymbol<TokenRightBracket> {
+class TokenRightBracket : public TokenSpecialSymbolWithAlt<TokenRightBracket> {
 public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
+    using TokenSpecialSymbolWithAlt::TokenSpecialSymbolWithAlt;
     static inline constexpr char REPRESENTATION[] = "]";
+    static inline constexpr char ALTERNATIVE_REPRESENTATION[] = ".)";
 };
 
 export
@@ -127,10 +139,11 @@ public:
 };
 
 export
-class TokenCaret : public TokenSpecialSymbol<TokenCaret> {
+class TokenCaret : public TokenSpecialSymbolWithAlt<TokenCaret> {
 public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
+    using TokenSpecialSymbolWithAlt::TokenSpecialSymbolWithAlt;
     static inline constexpr char REPRESENTATION[] = "^";
+    static inline constexpr char ALTERNATIVE_REPRESENTATION[] = "@";
 };
 
 export
