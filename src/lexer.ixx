@@ -45,155 +45,44 @@ public:
     tryLex(std::string_view source_fragment);
 };
 
-export
-class TokenPlus : public TokenSpecialSymbol<TokenPlus> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "+";
-};
+#define DECLARE_SPECIAL_SYMBOL(name, representation) \
+    export \
+    class Token ## name : public TokenSpecialSymbol<Token ## name> { \
+    public: \
+        using TokenSpecialSymbol::TokenSpecialSymbol; \
+        static inline constexpr char REPRESENTATION[] = representation; \
+    };
 
-export
-class TokenMinus : public TokenSpecialSymbol<TokenMinus> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "-";
-};
+#define DECLARE_SPECIAL_SYMBOL_WITH_ALT(name, representation, alt_representation) \
+    export \
+    class Token ## name : public TokenSpecialSymbolWithAlt<Token ## name> { \
+    public: \
+        using TokenSpecialSymbolWithAlt::TokenSpecialSymbolWithAlt; \
+        static inline constexpr char REPRESENTATION[] = representation; \
+        static inline constexpr char ALTERNATIVE_REPRESENTATION[] = alt_representation; \
+    };
 
-export
-class TokenAsterisk : public TokenSpecialSymbol<TokenAsterisk> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "*";
-};
-
-export
-class TokenSlash : public TokenSpecialSymbol<TokenSlash> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "/";
-};
-
-export
-class TokenEqual : public TokenSpecialSymbol<TokenEqual> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "=";
-};
-
-export
-class TokenLessThan : public TokenSpecialSymbol<TokenLessThan> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "<";
-};
-
-export
-class TokenGreaterThan : public TokenSpecialSymbol<TokenGreaterThan> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = ">";
-};
-
-export
-class TokenLeftBracket : public TokenSpecialSymbolWithAlt<TokenLeftBracket> {
-public:
-    using TokenSpecialSymbolWithAlt::TokenSpecialSymbolWithAlt;
-    static inline constexpr char REPRESENTATION[] = "[";
-    static inline constexpr char ALTERNATIVE_REPRESENTATION[] = "(.";
-};
-
-export
-class TokenRightBracket : public TokenSpecialSymbolWithAlt<TokenRightBracket> {
-public:
-    using TokenSpecialSymbolWithAlt::TokenSpecialSymbolWithAlt;
-    static inline constexpr char REPRESENTATION[] = "]";
-    static inline constexpr char ALTERNATIVE_REPRESENTATION[] = ".)";
-};
-
-export
-class TokenDot : public TokenSpecialSymbol<TokenDot> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = ".";
-};
-
-export
-class TokenComma : public TokenSpecialSymbol<TokenComma> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = ",";
-};
-
-export
-class TokenColon : public TokenSpecialSymbol<TokenColon> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = ":";
-};
-
-export
-class TokenSemicolon : public TokenSpecialSymbol<TokenSemicolon> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = ";";
-};
-
-export
-class TokenCaret : public TokenSpecialSymbolWithAlt<TokenCaret> {
-public:
-    using TokenSpecialSymbolWithAlt::TokenSpecialSymbolWithAlt;
-    static inline constexpr char REPRESENTATION[] = "^";
-    static inline constexpr char ALTERNATIVE_REPRESENTATION[] = "@";
-};
-
-export
-class TokenLeftParenthesis : public TokenSpecialSymbol<TokenLeftParenthesis> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "(";
-};
-
-export
-class TokenRightParenthesis : public TokenSpecialSymbol<TokenRightParenthesis> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = ")";
-};
-
-export
-class TokenNotEqual : public TokenSpecialSymbol<TokenNotEqual> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "<>";
-};
-
-export
-class TokenLessThanOrEqual : public TokenSpecialSymbol<TokenLessThanOrEqual> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "<=";
-};
-
-export
-class TokenGreaterThanOrEqual : public TokenSpecialSymbol<TokenGreaterThanOrEqual> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = ">=";
-};
-
-export
-class TokenAssign : public TokenSpecialSymbol<TokenAssign> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = ":=";
-};
-
-export
-class TokenDotDot : public TokenSpecialSymbol<TokenDotDot> {
-public:
-    using TokenSpecialSymbol::TokenSpecialSymbol;
-    static inline constexpr char REPRESENTATION[] = "..";
-};
+DECLARE_SPECIAL_SYMBOL(Plus, "+")
+DECLARE_SPECIAL_SYMBOL(Minus, "-")
+DECLARE_SPECIAL_SYMBOL(Asterisk, "*")
+DECLARE_SPECIAL_SYMBOL(Slash, "/")
+DECLARE_SPECIAL_SYMBOL(Equal, "=")
+DECLARE_SPECIAL_SYMBOL(LessThan, "<")
+DECLARE_SPECIAL_SYMBOL(GreaterThan, ">")
+DECLARE_SPECIAL_SYMBOL_WITH_ALT(LeftBracket, "[", "(.")
+DECLARE_SPECIAL_SYMBOL_WITH_ALT(RightBracket, "]", ".)")
+DECLARE_SPECIAL_SYMBOL(Dot, ".")
+DECLARE_SPECIAL_SYMBOL(Comma, ",")
+DECLARE_SPECIAL_SYMBOL(Colon, ":")
+DECLARE_SPECIAL_SYMBOL(Semicolon, ";")
+DECLARE_SPECIAL_SYMBOL_WITH_ALT(Caret, "^", "@")
+DECLARE_SPECIAL_SYMBOL(LeftParenthesis, "(")
+DECLARE_SPECIAL_SYMBOL(RightParenthesis, ")")
+DECLARE_SPECIAL_SYMBOL(NotEqual, "<>")
+DECLARE_SPECIAL_SYMBOL(LessThanOrEqual, "<=")
+DECLARE_SPECIAL_SYMBOL(GreaterThanOrEqual, ">=")
+DECLARE_SPECIAL_SYMBOL(Assign, ":=")
+DECLARE_SPECIAL_SYMBOL(DotDot, "..")
 
 export
 template <typename T>
