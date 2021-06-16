@@ -196,26 +196,34 @@ public:
 };
 
 export
-class TokenIdentifier : public Token {
+template <typename T>
+class TokenPatternBased : public Token {
 public:
     using Token::Token;
 
-    static const std::regex PATTERN;
-
-    static std::unique_ptr<TokenIdentifier>
+    static std::unique_ptr<T>
     tryLex(std::string_view source_fragment);
 };
 
 export
-class TokenUnsignedInteger : public Token {
+class TokenIdentifier : public TokenPatternBased<TokenIdentifier> {
 public:
-    using Token::Token;
+    using TokenPatternBased::TokenPatternBased;
+    static const std::regex PATTERN;
 };
 
 export
-class TokenUnsignedReal : public Token {
+class TokenUnsignedInteger : public TokenPatternBased<TokenUnsignedInteger> {
 public:
-    using Token::Token;
+    using TokenPatternBased::TokenPatternBased;
+    static const std::regex PATTERN;
+};
+
+export
+class TokenUnsignedReal : public TokenPatternBased<TokenUnsignedReal> {
+public:
+    using TokenPatternBased::TokenPatternBased;
+    static const std::regex PATTERN;
 };
 
 export

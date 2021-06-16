@@ -35,20 +35,27 @@ TokenSpecialSymbolWithAlt<T>::tryLex(std::string_view source_fragment) {
     return nullptr;
 }
 
-const std::regex TokenIdentifier::PATTERN(R"([a-z][a-z0-9]*)",
-    std::regex_constants::ECMAScript | std::regex_constants::icase);
-
-std::unique_ptr<TokenIdentifier>
-TokenIdentifier::tryLex(std::string_view source_fragment) {
+template <typename T>
+std::unique_ptr<T>
+TokenPatternBased<T>::tryLex(std::string_view source_fragment) {
     std::match_results<std::string_view::iterator> match;
 
     if (!std::regex_search(source_fragment.begin(), source_fragment.end(),
-            match, PATTERN, std::regex_constants::match_continuous))
+            match, T::PATTERN, std::regex_constants::match_continuous))
         return nullptr;
 
-    return std::make_unique<TokenIdentifier>(
+    return std::make_unique<T>(
         std::string_view(source_fragment.data(), match.length()));
 }
+
+const std::regex TokenIdentifier::PATTERN(R"([a-z][a-z0-9]*)",
+    std::regex_constants::ECMAScript | std::regex_constants::icase);
+
+const std::regex TokenUnsignedInteger::PATTERN(R"([0-9]+(?![a-z0-9]))",
+    std::regex_constants::ECMAScript | std::regex_constants::icase);
+
+const std::regex TokenUnsignedReal::PATTERN(R"([0-9]+(?:\.[0-9]+(?:e[+-]?[0-9]+)?|e[+-]?[0-9]+)(?![a-z0-9]))",
+    std::regex_constants::ECMAScript | std::regex_constants::icase);
 
 const std::regex RE_SEPARATORS(R"((?:[\t\n\v\f\r ]|(?:\{|\(\*)(?:[^}*]|\*(?!\)))*(?:\}|\*\)))*)");
 
@@ -93,7 +100,12 @@ lex(std::string_view source) {
         if (it == source.end()) return tokens;
 
         std::unique_ptr<Token> token = lexOne<
+            // identifiers and literals
             TokenIdentifier,
+            // TokenUnsignedReal must precede TokenUnsignedInteger,
+            // or TokenUnsignedInteger will eat the integer part of real literals
+            TokenUnsignedReal,
+            TokenUnsignedInteger,
 
             // special symbol tokens
 
