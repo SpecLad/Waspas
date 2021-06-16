@@ -57,6 +57,8 @@ const std::regex TokenUnsignedInteger::PATTERN(R"([0-9]+(?![a-z0-9]))",
 const std::regex TokenUnsignedReal::PATTERN(R"([0-9]+(?:\.[0-9]+(?:e[+-]?[0-9]+)?|e[+-]?[0-9]+)(?![a-z0-9]))",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
 
+const std::regex TokenCharacterString::PATTERN(R"('(?:[^'\n]|'')*')");
+
 const std::regex RE_SEPARATORS(R"((?:[\t\n\v\f\r ]|(?:\{|\(\*)(?:[^}*]|\*(?!\)))*(?:\}|\*\)))*)");
 
 template <typename It>
@@ -106,6 +108,7 @@ lex(std::string_view source) {
             // or TokenUnsignedInteger will eat the integer part of real literals
             TokenUnsignedReal,
             TokenUnsignedInteger,
+            TokenCharacterString,
 
             // special symbol tokens
 

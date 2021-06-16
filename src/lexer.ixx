@@ -227,9 +227,10 @@ public:
 };
 
 export
-class TokenCharacterString : public Token {
+class TokenCharacterString : public TokenPatternBased<TokenCharacterString> {
 public:
-    using Token::Token;
+    using TokenPatternBased::TokenPatternBased;
+    static const std::regex PATTERN;
 };
 
 export
