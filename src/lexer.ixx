@@ -42,7 +42,7 @@ public:
     using Token::Token;
 
     static std::unique_ptr<T>
-        tryLex(std::string_view source_fragment);
+    tryLex(std::string_view source_fragment);
 };
 
 export
