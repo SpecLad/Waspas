@@ -206,6 +206,58 @@ public:
 };
 
 export
+template<typename T>
+class TokenWordSymbol : public TokenPatternBased<T> {
+public:
+    using TokenPatternBased<T>::TokenPatternBased;
+    static const std::regex PATTERN;
+};
+
+#define DECLARE_WORD_SYMBOL(name) \
+    export \
+    class TokenWs ## name : public TokenWordSymbol<TokenWs ## name> { \
+    public: \
+        using TokenWordSymbol::TokenWordSymbol; \
+        static inline constexpr char REPRESENTATION[] = #name; \
+    };
+
+DECLARE_WORD_SYMBOL(And)
+DECLARE_WORD_SYMBOL(Array)
+DECLARE_WORD_SYMBOL(Begin)
+DECLARE_WORD_SYMBOL(Case)
+DECLARE_WORD_SYMBOL(Const)
+DECLARE_WORD_SYMBOL(Div)
+DECLARE_WORD_SYMBOL(Do)
+DECLARE_WORD_SYMBOL(Downto)
+DECLARE_WORD_SYMBOL(Else)
+DECLARE_WORD_SYMBOL(End)
+DECLARE_WORD_SYMBOL(File)
+DECLARE_WORD_SYMBOL(For)
+DECLARE_WORD_SYMBOL(Function)
+DECLARE_WORD_SYMBOL(Goto)
+DECLARE_WORD_SYMBOL(If)
+DECLARE_WORD_SYMBOL(In)
+DECLARE_WORD_SYMBOL(Label)
+DECLARE_WORD_SYMBOL(Mod)
+DECLARE_WORD_SYMBOL(Nil)
+DECLARE_WORD_SYMBOL(Not)
+DECLARE_WORD_SYMBOL(Of)
+DECLARE_WORD_SYMBOL(Or)
+DECLARE_WORD_SYMBOL(Packed)
+DECLARE_WORD_SYMBOL(Procedure)
+DECLARE_WORD_SYMBOL(Program)
+DECLARE_WORD_SYMBOL(Record)
+DECLARE_WORD_SYMBOL(Repeat)
+DECLARE_WORD_SYMBOL(Set)
+DECLARE_WORD_SYMBOL(Then)
+DECLARE_WORD_SYMBOL(To)
+DECLARE_WORD_SYMBOL(Type)
+DECLARE_WORD_SYMBOL(Until)
+DECLARE_WORD_SYMBOL(Var)
+DECLARE_WORD_SYMBOL(While)
+DECLARE_WORD_SYMBOL(With)
+
+export
 class TokenIdentifier : public TokenPatternBased<TokenIdentifier> {
 public:
     using TokenPatternBased::TokenPatternBased;

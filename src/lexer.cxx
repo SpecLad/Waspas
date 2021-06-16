@@ -3,10 +3,13 @@ module;
 #include <cassert>
 #include <memory>
 #include <regex>
+#include <string>
 #include <string_view>
 #include <vector>
 
 module lexer;
+
+using namespace std::literals;
 
 template <typename T>
 std::unique_ptr<T>
@@ -47,6 +50,10 @@ TokenPatternBased<T>::tryLex(std::string_view source_fragment) {
     return std::make_unique<T>(
         std::string_view(source_fragment.data(), match.length()));
 }
+
+template <typename T>
+const std::regex TokenWordSymbol<T>::PATTERN(T::REPRESENTATION + R"((?![a-z0-9]))"s,
+    std::regex_constants::ECMAScript | std::regex_constants::icase);
 
 const std::regex TokenIdentifier::PATTERN(R"([a-z][a-z0-9]*)",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
@@ -102,6 +109,44 @@ lex(std::string_view source) {
         if (it == source.end()) return tokens;
 
         std::unique_ptr<Token> token = lexOne<
+            // word symbols
+            // these have to precede TokenIdentifier, lest they are preempted by it
+            TokenWsAnd,
+            TokenWsArray,
+            TokenWsBegin,
+            TokenWsCase,
+            TokenWsConst,
+            TokenWsDiv,
+            TokenWsDo,
+            TokenWsDownto,
+            TokenWsElse,
+            TokenWsEnd,
+            TokenWsFile,
+            TokenWsFor,
+            TokenWsFunction,
+            TokenWsGoto,
+            TokenWsIf,
+            TokenWsIn,
+            TokenWsLabel,
+            TokenWsMod,
+            TokenWsNil,
+            TokenWsNot,
+            TokenWsOf,
+            TokenWsOr,
+            TokenWsPacked,
+            TokenWsProcedure,
+            TokenWsProgram,
+            TokenWsRecord,
+            TokenWsRepeat,
+            TokenWsSet,
+            TokenWsThen,
+            TokenWsTo,
+            TokenWsType,
+            TokenWsUntil,
+            TokenWsVar,
+            TokenWsWhile,
+            TokenWsWith,
+
             // identifiers and literals
             TokenIdentifier,
             // TokenUnsignedReal must precede TokenUnsignedInteger,
