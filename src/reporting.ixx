@@ -43,7 +43,7 @@ public:
     }
 
     Locus
-    getLocusForOffset(std::size_t offset) {
+    getLocusForOffset(std::size_t offset) const {
         auto it = std::ranges::upper_bound(line_starts_, offset) - 1;
 
         return Locus(it - line_starts_.begin(), offset - *it);
@@ -56,8 +56,11 @@ private:
 export class Reporter {
 public:
     Reporter(const std::filesystem::path &source_path)
-        : source_path_str_(source_path.string())
+        : source_path_str_(source_path.string()), had_errors_(false)
     {}
+
+    bool
+    hadErrors() const { return had_errors_; }
 
     template <typename ...Args>
     void
@@ -73,8 +76,9 @@ private:
         print_error("{}:{}:{}: error: {} ({})\n",
             source_path_str_, locus.line() + 1, locus.column() + 1,
             error_message, error_code);
+        had_errors_ = true;
     }
 
-
     std::string source_path_str_;
+    bool had_errors_;
 };

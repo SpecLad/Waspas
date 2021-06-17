@@ -87,18 +87,14 @@ lexOne(std::string_view source_fragment) {
     if (auto token = T0::tryLex(source_fragment))
         return token;
 
-    if constexpr (sizeof...(Ts) > 0) {
+    if constexpr (sizeof...(Ts) > 0)
         return lexOne<Ts...>(source_fragment);
-    }
-    else {
-        // dummy fallback; TODO: remove this later
-        return std::make_unique<Token>(
-            std::string_view(source_fragment.data(), source_fragment.data() + 1));
-    }
+    else
+        return nullptr;
 }
 
 std::vector<std::unique_ptr<Token>>
-lex(std::string_view source) {
+lex(std::string_view source, const LineIndexer &line_indexer, Reporter &reporter) {
     std::vector<std::unique_ptr<Token>> tokens;
 
     auto it = source.begin();
@@ -187,8 +183,20 @@ lex(std::string_view source) {
             TokenRightParenthesis
         >(std::string_view(it, source.end()));
 
-        it += token->view().size();
+        if (token) {
+            it += token->view().size();
+            tokens.push_back(std::move(token));
+        }
+        else {
+            Locus locus = line_indexer.getLocusForOffset(it - source.begin());
 
-        tokens.push_back(std::move(token));
+            if (std::isprint(*it))
+                reporter.err(locus, "invalid-token", "invalid token: {}", *it);
+            else
+                reporter.err(locus, "invalid-token",
+                    "invalid token with character code {:#x}", (unsigned char)*it);
+
+            ++it;
+        }
     }
 }

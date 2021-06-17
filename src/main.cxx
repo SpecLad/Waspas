@@ -72,7 +72,10 @@ main(int, char **argv) {
         }
     }
 
-    std::vector<std::unique_ptr<Token>> tokens = lex(source_text);
+    std::vector<std::unique_ptr<Token>> tokens = lex(source_text, line_indexer, reporter);
+
+    if (reporter.hadErrors())
+        return 1;
 
     for (const auto &p_token : tokens) {
         std::string_view token_view = p_token->view();

@@ -8,6 +8,8 @@ module;
 
 export module lexer;
 
+import reporting;
+
 export
 class Token {
 public:
@@ -176,4 +178,4 @@ public:
 
 export
 std::vector<std::unique_ptr<Token>>
-lex(std::string_view source);
+lex(std::string_view source, const LineIndexer &line_indexer, Reporter &reporter);
