@@ -19,6 +19,23 @@ class ErrorMessage:
     column_num: int
     error_code: str
 
+class TestBasicErrors(unittest.TestCase):
+    def _test(self, args):
+        cp = subprocess.run(
+            [str(EXE_PATH), *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+
+        self.assertEqual(cp.returncode, 1);
+
+    def test_no_args(self):
+        self._test([])
+
+    def test_bad_path(self):
+        self._test(['--', str(TEST_CASE_DIR / 'nonexistent.pas')])
+
+    def test_unknown_arg(self):
+        self._test(['-x'])
+
 class TestErrorMessages(unittest.TestCase):
     def try_compile_ill_formed_source(self, source_name):
         error_messages = []
