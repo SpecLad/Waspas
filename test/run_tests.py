@@ -40,7 +40,7 @@ class TestErrorMessages(unittest.TestCase):
                 error_messages.append(ErrorMessage(
                     line_num=int(line_num), column_num=int(column_num), error_code=error_code))
 
-        self.assertEqual(1, process.returncode)
+        self.assertEqual(process.returncode, 1)
 
         return error_messages
 
