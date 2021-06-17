@@ -7,7 +7,7 @@
 #include <typeinfo>
 
 import io;
-import lexer;
+import lexing;
 import reporting;
 
 int

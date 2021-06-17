@@ -7,7 +7,7 @@ module;
 #include <string_view>
 #include <vector>
 
-module lexer;
+module lexing;
 
 using namespace std::literals;
 

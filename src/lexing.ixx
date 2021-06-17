@@ -6,7 +6,7 @@ module;
 #include <string_view>
 #include <vector>
 
-export module lexer;
+export module lexing;
 
 import reporting;
 
