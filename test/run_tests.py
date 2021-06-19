@@ -82,6 +82,12 @@ class TestErrorMessages(unittest.TestCase):
         self.assertIn(ErrorMessage(7, 26, 'invalid-token'), messages)
         self.assertIn(ErrorMessage(8, 1, 'invalid-token'), messages)
 
+    def test_invalid_token(self):
+        messages = self.try_compile_ill_formed_source('empty.pas')
+
+        self.assertIn(ErrorMessage(1, 1, 'unexpected-token'), messages)
+
+
 if __name__ == '__main__':
     EXE_PATH = Path(os.environ['WASPAS_TEST_EXE_PATH'])
     unittest.main()

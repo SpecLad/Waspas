@@ -8,6 +8,7 @@
 
 import io;
 import lexing;
+import parsing;
 import reporting;
 
 int
@@ -72,6 +73,11 @@ main(int, char **argv) {
     }
 
     std::vector<std::unique_ptr<Token>> tokens = lex(source_text, reporter);
+
+    if (reporter.hadErrors())
+        return 1;
+
+    auto ast = parse(tokens, reporter);
 
     if (reporter.hadErrors())
         return 1;
