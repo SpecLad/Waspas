@@ -178,4 +178,4 @@ public:
 
 export
 std::vector<std::unique_ptr<Token>>
-lex(std::string_view source, const LineIndexer &line_indexer, Reporter &reporter);
+lex(std::string_view source, Reporter &reporter);

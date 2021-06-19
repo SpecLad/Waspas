@@ -57,22 +57,21 @@ main(int, char **argv) {
         }
     }
 
-    Reporter reporter(source_path);
     LineIndexer line_indexer(source_text);
+    Reporter reporter(source_path, source_text.data(), line_indexer);
 
     {
         auto non_ascii_it = std::find_if(source_text.begin(), source_text.end(),
             [](char c) { return (unsigned char)c >= 0x80; });
 
         if (non_ascii_it != source_text.end()) {
-            Locus locus = line_indexer.getLocusForOffset(non_ascii_it - source_text.begin());
-            reporter.err(locus, "non-ascii-char",
+            reporter.err(&*non_ascii_it, "non-ascii-char",
                 "non-ASCII character (first byte is {:#x})", (unsigned char)*non_ascii_it);
             return 1;
         }
     }
 
-    std::vector<std::unique_ptr<Token>> tokens = lex(source_text, line_indexer, reporter);
+    std::vector<std::unique_ptr<Token>> tokens = lex(source_text, reporter);
 
     if (reporter.hadErrors())
         return 1;

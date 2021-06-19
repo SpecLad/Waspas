@@ -55,8 +55,15 @@ private:
 
 export class Reporter {
 public:
-    Reporter(const std::filesystem::path &source_path)
-        : source_path_str_(source_path.string()), had_errors_(false)
+    Reporter(
+        const std::filesystem::path &source_path,
+        const char *source_start,
+        const LineIndexer &line_indexer
+    )
+        : source_path_str_(source_path.string())
+        , source_start_(source_start)
+        , line_indexer_(line_indexer)
+        , had_errors_(false)
     {}
 
     bool
@@ -64,15 +71,16 @@ public:
 
     template <typename ...Args>
     void
-    err(const Locus &locus, std::string_view error_code,
+    err(const char *location, std::string_view error_code,
             std::string_view error_message_format, Args &&...error_message_args) {
-        errRaw(locus, error_code,
+        errRaw(location, error_code,
             std::format(error_message_format, std::forward<Args>(error_message_args)...));
     }
 
 private:
     void
-    errRaw(const Locus &locus, std::string_view error_code, std::string_view error_message) {
+    errRaw(const char *location, std::string_view error_code, std::string_view error_message) {
+        Locus locus = line_indexer_.getLocusForOffset(location - source_start_);
         print_error("{}:{}:{}: error: {} ({})\n",
             source_path_str_, locus.line() + 1, locus.column() + 1,
             error_message, error_code);
@@ -80,5 +88,7 @@ private:
     }
 
     std::string source_path_str_;
+    const char *source_start_;
+    const LineIndexer &line_indexer_;
     bool had_errors_;
 };

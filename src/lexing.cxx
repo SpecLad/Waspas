@@ -94,7 +94,7 @@ lexOne(std::string_view source_fragment) {
 }
 
 std::vector<std::unique_ptr<Token>>
-lex(std::string_view source, const LineIndexer &line_indexer, Reporter &reporter) {
+lex(std::string_view source, Reporter &reporter) {
     std::vector<std::unique_ptr<Token>> tokens;
 
     auto it = source.begin();
@@ -188,12 +188,10 @@ lex(std::string_view source, const LineIndexer &line_indexer, Reporter &reporter
             tokens.push_back(std::move(token));
         }
         else {
-            Locus locus = line_indexer.getLocusForOffset(it - source.begin());
-
             if (std::isprint(*it))
-                reporter.err(locus, "invalid-token", "invalid token: {}", *it);
+                reporter.err(&*it, "invalid-token", "invalid token: {}", *it);
             else
-                reporter.err(locus, "invalid-token",
+                reporter.err(&*it, "invalid-token",
                     "invalid token with character code {:#x}", (unsigned char)*it);
 
             ++it;
