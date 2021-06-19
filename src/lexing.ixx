@@ -47,7 +47,7 @@ public:
 
 #define DECLARE_SPECIAL_SYMBOL(name, representation) \
     export \
-    class Token ## name : public TokenSpecialSymbol<Token ## name> { \
+    class Token ## name final : public TokenSpecialSymbol<Token ## name> { \
     public: \
         using TokenSpecialSymbol::TokenSpecialSymbol; \
         static inline constexpr char REPRESENTATION[] = representation; \
@@ -55,7 +55,7 @@ public:
 
 #define DECLARE_SPECIAL_SYMBOL_WITH_ALT(name, representation, alt_representation) \
     export \
-    class Token ## name : public TokenSpecialSymbolWithAlt<Token ## name> { \
+    class Token ## name final: public TokenSpecialSymbolWithAlt<Token ## name> { \
     public: \
         using TokenSpecialSymbolWithAlt::TokenSpecialSymbolWithAlt; \
         static inline constexpr char REPRESENTATION[] = representation; \
@@ -104,7 +104,7 @@ public:
 
 #define DECLARE_WORD_SYMBOL(name) \
     export \
-    class TokenWs ## name : public TokenWordSymbol<TokenWs ## name> { \
+    class TokenWs ## name final : public TokenWordSymbol<TokenWs ## name> { \
     public: \
         using TokenWordSymbol::TokenWordSymbol; \
         static inline constexpr char REPRESENTATION[] = #name; \
@@ -147,35 +147,35 @@ DECLARE_WORD_SYMBOL(While)
 DECLARE_WORD_SYMBOL(With)
 
 export
-class TokenIdentifier : public TokenPatternBased<TokenIdentifier> {
+class TokenIdentifier final : public TokenPatternBased<TokenIdentifier> {
 public:
     using TokenPatternBased::TokenPatternBased;
     static const std::regex PATTERN;
 };
 
 export
-class TokenUnsignedInteger : public TokenPatternBased<TokenUnsignedInteger> {
+class TokenUnsignedInteger final : public TokenPatternBased<TokenUnsignedInteger> {
 public:
     using TokenPatternBased::TokenPatternBased;
     static const std::regex PATTERN;
 };
 
 export
-class TokenUnsignedReal : public TokenPatternBased<TokenUnsignedReal> {
+class TokenUnsignedReal final : public TokenPatternBased<TokenUnsignedReal> {
 public:
     using TokenPatternBased::TokenPatternBased;
     static const std::regex PATTERN;
 };
 
 export
-class TokenCharacterString : public TokenPatternBased<TokenCharacterString> {
+class TokenCharacterString final : public TokenPatternBased<TokenCharacterString> {
 public:
     using TokenPatternBased::TokenPatternBased;
     static const std::regex PATTERN;
 };
 
 export
-class TokenEof : public Token {
+class TokenEof final : public Token {
 public:
     using Token::Token;
 };
