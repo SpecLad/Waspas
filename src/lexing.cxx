@@ -102,7 +102,7 @@ lex(std::string_view source, Reporter &reporter) {
     for (; ;) {
         it = skip_separators(it, source.end());
 
-        if (it == source.end()) return tokens;
+        if (it == source.end()) break;
 
         std::unique_ptr<Token> token = lexOne<
             // word symbols
@@ -197,4 +197,7 @@ lex(std::string_view source, Reporter &reporter) {
             ++it;
         }
     }
+
+    tokens.push_back(std::make_unique<TokenEof>(std::string_view(source.end(), source.end())));
+    return tokens;
 }

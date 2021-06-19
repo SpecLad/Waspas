@@ -14,9 +14,7 @@ export
 class Token {
 public:
     Token(std::string_view view) : view_(view)
-    {
-        assert(!view.empty());
-    }
+    {}
 
     std::string_view
     view() const { return view_; }
@@ -174,6 +172,12 @@ class TokenCharacterString : public TokenPatternBased<TokenCharacterString> {
 public:
     using TokenPatternBased::TokenPatternBased;
     static const std::regex PATTERN;
+};
+
+export
+class TokenEof : public Token {
+public:
+    using Token::Token;
 };
 
 export
