@@ -4,7 +4,6 @@
 #include <iterator>
 #include <stdexcept>
 #include <string>
-#include <typeinfo>
 
 import io;
 import lexing;
@@ -92,7 +91,7 @@ main(int, char **argv) {
         print_error("{}:{}:{}-{}:{}: {} ({})\n", source_path.string(),
             locus_start.line() + 1, locus_start.column() + 1,
             locus_end.line() + 1, locus_end.column() + 1,
-            token_view, typeid(*p_token).name());
+            token_view, p_token->humanRepresentation());
     }
 
     return 0;

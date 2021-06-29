@@ -25,8 +25,9 @@ public:
         if (auto *p_next_token_typed = dynamic_cast<T *>(p_next_token))
             return p_next_token_typed;
 
-        reporter_.err(p_next_token->view().data(), "unexpected-token", "unexpected token");
-        // TODO: show expected and actual tokens
+        reporter_.err(p_next_token->view().data(), "unexpected-token",
+            "expected a token of type {}, got {} instead",
+            T::HUMAN_REPRESENTATION, p_next_token->humanRepresentation());
 
         return nullptr;
     }

@@ -66,6 +66,12 @@ const std::regex TokenUnsignedReal::PATTERN(R"([0-9]+(?:\.[0-9]+(?:e[+-]?[0-9]+)
 
 const std::regex TokenCharacterString::PATTERN(R"('(?:[^'\n]|'')*')");
 
+const std::string TokenIdentifier::HUMAN_REPRESENTATION = "ID"s;
+const std::string TokenUnsignedInteger::HUMAN_REPRESENTATION = "INT"s;
+const std::string TokenUnsignedReal::HUMAN_REPRESENTATION = "REAL"s;
+const std::string TokenCharacterString::HUMAN_REPRESENTATION = "STR"s;
+const std::string TokenEof::HUMAN_REPRESENTATION = "EOF"s;
+
 const std::regex RE_SEPARATORS(R"((?:[\t\n\v\f\r ]|(?:\{|\(\*)(?:[^}*]|\*(?!\)))*(?:\}|\*\)))*)");
 
 template <typename It>

@@ -1,8 +1,10 @@
 module;
 
 #include <cassert>
+#include <cctype>
 #include <memory>
 #include <regex>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -19,17 +21,50 @@ public:
     std::string_view
     view() const { return view_; }
 
+    virtual std::string_view
+    humanRepresentation() const = 0;
+
     virtual ~Token() = default;
 
 private:
     std::string_view view_;
 };
 
-export // the export is not needed, but without it, VC++ produces an ICE
-template<typename T>
-class TokenSpecialSymbol : public Token {
+template <typename T>
+class TokenWithQuotedHR : public Token {
 public:
     using Token::Token;
+
+    static const std::string HUMAN_REPRESENTATION;
+    std::string_view
+    humanRepresentation() const override { return HUMAN_REPRESENTATION; }
+};
+
+template <std::size_t N>
+std::string
+quoteStringLiteral(const char (&s)[N]) {
+    constexpr auto literal_len = N - 1; // discount the trailing NUL
+
+    std::string result;
+    result.reserve(literal_len + 2);
+    result.push_back('"');
+    result.append(s, literal_len);
+    result.push_back('"');
+
+    for (auto &&c: result) c = std::tolower(c);
+
+    return result;
+}
+
+template <typename T>
+const std::string TokenWithQuotedHR<T>::HUMAN_REPRESENTATION
+    = quoteStringLiteral(T::REPRESENTATION);
+
+export // the export is not needed, but without it, VC++ produces an ICE
+template<typename T>
+class TokenSpecialSymbol : public TokenWithQuotedHR<T> {
+public:
+    using TokenWithQuotedHR<T>::TokenWithQuotedHR;
 
     static std::unique_ptr<T>
     tryLex(std::string_view source_fragment);
@@ -37,9 +72,9 @@ public:
 
 export // same as for the previous export
 template<typename T>
-class TokenSpecialSymbolWithAlt : public Token {
+class TokenSpecialSymbolWithAlt : public TokenWithQuotedHR<T> {
 public:
-    using Token::Token;
+    using TokenWithQuotedHR<T>::TokenWithQuotedHR;
 
     static std::unique_ptr<T>
     tryLex(std::string_view source_fragment);
@@ -86,19 +121,17 @@ DECLARE_SPECIAL_SYMBOL(DotDot, "..")
 
 export
 template <typename T>
-class TokenPatternBased : public Token {
+class TokenPatternBased {
 public:
-    using Token::Token;
-
     static std::unique_ptr<T>
     tryLex(std::string_view source_fragment);
 };
 
 export
 template<typename T>
-class TokenWordSymbol : public TokenPatternBased<T> {
+class TokenWordSymbol : public TokenWithQuotedHR<T>, public TokenPatternBased<T> {
 public:
-    using TokenPatternBased<T>::TokenPatternBased;
+    using TokenWithQuotedHR<T>::TokenWithQuotedHR;
     static const std::regex PATTERN;
 };
 
@@ -147,37 +180,63 @@ DECLARE_WORD_SYMBOL(While)
 DECLARE_WORD_SYMBOL(With)
 
 export
-class TokenIdentifier final : public TokenPatternBased<TokenIdentifier> {
-public:
-    using TokenPatternBased::TokenPatternBased;
-    static const std::regex PATTERN;
-};
-
-export
-class TokenUnsignedInteger final : public TokenPatternBased<TokenUnsignedInteger> {
-public:
-    using TokenPatternBased::TokenPatternBased;
-    static const std::regex PATTERN;
-};
-
-export
-class TokenUnsignedReal final : public TokenPatternBased<TokenUnsignedReal> {
-public:
-    using TokenPatternBased::TokenPatternBased;
-    static const std::regex PATTERN;
-};
-
-export
-class TokenCharacterString final : public TokenPatternBased<TokenCharacterString> {
-public:
-    using TokenPatternBased::TokenPatternBased;
-    static const std::regex PATTERN;
-};
-
-export
-class TokenEof final : public Token {
-public:
+template <typename T>
+class TokenWithCustomHR : public Token {
     using Token::Token;
+
+    std::string_view
+    humanRepresentation() const override { return T::HUMAN_REPRESENTATION; }
+};
+
+export
+class TokenIdentifier final
+    : public TokenWithCustomHR<TokenIdentifier>
+    , public TokenPatternBased<TokenIdentifier>
+{
+public:
+    using TokenWithCustomHR::TokenWithCustomHR;
+    static const std::regex PATTERN;
+    static const std::string HUMAN_REPRESENTATION;
+};
+
+export
+class TokenUnsignedInteger final
+    : public TokenWithCustomHR<TokenUnsignedInteger>
+    , public TokenPatternBased<TokenUnsignedInteger>
+{
+public:
+    using TokenWithCustomHR::TokenWithCustomHR;
+    static const std::regex PATTERN;
+    static const std::string HUMAN_REPRESENTATION;
+};
+
+export
+class TokenUnsignedReal final
+    : public TokenWithCustomHR<TokenUnsignedReal>
+    , public TokenPatternBased<TokenUnsignedReal>
+{
+public:
+    using TokenWithCustomHR::TokenWithCustomHR;
+    static const std::regex PATTERN;
+    static const std::string HUMAN_REPRESENTATION;
+};
+
+export
+class TokenCharacterString final
+    : public TokenWithCustomHR<TokenCharacterString>
+    , public TokenPatternBased<TokenCharacterString>
+{
+public:
+    using TokenWithCustomHR::TokenWithCustomHR;
+    static const std::regex PATTERN;
+    static const std::string HUMAN_REPRESENTATION;
+};
+
+export
+class TokenEof final : public TokenWithCustomHR<TokenEof> {
+public:
+    using TokenWithCustomHR::TokenWithCustomHR;
+    static const std::string HUMAN_REPRESENTATION;
 };
 
 export
