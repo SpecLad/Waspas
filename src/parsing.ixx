@@ -1,7 +1,6 @@
 module;
 
 #include <memory>
-#include <optional>
 #include <span>
 
 export module parsing;
@@ -12,7 +11,7 @@ import reporting;
 struct NodeProgram {};
 
 export
-std::optional<NodeProgram>
+NodeProgram
 parse(
     std::span<const std::unique_ptr<Token>> tokens,
     Reporter &reporter

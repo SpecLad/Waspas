@@ -37,17 +37,17 @@ private:
     Reporter &reporter_;
 };
 
-std::optional<NodeProgram>
+NodeProgram
 parse(
     std::span<const std::unique_ptr<Token>> tokens,
     Reporter &reporter
 ) {
     TokenReader token_reader(tokens, reporter);
 
-    if (!token_reader.expect<TokenWsProgram>())
-        return std::nullopt;
-
     NodeProgram program;
+
+    if (!token_reader.expect<TokenWsProgram>())
+        return program;
 
     return program;
 }
