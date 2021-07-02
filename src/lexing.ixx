@@ -18,13 +18,14 @@ public:
     Token(std::string_view view) : view_(view)
     {}
 
+    virtual
+    ~Token() = default;
+
     std::string_view
     view() const { return view_; }
 
     virtual std::string_view
     humanRepresentation() const = 0;
-
-    virtual ~Token() = default;
 
 private:
     std::string_view view_;
