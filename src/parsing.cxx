@@ -49,5 +49,8 @@ parse(
     if (!token_reader.expect<TokenWsProgram>())
         return program;
 
+    if (auto id = token_reader.expect<TokenIdentifier>())
+        program.name = id->spelling();
+
     return program;
 }

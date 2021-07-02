@@ -2,13 +2,18 @@ module;
 
 #include <memory>
 #include <span>
+#include <string>
 
 export module parsing;
 
 import lexing;
 import reporting;
 
-struct NodeProgram {};
+export
+class NodeProgram {
+public:
+    std::string name;
+};
 
 export
 NodeProgram
