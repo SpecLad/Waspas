@@ -10,6 +10,27 @@ import lexing;
 import parsing;
 import reporting;
 
+void
+dumpAst(Node &root) {
+    print_error("{}", root.type());
+
+    class FieldDumper : public NodeFieldReceiver {
+        void
+        receiveIdField(std::string_view name, std::string_view value) override {
+            if (first) {
+                print_error(":");
+                first = false;
+            }
+            print_error("\n    {} = {}", name, value);
+        }
+
+        bool first = true;
+    } dumper;
+
+    root.describeFields(dumper);
+    print_error("\n");
+}
+
 int
 main(int, char **argv) {
     char **pp_arg = argv + 1;
@@ -81,18 +102,7 @@ main(int, char **argv) {
     if (reporter.hadErrors())
         return 1;
 
-    for (const auto &p_token : tokens) {
-        std::string_view token_view = p_token->view();
-        Locus locus_start = line_indexer.getLocusForOffset(
-            token_view.data() - source_text.data());
-        Locus locus_end = line_indexer.getLocusForOffset(
-            token_view.data() + token_view.size() - source_text.data());
-
-        print_error("{}:{}:{}-{}:{}: {} ({})\n", source_path.string(),
-            locus_start.line() + 1, locus_start.column() + 1,
-            locus_end.line() + 1, locus_end.column() + 1,
-            token_view, p_token->humanRepresentation());
-    }
+    dumpAst(ast);
 
     return 0;
 }
