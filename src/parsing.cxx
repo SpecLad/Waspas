@@ -3,8 +3,6 @@ module;
 #include <optional>
 #include <span>
 
-#include <typeinfo> // TODO: remove this
-
 module parsing;
 
 class TokenReader {
