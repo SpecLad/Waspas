@@ -1,36 +1,17 @@
 module;
 
-#include <optional>
+#include <cassert>
 #include <span>
 #include <string>
 #include <string_view>
-#include <variant>
 #include <vector>
 
 module parsing;
 
-class UnexpectedToken {
-public:
-    using get_reprs_str_f = std::string(*)();
-
-    UnexpectedToken(Token *token, get_reprs_str_f get_reprs_str)
-        : token_(token), get_reprs_str_(get_reprs_str)
-    {}
-
-    void
-    report(Reporter &reporter) {
-        reporter.err(token_->view().data(), "unexpected-token",
-            "expected a token of type {}, got {} instead",
-            get_reprs_str_(), token_->humanRepresentation());
-    }
-
-private:
-    Token *token_;
-    get_reprs_str_f get_reprs_str_;
-};
-
 class TokenReader {
 public:
+    struct UnexpectedToken {};
+
     TokenReader(
         std::span<const std::unique_ptr<Token>> tokens
     )
@@ -39,71 +20,65 @@ public:
     {}
 
     template <typename T>
-    const T &
-    consume() {
-        auto *p_next_token = (*tokens_it_++).get();
+    const T *
+    tryConsume() {
+        auto *p_next_token = (*tokens_it_).get();
 
-        if (auto *p_next_token_typed = dynamic_cast<T *>(p_next_token))
-            return *p_next_token_typed;
-
-        throw UnexpectedToken(p_next_token, &buildExpectedRepresentationsString<T>);
-    }
-
-    template <typename ...Ts>
-    std::variant<Ts *...>
-    consumeOneOf() {
-        auto *p_next_token = (*tokens_it_++).get();
-
-        std::variant<Ts *...> result;
-        if (tryCastToken<Ts...>(p_next_token, result))
-            return result;
-
-        throw UnexpectedToken(p_next_token, &buildExpectedRepresentationsString<Ts...>);
-    }
-
-
-private:
-    template <typename T0, typename ...Ts, typename Dest>
-    bool
-    tryCastToken(Token *p_token, Dest &destination) {
-        if (auto *p_token_typed = dynamic_cast<T0 *>(p_token)) {
-            destination = p_token_typed;
-            return true;
+        if (auto *p_next_token_typed = dynamic_cast<T *>(p_next_token)) {
+            ++tokens_it_;
+            unsuccessful_token_reprs_.clear();
+            return p_next_token_typed;
         }
 
-        if constexpr (sizeof...(Ts) == 0)
-            return false;
-        else
-            return tryCastToken<Ts...>(p_token, destination);
+        unsuccessful_token_reprs_.push_back(T::HUMAN_REPRESENTATION);
+        return nullptr;
     }
 
-    template <typename ...Ts>
-    static std::string
+    template <typename T>
+    const T &
+    consume() {
+        if (auto *p_next_token_typed = tryConsume<T>())
+            return *p_next_token_typed;
+
+        throw UnexpectedToken();
+    }
+
+    void
+    reportUnexpectedToken(Reporter &reporter) {
+        assert(!unsuccessful_token_reprs_.empty());
+
+        auto *p_token = (*tokens_it_).get();
+
+        reporter.err(p_token->view().data(), "unexpected-token",
+            "expected a token of type {}, got {} instead",
+            buildExpectedRepresentationsString(), p_token->humanRepresentation());
+    }
+
+private:
+    std::string
     buildExpectedRepresentationsString() {
-        static_assert(sizeof...(Ts) >= 1);
-        return buildExpectedRepresentationsStringHelper({ Ts::HUMAN_REPRESENTATION... });
-    }
+        std::string result(unsuccessful_token_reprs_.front());
 
-    static std::string
-    buildExpectedRepresentationsStringHelper(
-        std::initializer_list<std::string_view> reprs
-    ) {
-        std::string result(*reprs.begin());
-
-        for (auto it = reprs.begin() + 1; it < reprs.end() - 1; ++it) {
+        for (
+            auto it = unsuccessful_token_reprs_.begin() + 1;
+            it < unsuccessful_token_reprs_.end() - 1;
+            ++it
+        ) {
             result += ", ";
             result += *it;
         }
 
-        if (reprs.size() > 1) {
+        if (unsuccessful_token_reprs_.size() > 1) {
             result += " or ";
-            result += *(reprs.end() - 1);
+            result += unsuccessful_token_reprs_.back();
         }
 
         return result;
     }
 
     std::span<const std::unique_ptr<Token>>::iterator tokens_it_, tokens_end_;
+
+    std::vector<std::string_view> unsuccessful_token_reprs_;
 };
 
 void
@@ -112,28 +87,21 @@ parseProgram(TokenReader &token_reader, NodeProgram &program) {
 
     program.name = token_reader.consume<TokenIdentifier>().spelling();
 
-    auto next_token = token_reader.consumeOneOf<TokenLeftParenthesis, TokenSemicolon>();
-
-    if (std::holds_alternative<TokenLeftParenthesis *>(next_token)) {
+    if (token_reader.tryConsume<TokenLeftParenthesis>()) {
         program.parameter_declarations.push_back({});
         program.parameter_declarations.back().name
             = token_reader.consume<TokenIdentifier>().spelling();
 
-        for (;;) {
-            auto next_token = token_reader.consumeOneOf<TokenComma, TokenRightParenthesis>();
-
-            if (std::holds_alternative<TokenComma *>(next_token)) {
-                program.parameter_declarations.push_back({});
-                program.parameter_declarations.back().name
-                    = token_reader.consume<TokenIdentifier>().spelling();
-            }
-            else if (std::holds_alternative<TokenRightParenthesis *>(next_token)) {
-                break;
-            }
+        while (token_reader.tryConsume<TokenComma>()) {
+            program.parameter_declarations.push_back({});
+            program.parameter_declarations.back().name
+                = token_reader.consume<TokenIdentifier>().spelling();
         }
 
-        token_reader.consume<TokenSemicolon>();
+        token_reader.consume<TokenRightParenthesis>();
     }
+
+    token_reader.consume<TokenSemicolon>();
 }
 
 NodeProgram
@@ -148,8 +116,8 @@ parse(
     try {
         parseProgram(token_reader, program);
     }
-    catch (UnexpectedToken &ut) {
-        ut.report(reporter);
+    catch (TokenReader::UnexpectedToken &ut) {
+        token_reader.reportUnexpectedToken(reporter);
     }
 
     return program;
