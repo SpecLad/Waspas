@@ -86,7 +86,7 @@ const std::regex RE_SEPARATORS(R"((?:[\t\n\v\f\r ]|(?:\{|\(\*)(?:[^}*]|\*(?!\)))
 
 template <typename It>
 It
-skip_separators(It begin, It end) {
+skipSeparators(It begin, It end) {
     std::match_results<It> match;
     bool found = std::regex_search(begin, end, match, RE_SEPARATORS,
         std::regex_constants::match_continuous);
@@ -116,7 +116,7 @@ lex(std::string_view source, Reporter &reporter) {
     auto it = source.begin();
 
     for (; ;) {
-        it = skip_separators(it, source.end());
+        it = skipSeparators(it, source.end());
 
         if (it == source.end()) break;
 

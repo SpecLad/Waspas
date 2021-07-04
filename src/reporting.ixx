@@ -81,7 +81,7 @@ private:
     void
     errRaw(const char *location, std::string_view error_code, std::string_view error_message) {
         Locus locus = line_indexer_.getLocusForOffset(location - source_start_);
-        print_error("{}:{}:{}: error: {} ({})\n",
+        printError("{}:{}:{}: error: {} ({})\n",
             source_path_str_, locus.line() + 1, locus.column() + 1,
             error_message, error_code);
         had_errors_ = true;

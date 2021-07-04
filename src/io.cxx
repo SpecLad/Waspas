@@ -19,7 +19,7 @@ module io;
 #if _WIN32
 
 bool
-is_console(std::FILE* file) {
+isConsole(std::FILE* file) {
     // _isatty returns a true value when the file descriptor is a "character
     // device", which is not necessarily a console. So instead, we test for
     // console-ness by checking whether GetConsoleMode succeeds, which is the
@@ -34,14 +34,14 @@ is_console(std::FILE* file) {
 namespace {
 
 void
-print_console_fail() {
+printConsoleFail() {
     throw std::runtime_error("failed to print to console");
 }
 
 }
 
 void
-print_console(std::FILE* file, std::string_view message) {
+printConsole(std::FILE* file, std::string_view message) {
     if (message.size() == 0) return;
 
     assert(message.size() <= (unsigned)std::numeric_limits<int>::max());
@@ -50,7 +50,7 @@ print_console(std::FILE* file, std::string_view message) {
         CP_ACP, 0, message.data(), int(message.size()),
         nullptr, 0);
 
-    if (message_wide_len <= 0) print_console_fail();
+    if (message_wide_len <= 0) printConsoleFail();
 
     std::vector<wchar_t> message_wide(message_wide_len);
 
@@ -58,7 +58,7 @@ print_console(std::FILE* file, std::string_view message) {
         CP_ACP, 0, message.data(), int(message.size()),
         message_wide.data(), message_wide_len);
 
-    if (message_wide_len <= 0) print_console_fail();
+    if (message_wide_len <= 0) printConsoleFail();
 
     HANDLE handle = HANDLE(_get_osfhandle(_fileno(file)));
     DWORD num_written;
@@ -67,7 +67,7 @@ print_console(std::FILE* file, std::string_view message) {
         handle, message_wide.data(), message_wide_len, &num_written, nullptr);
 
     if (!success || num_written != (DWORD)message_wide_len)
-        print_console_fail();
+        printConsoleFail();
 }
 
 #endif

@@ -15,7 +15,7 @@ void
 dumpAstHelper(const Node &root, int indent) {
     static constexpr int INDENT_SIZE = 4;
 
-    print_error("{:{}}{}", "", indent, root.type());
+    printError("{:{}}{}", "", indent, root.type());
 
     class FieldDumper : public NodeFieldReceiver {
     public:
@@ -24,33 +24,33 @@ dumpAstHelper(const Node &root, int indent) {
         void
         printFieldName(std::string_view name) {
             if (first) {
-                print_error(":");
+                printError(":");
                 first = false;
             }
 
-            print_error("\n{:{}}{} = ", "", indent + INDENT_SIZE, name);
+            printError("\n{:{}}{} = ", "", indent + INDENT_SIZE, name);
         }
 
         void
         receiveIdField(std::string_view name, std::string_view value) override {
             printFieldName(name);
-            print_error("{}", value);
+            printError("{}", value);
         }
 
         void
         receiveNodeListField(std::string_view name, std::span<const Node *> value) {
             printFieldName(name);
-            print_error("[");
+            printError("[");
 
             for (const auto &p_node : value) {
-                print_error("\n");
+                printError("\n");
                 dumpAstHelper(*p_node, indent + INDENT_SIZE * 2);
             }
 
             if (!value.empty())
-                print_error("\n{:{}}", "", indent + INDENT_SIZE);
+                printError("\n{:{}}", "", indent + INDENT_SIZE);
 
-            print_error("]");
+            printError("]");
         }
 
         int indent;
@@ -63,7 +63,7 @@ dumpAstHelper(const Node &root, int indent) {
 void
 dumpAst(const Node &root) {
     dumpAstHelper(root, 0);
-    print_error("\n");
+    printError("\n");
 }
 
 int
@@ -75,13 +75,13 @@ main(int, char **argv) {
             ++pp_arg;
         }
         else if (**pp_arg == '-') {
-            print_error("unknown option: {}\n", *pp_arg);
+            printError("unknown option: {}\n", *pp_arg);
             return 1;
         }
     }
 
     if (!pp_arg[0] || pp_arg[1]) {
-        print_error("usage: {} source.pas\n", argv[0]);
+        printError("usage: {} source.pas\n", argv[0]);
         return 1;
     }
 
@@ -96,7 +96,7 @@ main(int, char **argv) {
             source_file.open(source_path, std::ios::binary);
         }
         catch (std::system_error& e) {
-            print_error("{}: unable to open file ({})\n",
+            printError("{}: unable to open file ({})\n",
                 source_path.string(), e.code().message());
             return 1;
         }
@@ -107,7 +107,7 @@ main(int, char **argv) {
                 std::istreambuf_iterator<char>());
         }
         catch (std::system_error& e) {
-            print_error("{}: unable to read file ({})\n",
+            printError("{}: unable to read file ({})\n",
                 source_path.string(), e.code().message());
             return 1;
         }
