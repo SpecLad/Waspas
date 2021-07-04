@@ -115,17 +115,26 @@ class Parser {
 public:
     explicit Parser(TokenReader &token_reader) : token_reader_(token_reader) {}
 
+    template <typename TokenSeparator, typename N>
+    void
+    parseSeparatedList(std::vector<N> &nodes, void (Parser::*parse_item)(N &)) {
+        do {
+            nodes.push_back({});
+            (this->*parse_item)(nodes.back());
+        }
+        while (token_reader_.tryConsume<TokenSeparator>());
+    }
+
+    void
+    parseLabelDeclaration(nodes::LabelDeclaration &ld) {
+        ld.value = token_reader_.consumeLabel();
+    }
+
     void
     parseBlock(nodes::Block &block) {
         if (token_reader_.tryConsume<TokenWsLabel>()) {
-            block.label_declarations.push_back({});
-            block.label_declarations.back().value = token_reader_.consumeLabel();
-
-            while (token_reader_.tryConsume<TokenComma>()) {
-                block.label_declarations.push_back({});
-                block.label_declarations.back().value = token_reader_.consumeLabel();
-            }
-
+            parseSeparatedList<TokenComma>(
+                block.label_declarations, &Parser::parseLabelDeclaration);
             token_reader_.consume<TokenSemicolon>();
         }
 
@@ -139,20 +148,19 @@ public:
     }
 
     void
+    parseProgramParameterDeclaration(nodes::ProgramParameterDeclaration &ppd) {
+        ppd.name = token_reader_.consumeId();
+    }
+
+    void
     parseProgram(nodes::Program &program) {
         token_reader_.consume<TokenWsProgram>();
 
         program.name = token_reader_.consumeId();
 
         if (token_reader_.tryConsume<TokenLeftParenthesis>()) {
-            program.parameter_declarations.push_back({});
-            program.parameter_declarations.back().name = token_reader_.consumeId();
-
-            while (token_reader_.tryConsume<TokenComma>()) {
-                program.parameter_declarations.push_back({});
-                program.parameter_declarations.back().name = token_reader_.consumeId();
-            }
-
+            parseSeparatedList<TokenComma>(
+                program.parameter_declarations, &Parser::parseProgramParameterDeclaration);
             token_reader_.consume<TokenRightParenthesis>();
         }
 
