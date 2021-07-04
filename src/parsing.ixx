@@ -4,6 +4,7 @@ module;
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 export module parsing;
 
@@ -13,6 +14,9 @@ import reporting;
 using namespace std::literals;
 
 export
+class Node;
+
+export
 class NodeFieldReceiver {
 public:
     virtual
@@ -20,6 +24,9 @@ public:
 
     virtual void
     receiveIdField(std::string_view name, std::string_view value) = 0;
+
+    virtual void
+    receiveNodeListField(std::string_view name, std::span<const Node *> value) = 0;
 };
 
 export
@@ -36,9 +43,24 @@ public:
 };
 
 export
+class NodeProgramParameterDeclaration : public Node {
+public:
+    std::string name;
+
+    std::string_view
+    type() const override { return "ProgramParameterDeclaration"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveIdField("name", name);
+    }
+};
+
+export
 class NodeProgram : public Node {
 public:
     std::string name;
+    std::vector<NodeProgramParameterDeclaration> parameter_declarations;
 
     std::string_view
     type() const override { return "Program"sv; }
@@ -46,6 +68,13 @@ public:
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIdField("name", name);
+
+        std::vector<const Node *> pd_pointers;
+        pd_pointers.reserve(parameter_declarations.size());
+        for (const auto &pd: parameter_declarations)
+            pd_pointers.push_back(&pd);
+
+        receiver.receiveNodeListField("parameter_declarations", pd_pointers);
     }
 };
 

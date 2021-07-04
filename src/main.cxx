@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <span>
 #include <stdexcept>
 #include <string>
 
@@ -11,23 +12,57 @@ import parsing;
 import reporting;
 
 void
-dumpAst(Node &root) {
-    print_error("{}", root.type());
+dumpAstHelper(const Node &root, int indent) {
+    static constexpr int INDENT_SIZE = 4;
+
+    print_error("{:{}}{}", "", indent, root.type());
 
     class FieldDumper : public NodeFieldReceiver {
+    public:
+        explicit FieldDumper(int indent) : indent(indent) {}
+
         void
-        receiveIdField(std::string_view name, std::string_view value) override {
+        printFieldName(std::string_view name) {
             if (first) {
                 print_error(":");
                 first = false;
             }
-            print_error("\n    {} = {}", name, value);
+
+            print_error("\n{:{}}{} = ", "", indent + INDENT_SIZE, name);
         }
 
+        void
+        receiveIdField(std::string_view name, std::string_view value) override {
+            printFieldName(name);
+            print_error("{}", value);
+        }
+
+        void
+        receiveNodeListField(std::string_view name, std::span<const Node *> value) {
+            printFieldName(name);
+            print_error("[");
+
+            for (const auto &p_node : value) {
+                print_error("\n");
+                dumpAstHelper(*p_node, indent + INDENT_SIZE * 2);
+            }
+
+            if (!value.empty())
+                print_error("\n");
+
+            print_error("{:{}}]", "", indent + INDENT_SIZE);
+        }
+
+        int indent;
         bool first = true;
-    } dumper;
+    } dumper(indent);
 
     root.describeFields(dumper);
+}
+
+void
+dumpAst(const Node &root) {
+    dumpAstHelper(root, 0);
     print_error("\n");
 }
 
