@@ -43,6 +43,11 @@ public:
         throw UnexpectedToken();
     }
 
+    std::string
+    consumeId() {
+        return consume<TokenIdentifier>().spelling();
+    }
+
     void
     reportUnexpectedToken(Reporter &reporter) {
         assert(!unsuccessful_token_reprs_.empty());
@@ -85,17 +90,15 @@ void
 parseProgram(TokenReader &token_reader, NodeProgram &program) {
     token_reader.consume<TokenWsProgram>();
 
-    program.name = token_reader.consume<TokenIdentifier>().spelling();
+    program.name = token_reader.consumeId();
 
     if (token_reader.tryConsume<TokenLeftParenthesis>()) {
         program.parameter_declarations.push_back({});
-        program.parameter_declarations.back().name
-            = token_reader.consume<TokenIdentifier>().spelling();
+        program.parameter_declarations.back().name = token_reader.consumeId();
 
         while (token_reader.tryConsume<TokenComma>()) {
             program.parameter_declarations.push_back({});
-            program.parameter_declarations.back().name
-                = token_reader.consume<TokenIdentifier>().spelling();
+            program.parameter_declarations.back().name = token_reader.consumeId();
         }
 
         token_reader.consume<TokenRightParenthesis>();
