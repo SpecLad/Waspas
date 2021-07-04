@@ -48,9 +48,9 @@ dumpAstHelper(const Node &root, int indent) {
             }
 
             if (!value.empty())
-                print_error("\n");
+                print_error("\n{:{}}", "", indent + INDENT_SIZE);
 
-            print_error("{:{}}]", "", indent + INDENT_SIZE);
+            print_error("]");
         }
 
         int indent;
