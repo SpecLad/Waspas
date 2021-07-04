@@ -87,6 +87,15 @@ class TestErrorMessages(unittest.TestCase):
 
         self.assertIn(ErrorMessage(1, 1, 'unexpected-token'), messages)
 
+    def test_invalid_label(self):
+        messages = self.try_compile_ill_formed_source('bad_label_1.pas')
+
+        self.assertIn(ErrorMessage(2, 7, 'invalid-label'), messages)
+
+        messages = self.try_compile_ill_formed_source('bad_label_2.pas')
+
+        self.assertIn(ErrorMessage(2, 7, 'invalid-label'), messages)
+
 
 if __name__ == '__main__':
     EXE_PATH = Path(os.environ['WASPAS_TEST_EXE_PATH'])

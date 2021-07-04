@@ -26,6 +26,9 @@ public:
     receiveIdField(std::string_view name, std::string_view value) = 0;
 
     virtual void
+    receiveIntField(std::string_view name, int value) = 0;
+
+    virtual void
     receiveNodeField(std::string_view name, const Node &value) = 0;
 
     virtual void
@@ -43,13 +46,51 @@ public:
 
     virtual void
     describeFields(NodeFieldReceiver &receiver) const {}
+
+protected:
+    template <typename T>
+    static void
+    declareNodeListField(
+        NodeFieldReceiver &receiver,
+        std::string_view name,
+        const std::vector<T> &nodes
+    ) {
+        std::vector<const Node *> pointers;
+        pointers.reserve(nodes.size());
+
+        for (const auto &node: nodes)
+            pointers.push_back(&node);
+
+        receiver.receiveNodeListField(name, pointers);
+    }
+};
+
+export
+class NodeLabelDeclaration : public Node {
+public:
+    int value;
+
+    std::string_view
+    type() const override { return "LabelDeclaration"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveIntField("value", value);
+    }
 };
 
 export
 class NodeBlock : public Node {
 public:
+    std::vector<NodeLabelDeclaration> label_declarations;
+
     std::string_view
     type() const override { return "Block"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        declareNodeListField(receiver, "label_declarations", label_declarations);
+    }
 };
 
 export
@@ -79,14 +120,7 @@ public:
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIdField("name", name);
-
-        std::vector<const Node *> pd_pointers;
-        pd_pointers.reserve(parameter_declarations.size());
-        for (const auto &pd: parameter_declarations)
-            pd_pointers.push_back(&pd);
-
-        receiver.receiveNodeListField("parameter_declarations", pd_pointers);
-
+        declareNodeListField(receiver, "parameter_declarations", parameter_declarations);
         receiver.receiveNodeField("block", block);
     }
 };

@@ -1,6 +1,7 @@
 module;
 
 #include <cassert>
+#include <cstdint>
 #include <span>
 #include <string>
 #include <string_view>
@@ -8,9 +9,12 @@ module;
 
 module parsing;
 
+constexpr std::uint32_t MAX_LABEL_VALUE = 9999;
+
 class TokenReader {
 public:
     struct UnexpectedToken {};
+    struct InvalidLabel {};
 
     TokenReader(
         std::span<const std::unique_ptr<Token>> tokens
@@ -48,6 +52,18 @@ public:
         return consume<TokenIdentifier>().spelling();
     }
 
+    int
+    consumeLabel() {
+        auto maybeInt = consume<TokenUnsignedInteger>().spelling<std::uint32_t>();
+
+        if (!maybeInt || *maybeInt > MAX_LABEL_VALUE) {
+            --tokens_it_;
+            throw InvalidLabel();
+        }
+
+        return *maybeInt;
+    }
+
     void
     reportUnexpectedToken(Reporter &reporter) {
         assert(!unsuccessful_token_reprs_.empty());
@@ -57,6 +73,15 @@ public:
         reporter.err(p_token->view().data(), "unexpected-token",
             "expected a token of type {}, got {} instead",
             buildExpectedRepresentationsString(), p_token->humanRepresentation());
+    }
+
+    void
+    reportInvalidLabel(Reporter &reporter) {
+        auto *p_token = (*tokens_it_).get();
+
+        reporter.err(p_token->view().data(), "invalid-label",
+            "label value {} is too large; maximum is {}",
+            p_token->view(), MAX_LABEL_VALUE);
     }
 
 private:
@@ -87,6 +112,28 @@ private:
 };
 
 void
+parseBlock(TokenReader &token_reader, NodeBlock &block) {
+    if (token_reader.tryConsume<TokenWsLabel>()) {
+        block.label_declarations.push_back({});
+        block.label_declarations.back().value = token_reader.consumeLabel();
+
+        while (token_reader.tryConsume<TokenComma>()) {
+            block.label_declarations.push_back({});
+            block.label_declarations.back().value = token_reader.consumeLabel();
+        }
+
+        token_reader.consume<TokenSemicolon>();
+    }
+    /* TODO:
+        constant-definition-part
+        type-definition-part
+        variable-declaration-part
+        procedure-and-function-declaration-part
+        statement-part
+    */
+}
+
+void
 parseProgram(TokenReader &token_reader, NodeProgram &program) {
     token_reader.consume<TokenWsProgram>();
 
@@ -105,6 +152,10 @@ parseProgram(TokenReader &token_reader, NodeProgram &program) {
     }
 
     token_reader.consume<TokenSemicolon>();
+
+    parseBlock(token_reader, program.block);
+
+    // TODO: token_reader.consume<TokenDot>();
 }
 
 NodeProgram
@@ -118,9 +169,13 @@ parse(
 
     try {
         parseProgram(token_reader, program);
+        // TODO: token_reader.consume<TokenEof>();
     }
-    catch (TokenReader::UnexpectedToken &ut) {
+    catch (TokenReader::UnexpectedToken &) {
         token_reader.reportUnexpectedToken(reporter);
+    }
+    catch (TokenReader::InvalidLabel &) {
+        token_reader.reportInvalidLabel(reporter);
     }
 
     return program;
