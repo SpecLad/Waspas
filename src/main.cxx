@@ -15,7 +15,7 @@ void
 dumpAstHelper(const Node &root, int indent) {
     static constexpr int INDENT_SIZE = 4;
 
-    printError("{:{}}{}", "", indent, root.type());
+    printError("{}", root.type());
 
     class FieldDumper : public NodeFieldReceiver {
     public:
@@ -38,12 +38,18 @@ dumpAstHelper(const Node &root, int indent) {
         }
 
         void
+        receiveNodeField(std::string_view name, const Node &value) {
+            printFieldName(name);
+            dumpAstHelper(value, indent + INDENT_SIZE);
+        }
+
+        void
         receiveNodeListField(std::string_view name, std::span<const Node *> value) {
             printFieldName(name);
             printError("[");
 
             for (const auto &p_node : value) {
-                printError("\n");
+                printError("\n{:{}}", "", indent + INDENT_SIZE * 2);
                 dumpAstHelper(*p_node, indent + INDENT_SIZE * 2);
             }
 
