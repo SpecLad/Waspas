@@ -112,7 +112,7 @@ private:
 };
 
 void
-parseBlock(TokenReader &token_reader, NodeBlock &block) {
+parseBlock(TokenReader &token_reader, nodes::Block &block) {
     if (token_reader.tryConsume<TokenWsLabel>()) {
         block.label_declarations.push_back({});
         block.label_declarations.back().value = token_reader.consumeLabel();
@@ -134,7 +134,7 @@ parseBlock(TokenReader &token_reader, NodeBlock &block) {
 }
 
 void
-parseProgram(TokenReader &token_reader, NodeProgram &program) {
+parseProgram(TokenReader &token_reader, nodes::Program &program) {
     token_reader.consume<TokenWsProgram>();
 
     program.name = token_reader.consumeId();
@@ -158,14 +158,14 @@ parseProgram(TokenReader &token_reader, NodeProgram &program) {
     // TODO: token_reader.consume<TokenDot>();
 }
 
-NodeProgram
+nodes::Program
 parse(
     std::span<const std::unique_ptr<Token>> tokens,
     Reporter &reporter
 ) {
     TokenReader token_reader(tokens);
 
-    NodeProgram program;
+    nodes::Program program;
 
     try {
         parseProgram(token_reader, program);

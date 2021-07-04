@@ -65,8 +65,10 @@ protected:
     }
 };
 
+namespace nodes {
+
 export
-class NodeLabelDeclaration : public Node {
+class LabelDeclaration : public Node {
 public:
     int value;
 
@@ -80,9 +82,9 @@ public:
 };
 
 export
-class NodeBlock : public Node {
+class Block : public Node {
 public:
-    std::vector<NodeLabelDeclaration> label_declarations;
+    std::vector<LabelDeclaration> label_declarations;
 
     std::string_view
     type() const override { return "Block"sv; }
@@ -94,7 +96,7 @@ public:
 };
 
 export
-class NodeProgramParameterDeclaration : public Node {
+class ProgramParameterDeclaration : public Node {
 public:
     std::string name;
 
@@ -108,11 +110,11 @@ public:
 };
 
 export
-class NodeProgram : public Node {
+class Program : public Node {
 public:
     std::string name;
-    std::vector<NodeProgramParameterDeclaration> parameter_declarations;
-    NodeBlock block;
+    std::vector<ProgramParameterDeclaration> parameter_declarations;
+    Block block;
 
     std::string_view
     type() const override { return "Program"sv; }
@@ -125,8 +127,10 @@ public:
     }
 };
 
+}
+
 export
-NodeProgram
+nodes::Program
 parse(
     std::span<const std::unique_ptr<Token>> tokens,
     Reporter &reporter
