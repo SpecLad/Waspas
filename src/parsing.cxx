@@ -111,52 +111,61 @@ private:
     std::vector<std::string_view> unsuccessful_token_reprs_;
 };
 
-void
-parseBlock(TokenReader &token_reader, nodes::Block &block) {
-    if (token_reader.tryConsume<TokenWsLabel>()) {
-        block.label_declarations.push_back({});
-        block.label_declarations.back().value = token_reader.consumeLabel();
+class Parser {
+public:
+    explicit Parser(TokenReader &token_reader) : token_reader_(token_reader) {}
 
-        while (token_reader.tryConsume<TokenComma>()) {
+    void
+    parseBlock(nodes::Block &block) {
+        if (token_reader_.tryConsume<TokenWsLabel>()) {
             block.label_declarations.push_back({});
-            block.label_declarations.back().value = token_reader.consumeLabel();
+            block.label_declarations.back().value = token_reader_.consumeLabel();
+
+            while (token_reader_.tryConsume<TokenComma>()) {
+                block.label_declarations.push_back({});
+                block.label_declarations.back().value = token_reader_.consumeLabel();
+            }
+
+            token_reader_.consume<TokenSemicolon>();
         }
 
-        token_reader.consume<TokenSemicolon>();
+        /* TODO:
+            constant-definition-part
+            type-definition-part
+            variable-declaration-part
+            procedure-and-function-declaration-part
+            statement-part
+        */
     }
-    /* TODO:
-        constant-definition-part
-        type-definition-part
-        variable-declaration-part
-        procedure-and-function-declaration-part
-        statement-part
-    */
-}
 
-void
-parseProgram(TokenReader &token_reader, nodes::Program &program) {
-    token_reader.consume<TokenWsProgram>();
+    void
+    parseProgram(nodes::Program &program) {
+        token_reader_.consume<TokenWsProgram>();
 
-    program.name = token_reader.consumeId();
+        program.name = token_reader_.consumeId();
 
-    if (token_reader.tryConsume<TokenLeftParenthesis>()) {
-        program.parameter_declarations.push_back({});
-        program.parameter_declarations.back().name = token_reader.consumeId();
-
-        while (token_reader.tryConsume<TokenComma>()) {
+        if (token_reader_.tryConsume<TokenLeftParenthesis>()) {
             program.parameter_declarations.push_back({});
-            program.parameter_declarations.back().name = token_reader.consumeId();
+            program.parameter_declarations.back().name = token_reader_.consumeId();
+
+            while (token_reader_.tryConsume<TokenComma>()) {
+                program.parameter_declarations.push_back({});
+                program.parameter_declarations.back().name = token_reader_.consumeId();
+            }
+
+            token_reader_.consume<TokenRightParenthesis>();
         }
 
-        token_reader.consume<TokenRightParenthesis>();
+        token_reader_.consume<TokenSemicolon>();
+
+        parseBlock(program.block);
+
+        // TODO: token_reader_.consume<TokenDot>();
     }
 
-    token_reader.consume<TokenSemicolon>();
-
-    parseBlock(token_reader, program.block);
-
-    // TODO: token_reader.consume<TokenDot>();
-}
+private:
+    TokenReader &token_reader_;
+};
 
 nodes::Program
 parse(
@@ -164,11 +173,12 @@ parse(
     Reporter &reporter
 ) {
     TokenReader token_reader(tokens);
+    Parser parser(token_reader);
 
     nodes::Program program;
 
     try {
-        parseProgram(token_reader, program);
+        parser.parseProgram(program);
         // TODO: token_reader.consume<TokenEof>();
     }
     catch (TokenReader::UnexpectedToken &) {
