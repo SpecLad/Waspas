@@ -3,78 +3,91 @@ module;
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
 module parsing;
 
+class UnexpectedToken {
+public:
+    using get_reprs_str_f = std::string(*)();
+
+    UnexpectedToken(Token *token, get_reprs_str_f get_reprs_str)
+        : token_(token), get_reprs_str_(get_reprs_str)
+    {}
+
+    void
+    report(Reporter &reporter) {
+        reporter.err(token_->view().data(), "unexpected-token",
+            "expected a token of type {}, got {} instead",
+            get_reprs_str_(), token_->humanRepresentation());
+    }
+
+private:
+    Token *token_;
+    get_reprs_str_f get_reprs_str_;
+};
+
 class TokenReader {
 public:
     TokenReader(
-        std::span<const std::unique_ptr<Token>> tokens,
-        Reporter &reporter
+        std::span<const std::unique_ptr<Token>> tokens
     )
         : tokens_it_(tokens.begin())
         , tokens_end_(tokens.end())
-        , reporter_(reporter)
     {}
 
     template <typename T>
-    const T *
+    const T &
     consume() {
         auto *p_next_token = (*tokens_it_++).get();
 
         if (auto *p_next_token_typed = dynamic_cast<T *>(p_next_token))
-            return p_next_token_typed;
+            return *p_next_token_typed;
 
-        reporter_.err(p_next_token->view().data(), "unexpected-token",
-            "expected a token of type {}, got {} instead",
-            T::HUMAN_REPRESENTATION, p_next_token->humanRepresentation());
-
-        return nullptr;
+        throw UnexpectedToken(p_next_token, &buildExpectedRepresentationsString<T>);
     }
 
     template <typename ...Ts>
-    std::variant<std::monostate, Ts *...>
+    std::variant<Ts *...>
     consumeOneOf() {
         auto *p_next_token = (*tokens_it_++).get();
 
-        std::variant<std::monostate, Ts *...> result;
-        tryCastToken<Ts...>(p_next_token, result);
-
-        if (!std::holds_alternative<std::monostate>(result))
+        std::variant<Ts *...> result;
+        if (tryCastToken<Ts...>(p_next_token, result))
             return result;
 
-        static_assert(sizeof...(Ts) >= 1);
-
-        reporter_.err(p_next_token->view().data(), "unexpected-token",
-            "expected a token of type {}, got {} instead",
-            buildExpectedRepresentationsString({ Ts::HUMAN_REPRESENTATION... }),
-            p_next_token->humanRepresentation());
-
-        return result;
+        throw UnexpectedToken(p_next_token, &buildExpectedRepresentationsString<Ts...>);
     }
 
 
 private:
     template <typename T0, typename ...Ts, typename Dest>
-    void
+    bool
     tryCastToken(Token *p_token, Dest &destination) {
         if (auto *p_token_typed = dynamic_cast<T0 *>(p_token)) {
             destination = p_token_typed;
-            return;
+            return true;
         }
 
-        if constexpr (sizeof...(Ts) == 0) {
-            return;
-        }
-        else {
-            tryCastToken<Ts...>(p_token, destination);
-        }
+        if constexpr (sizeof...(Ts) == 0)
+            return false;
+        else
+            return tryCastToken<Ts...>(p_token, destination);
     }
 
-    std::string
-    buildExpectedRepresentationsString(std::initializer_list<std::string> reprs) {
+    template <typename ...Ts>
+    static std::string
+    buildExpectedRepresentationsString() {
+        static_assert(sizeof...(Ts) >= 1);
+        return buildExpectedRepresentationsStringHelper({ Ts::HUMAN_REPRESENTATION... });
+    }
+
+    static std::string
+    buildExpectedRepresentationsStringHelper(
+        std::initializer_list<std::string_view> reprs
+    ) {
         std::string result(*reprs.begin());
 
         for (auto it = reprs.begin() + 1; it < reprs.end() - 1; ++it) {
@@ -91,64 +104,52 @@ private:
     }
 
     std::span<const std::unique_ptr<Token>>::iterator tokens_it_, tokens_end_;
-    Reporter &reporter_;
 };
+
+void
+parseProgram(TokenReader &token_reader, NodeProgram &program) {
+    token_reader.consume<TokenWsProgram>();
+
+    program.name = token_reader.consume<TokenIdentifier>().spelling();
+
+    auto next_token = token_reader.consumeOneOf<TokenLeftParenthesis, TokenSemicolon>();
+
+    if (std::holds_alternative<TokenLeftParenthesis *>(next_token)) {
+        program.parameter_declarations.push_back({});
+        program.parameter_declarations.back().name
+            = token_reader.consume<TokenIdentifier>().spelling();
+
+        for (;;) {
+            auto next_token = token_reader.consumeOneOf<TokenComma, TokenRightParenthesis>();
+
+            if (std::holds_alternative<TokenComma *>(next_token)) {
+                program.parameter_declarations.push_back({});
+                program.parameter_declarations.back().name
+                    = token_reader.consume<TokenIdentifier>().spelling();
+            }
+            else if (std::holds_alternative<TokenRightParenthesis *>(next_token)) {
+                break;
+            }
+        }
+
+        token_reader.consume<TokenSemicolon>();
+    }
+}
 
 NodeProgram
 parse(
     std::span<const std::unique_ptr<Token>> tokens,
     Reporter &reporter
 ) {
-    TokenReader token_reader(tokens, reporter);
+    TokenReader token_reader(tokens);
 
     NodeProgram program;
 
-    if (!token_reader.consume<TokenWsProgram>())
-        return program;
-
-    {
-        auto p_id = token_reader.consume<TokenIdentifier>();
-        if (!p_id) return program;
-
-        program.name = p_id->spelling();
+    try {
+        parseProgram(token_reader, program);
     }
-
-    auto next_token = token_reader.consumeOneOf<TokenLeftParenthesis, TokenSemicolon>();
-
-    if (std::holds_alternative<TokenLeftParenthesis *>(next_token)) {
-        {
-            program.parameter_declarations.push_back({});
-
-            auto p_id = token_reader.consume<TokenIdentifier>();
-            if (!p_id) return program;
-
-            program.parameter_declarations.back().name = p_id->spelling();
-        }
-
-        for (;;) {
-            auto next_token = token_reader.consumeOneOf<TokenComma, TokenRightParenthesis>();
-
-            if (std::holds_alternative<TokenComma *>(next_token)) {
-                program.parameter_declarations.push_back(NodeProgramParameterDeclaration{});
-
-                auto p_id = token_reader.consume<TokenIdentifier>();
-                if (!p_id) return program;
-
-                program.parameter_declarations.back().name = p_id->spelling();
-            }
-            else if (std::holds_alternative<TokenRightParenthesis *>(next_token)) {
-                break;
-            }
-            else {
-                return program;
-            }
-        }
-
-        if (!token_reader.consume<TokenSemicolon>())
-            return program;
-    }
-    else if (std::holds_alternative<std::monostate>(next_token)) {
-        return program;
+    catch (UnexpectedToken &ut) {
+        ut.report(reporter);
     }
 
     return program;
