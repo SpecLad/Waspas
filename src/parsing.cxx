@@ -9,7 +9,7 @@ module;
 
 module parsing;
 
-constexpr std::uint32_t MAX_LABEL_VALUE = 9999;
+constexpr pascal_integer_t MAX_LABEL_VALUE = 9999;
 
 class TokenReader {
 public:
@@ -55,6 +55,20 @@ public:
             reporter.err(p_token->view().data(), "invalid-label",
                 "label value {} is too large; maximum is {}",
                 p_token->view(), MAX_LABEL_VALUE);
+        }
+    };
+
+    class InvalidInteger : public Error {
+    public:
+        using Error::Error;
+
+        void
+            report(Reporter &reporter) {
+            auto *p_token = (*reader_.tokens_it_).get();
+
+            reporter.err(p_token->view().data(), "invalid-integer",
+                "integer value {} is too large; maximum is {}",
+                p_token->view(), std::numeric_limits<pascal_integer_t>::max());
         }
     };
 
@@ -106,11 +120,23 @@ public:
 
     int
     consumeLabel() {
-        auto maybeInt = consume<TokenUnsignedInteger>().spelling<std::uint32_t>();
+        auto maybeInt = consume<TokenUnsignedInteger>().spelling<pascal_integer_t>();
 
         if (!maybeInt || *maybeInt > MAX_LABEL_VALUE) {
             --tokens_it_;
             throw InvalidLabel(*this);
+        }
+
+        return int(*maybeInt);
+    }
+
+    pascal_integer_t
+    consumeInt() {
+        auto maybeInt = consume<TokenUnsignedInteger>().spelling<pascal_integer_t>();
+
+        if (!maybeInt) {
+            --tokens_it_;
+            throw InvalidInteger(*this);
         }
 
         return *maybeInt;
@@ -196,6 +222,20 @@ public:
     parseLabelDeclaration(nodes::LabelDeclaration &ld) {
         auto rec = viewRecorder(ld);
         ld.value = token_reader_.consumeLabel();
+    }
+
+    void
+    parseConstantDefinition(nodes::ConstantDefinition &cd) {
+        auto rec = viewRecorder(cd);
+        cd.name = token_reader_.consumeId();
+        token_reader_.consume<TokenEqual>();
+
+        cd.value.reset(new nodes::UnsignedIntegerConstant);
+        {
+            auto rec = viewRecorder(*cd.value);
+            cd.value->value = token_reader_.consumeInt();
+        }
+        // TODO: parse other types of values
     }
 
     void

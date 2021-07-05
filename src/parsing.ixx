@@ -1,5 +1,6 @@
 module;
 
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
@@ -14,6 +15,9 @@ import reporting;
 using namespace std::literals;
 
 export
+using pascal_integer_t = std::int32_t;
+
+export
 class Node;
 
 export
@@ -26,7 +30,7 @@ public:
     receiveIdField(std::string_view name, std::string_view value) = 0;
 
     virtual void
-    receiveIntField(std::string_view name, int value) = 0;
+    receiveIntField(std::string_view name, pascal_integer_t value) = 0;
 
     virtual void
     receiveNodeField(std::string_view name, const Node &value) = 0;
@@ -84,9 +88,40 @@ public:
 };
 
 export
+class UnsignedIntegerConstant : public Node {
+public:
+    pascal_integer_t value;
+
+    std::string_view
+    type() const override { return "UnsignedIntegerConstant"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveIntField("value", value);
+    }
+};
+
+export
+class ConstantDefinition : public Node {
+public:
+    std::string name;
+    std::unique_ptr<UnsignedIntegerConstant> value;
+
+    std::string_view
+    type() const override { return "ConstantDefinition"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveIdField("name", name);
+        receiver.receiveNodeField("value", *value);
+    }
+};
+
+export
 class Block : public Node {
 public:
     std::vector<LabelDeclaration> label_declarations;
+    std::vector<ConstantDefinition> constant_definitions;
 
     std::string_view
     type() const override { return "Block"sv; }
@@ -94,6 +129,7 @@ public:
     virtual void
     describeFields(NodeFieldReceiver &receiver) const {
         declareNodeListField(receiver, "label_declarations", label_declarations);
+        declareNodeListField(receiver, "constant_definitions", constant_definitions);
     }
 };
 
