@@ -2,6 +2,7 @@ module;
 
 #include <cassert>
 #include <cstdint>
+#include <memory>
 #include <set>
 #include <span>
 #include <string>
@@ -225,6 +226,9 @@ private:
 
 class Parser {
 public:
+    template <typename N>
+    using parse_f = void (Parser::*)(N &);
+
     explicit Parser(TokenReader &token_reader) : token_reader_(token_reader) {}
 
     ViewRecorder
@@ -234,7 +238,7 @@ public:
 
     template <typename TokenSeparator, typename N>
     void
-    parseSeparatedList(std::vector<N> &nodes, void (Parser::*parse_item)(N &)) {
+    parseSeparatedList(std::vector<N> &nodes, parse_f<N> parse_item) {
         {
             N node;
             (this->*parse_item)(node);
@@ -258,10 +262,54 @@ public:
         }
     }
 
+    template <typename N, typename B>
+    void
+    parseAlternative(std::unique_ptr<B> &node_ptr, parse_f<N> parse_alternative) {
+        N node;
+        (this->*parse_alternative)(node);
+        node_ptr = std::make_unique<N>(std::move(node));
+    }
+
+    template <typename N, typename B>
+    bool
+    tryParseAlternative(std::unique_ptr<B> &node_ptr, parse_f<N> parse_alternative) {
+        auto pos = token_reader_.pos();
+
+        try {
+            parseAlternative(node_ptr, parse_alternative);
+            return true;
+        }
+        catch (TokenReader::UnexpectedToken &) {
+            token_reader_.backtrack(pos);
+            return false;
+        }
+    }
+
     void
     parseLabelDeclaration(nodes::LabelDeclaration &ld) {
         auto rec = viewRecorder(ld);
         ld.value = token_reader_.consumeLabel();
+    }
+
+    void
+    parseUnsignedIntegerConstant(nodes::UnsignedIntegerConstant &usc) {
+        auto rec = viewRecorder(usc);
+        usc.value = token_reader_.consumeInt();
+    }
+
+    void
+    parseSignedConstant(nodes::SignedConstant &sc) {
+        auto rec = viewRecorder(sc);
+
+        if (token_reader_.tryConsume<TokenPlus>()) {
+            sc.sign = PascalSign::PLUS;
+        }
+        else {
+            token_reader_.consume<TokenMinus>();
+            sc.sign = PascalSign::MINUS;
+        }
+
+        parseAlternative(sc.unsigned_value, &Parser::parseUnsignedIntegerConstant);
     }
 
     void
@@ -270,11 +318,10 @@ public:
         cd.name = token_reader_.consumeId();
         token_reader_.consume<TokenEqual>();
 
-        cd.value.reset(new nodes::UnsignedIntegerConstant);
-        {
-            auto rec = viewRecorder(*cd.value);
-            cd.value->value = token_reader_.consumeInt();
-        }
+        if (tryParseAlternative(cd.value, &Parser::parseSignedConstant))
+            return;
+
+        parseAlternative(cd.value, &Parser::parseUnsignedIntegerConstant);
         // TODO: parse other types of values
     }
 

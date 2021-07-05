@@ -18,6 +18,11 @@ export
 using pascal_integer_t = std::int32_t;
 
 export
+enum class PascalSign {
+    PLUS, MINUS,
+};
+
+export
 class Node;
 
 export
@@ -88,7 +93,13 @@ public:
 };
 
 export
-class UnsignedIntegerConstant : public Node {
+class Constant : public Node {};
+
+export
+class UnsignedConstant : public Constant {};
+
+export
+class UnsignedIntegerConstant : public UnsignedConstant {
 public:
     pascal_integer_t value;
 
@@ -102,10 +113,26 @@ public:
 };
 
 export
+class SignedConstant : public Constant {
+public:
+    PascalSign sign;
+    std::unique_ptr<Constant> unsigned_value;
+
+    std::string_view
+    type() const override { return "SignedConstant"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveIdField("sign", sign == PascalSign::PLUS ? "PLUS" : "MINUS");
+        receiver.receiveNodeField("unsigned_value", *unsigned_value);
+    }
+};
+
+export
 class ConstantDefinition : public Node {
 public:
     std::string name;
-    std::unique_ptr<UnsignedIntegerConstant> value;
+    std::unique_ptr<Constant> value;
 
     std::string_view
     type() const override { return "ConstantDefinition"sv; }
