@@ -13,8 +13,50 @@ constexpr std::uint32_t MAX_LABEL_VALUE = 9999;
 
 class TokenReader {
 public:
-    struct UnexpectedToken {};
-    struct InvalidLabel {};
+    class Error {
+    public:
+        explicit
+        Error(TokenReader &reader) : reader_(reader) {}
+
+        virtual
+        ~Error() = default;
+
+        virtual void
+        report(Reporter &reporter) = 0;
+
+    protected:
+        TokenReader &reader_;
+    };
+
+    class UnexpectedToken : public Error {
+    public:
+        using Error::Error;
+
+        void
+        report(Reporter &reporter) {
+            assert(!reader_.unsuccessful_token_reprs_.empty());
+
+            auto *p_token = (*reader_.tokens_it_).get();
+
+            reporter.err(p_token->view().data(), "unexpected-token",
+                "expected a token of type {}, got {} instead",
+                reader_.buildExpectedRepresentationsString(), p_token->humanRepresentation());
+        }
+    };
+
+    class InvalidLabel : public Error {
+    public:
+        using Error::Error;
+
+        void
+        report(Reporter &reporter) {
+            auto *p_token = (*reader_.tokens_it_).get();
+
+            reporter.err(p_token->view().data(), "invalid-label",
+                "label value {} is too large; maximum is {}",
+                p_token->view(), MAX_LABEL_VALUE);
+        }
+    };
 
     TokenReader(
         std::span<const std::unique_ptr<Token>> tokens
@@ -54,7 +96,7 @@ public:
         if (auto *p_next_token_typed = tryConsume<T>())
             return *p_next_token_typed;
 
-        throw UnexpectedToken();
+        throw UnexpectedToken(*this);
     }
 
     std::string
@@ -68,30 +110,10 @@ public:
 
         if (!maybeInt || *maybeInt > MAX_LABEL_VALUE) {
             --tokens_it_;
-            throw InvalidLabel();
+            throw InvalidLabel(*this);
         }
 
         return *maybeInt;
-    }
-
-    void
-    reportUnexpectedToken(Reporter &reporter) {
-        assert(!unsuccessful_token_reprs_.empty());
-
-        auto *p_token = (*tokens_it_).get();
-
-        reporter.err(p_token->view().data(), "unexpected-token",
-            "expected a token of type {}, got {} instead",
-            buildExpectedRepresentationsString(), p_token->humanRepresentation());
-    }
-
-    void
-    reportInvalidLabel(Reporter &reporter) {
-        auto *p_token = (*tokens_it_).get();
-
-        reporter.err(p_token->view().data(), "invalid-label",
-            "label value {} is too large; maximum is {}",
-            p_token->view(), MAX_LABEL_VALUE);
     }
 
 private:
@@ -240,11 +262,8 @@ parse(
         parser.parseProgram(program);
         // TODO: token_reader.consume<TokenEof>();
     }
-    catch (TokenReader::UnexpectedToken &) {
-        token_reader.reportUnexpectedToken(reporter);
-    }
-    catch (TokenReader::InvalidLabel &) {
-        token_reader.reportInvalidLabel(reporter);
+    catch (TokenReader::Error &e) {
+        e.report(reporter);
     }
 
     return program;
