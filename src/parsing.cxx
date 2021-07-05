@@ -23,6 +23,16 @@ public:
         , tokens_end_(tokens.end())
     {}
 
+    Token *
+    currentToken() const {
+        return (*tokens_it_).get();
+    }
+
+    Token *
+    previousToken() const {
+        return (*(tokens_it_ - 1)).get();
+    }
+
     template <typename T>
     const T *
     tryConsume() {
@@ -111,9 +121,44 @@ private:
     std::vector<std::string_view> unsuccessful_token_reprs_;
 };
 
+class ViewRecorder {
+public:
+    explicit ViewRecorder(Node &node, TokenReader &token_reader)
+        : node_(node)
+        , token_reader_(token_reader)
+        , p_initial_token_(token_reader.currentToken())
+    {
+        const char *p_begin = p_initial_token_->view().data();
+        node_.view = { p_begin, p_begin };
+    }
+
+    ViewRecorder(const ViewRecorder &) = delete;
+    ViewRecorder &
+    operator=(const ViewRecorder &) = delete;
+
+    ~ViewRecorder() {
+        if (p_initial_token_ == token_reader_.currentToken())
+            return;
+
+        std::string_view previous_token_view = token_reader_.previousToken()->view();
+        const char *p_end = previous_token_view.data() + previous_token_view.size();
+        node_.view = { node_.view.data(), p_end };
+    }
+
+private:
+    Node &node_;
+    TokenReader &token_reader_;
+    const Token *p_initial_token_;
+};
+
 class Parser {
 public:
     explicit Parser(TokenReader &token_reader) : token_reader_(token_reader) {}
+
+    ViewRecorder
+    viewRecorder(Node &node) {
+        return ViewRecorder(node, token_reader_);
+    }
 
     template <typename TokenSeparator, typename N>
     void
@@ -127,11 +172,14 @@ public:
 
     void
     parseLabelDeclaration(nodes::LabelDeclaration &ld) {
+        auto rec = viewRecorder(ld);
         ld.value = token_reader_.consumeLabel();
     }
 
     void
     parseBlock(nodes::Block &block) {
+        auto rec = viewRecorder(block);
+
         if (token_reader_.tryConsume<TokenWsLabel>()) {
             parseSeparatedList<TokenComma>(
                 block.label_declarations, &Parser::parseLabelDeclaration);
@@ -149,11 +197,14 @@ public:
 
     void
     parseProgramParameterDeclaration(nodes::ProgramParameterDeclaration &ppd) {
+        auto rec = viewRecorder(ppd);
         ppd.name = token_reader_.consumeId();
     }
 
     void
     parseProgram(nodes::Program &program) {
+        auto rec = viewRecorder(program);
+
         token_reader_.consume<TokenWsProgram>();
 
         program.name = token_reader_.consumeId();

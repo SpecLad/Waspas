@@ -12,14 +12,32 @@ import parsing;
 import reporting;
 
 void
-dumpAstHelper(const Node &root, int indent) {
+dumpAstHelper(
+    const Node &root, int indent,
+    const char *source_start, LineIndexer &line_indexer
+) {
     static constexpr int INDENT_SIZE = 4;
 
-    printError("{}", root.type());
+    Locus locus_start = line_indexer.getLocusForOffset(
+        root.view.data() - source_start);
+    Locus locus_end = line_indexer.getLocusForOffset(
+        root.view.data() + root.view.size() - source_start);
+
+    printError("{}({}:{}-{}:{})", root.type(),
+        locus_start.line() + 1, locus_start.column() + 1,
+        locus_end.line() + 1, locus_end.column() + 1);
 
     class FieldDumper : public NodeFieldReceiver {
     public:
-        explicit FieldDumper(int indent) : indent(indent) {}
+        explicit FieldDumper(
+            int indent,
+            const char *source_start,
+            LineIndexer &line_indexer
+        )
+            : indent(indent)
+            , source_start(source_start)
+            , line_indexer(line_indexer)
+        {}
 
         void
         printFieldName(std::string_view name) {
@@ -46,7 +64,7 @@ dumpAstHelper(const Node &root, int indent) {
         void
         receiveNodeField(std::string_view name, const Node &value) {
             printFieldName(name);
-            dumpAstHelper(value, indent + INDENT_SIZE);
+            dumpAstHelper(value, indent + INDENT_SIZE, source_start, line_indexer);
         }
 
         void
@@ -56,7 +74,8 @@ dumpAstHelper(const Node &root, int indent) {
 
             for (const auto &p_node : value) {
                 printError("\n{:{}}", "", indent + INDENT_SIZE * 2);
-                dumpAstHelper(*p_node, indent + INDENT_SIZE * 2);
+                dumpAstHelper(*p_node, indent + INDENT_SIZE * 2,
+                    source_start, line_indexer);
             }
 
             if (!value.empty())
@@ -67,14 +86,16 @@ dumpAstHelper(const Node &root, int indent) {
 
         int indent;
         bool first = true;
-    } dumper(indent);
+        const char *source_start;
+        LineIndexer &line_indexer;
+    } dumper(indent, source_start, line_indexer);
 
     root.describeFields(dumper);
 }
 
 void
-dumpAst(const Node &root) {
-    dumpAstHelper(root, 0);
+dumpAst(const Node &root, const char *source_start, LineIndexer &line_indexer) {
+    dumpAstHelper(root, 0, source_start, line_indexer);
     printError("\n");
 }
 
@@ -149,7 +170,7 @@ main(int, char **argv) {
     if (reporter.hadErrors())
         return 1;
 
-    dumpAst(ast);
+    dumpAst(ast, source_text.data(), line_indexer);
 
     return 0;
 }

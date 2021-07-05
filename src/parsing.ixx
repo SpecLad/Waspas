@@ -47,6 +47,8 @@ public:
     virtual void
     describeFields(NodeFieldReceiver &receiver) const {}
 
+    std::string_view view;
+
 protected:
     template <typename T>
     static void
