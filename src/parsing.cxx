@@ -2,6 +2,7 @@ module;
 
 #include <cassert>
 #include <cstdint>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -100,7 +101,7 @@ public:
             return p_next_token_typed;
         }
 
-        unsuccessful_token_reprs_.push_back(T::HUMAN_REPRESENTATION);
+        unsuccessful_token_reprs_.insert(T::HUMAN_REPRESENTATION);
         return nullptr;
     }
 
@@ -145,20 +146,25 @@ public:
 private:
     std::string
     buildExpectedRepresentationsString() {
-        std::string result(unsuccessful_token_reprs_.front());
+        auto first_it = unsuccessful_token_reprs_.begin();
+        std::string result(*first_it);
 
-        for (
-            auto it = unsuccessful_token_reprs_.begin() + 1;
-            it < unsuccessful_token_reprs_.end() - 1;
-            ++it
-        ) {
-            result += ", ";
-            result += *it;
+        auto last_it = unsuccessful_token_reprs_.end();
+        --last_it;
+
+        if (unsuccessful_token_reprs_.size() > 2) {
+            auto it = first_it;
+            ++it;
+
+            for (; it != last_it; ++it) {
+                result += ", ";
+                result += *it;
+            }
         }
 
         if (unsuccessful_token_reprs_.size() > 1) {
             result += " or ";
-            result += unsuccessful_token_reprs_.back();
+            result += *last_it;
         }
 
         return result;
@@ -166,7 +172,7 @@ private:
 
     std::span<const std::unique_ptr<Token>>::iterator tokens_it_, tokens_end_;
 
-    std::vector<std::string_view> unsuccessful_token_reprs_;
+    std::set<std::string_view> unsuccessful_token_reprs_;
 };
 
 class ViewRecorder {
