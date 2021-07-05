@@ -96,6 +96,16 @@ class TestErrorMessages(unittest.TestCase):
 
         self.assertIn(ErrorMessage(2, 7, 'invalid-label'), messages)
 
+    def test_invalid_int(self):
+        messages = self.try_compile_ill_formed_source('bad_int.pas')
+
+        self.assertIn(ErrorMessage(2, 11, 'invalid-integer'), messages)
+
+    def test_invalid_label_declaration(self):
+        messages = self.try_compile_ill_formed_source('bad_label_declaration.pas')
+
+        self.assertIn(ErrorMessage(2, 12, 'unexpected-token'), messages)
+
 
 if __name__ == '__main__':
     EXE_PATH = Path(os.environ['WASPAS_TEST_EXE_PATH'])

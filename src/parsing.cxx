@@ -37,7 +37,7 @@ public:
         report(Reporter &reporter) {
             assert(!reader_.unsuccessful_token_reprs_.empty());
 
-            auto *p_token = (*reader_.tokens_it_).get();
+            auto *p_token = (*reader_.unexpected_token_it_).get();
 
             reporter.err(p_token->view().data(), "unexpected-token",
                 "expected a token of type {}, got {} instead",
@@ -73,12 +73,24 @@ public:
         }
     };
 
+    using token_pos_t = std::span<const std::unique_ptr<Token>>::iterator;
+
     TokenReader(
         std::span<const std::unique_ptr<Token>> tokens
     )
         : tokens_it_(tokens.begin())
         , tokens_end_(tokens.end())
+        , unexpected_token_it_(tokens.begin())
     {}
+
+    token_pos_t
+    pos() const { return tokens_it_; }
+
+    void
+    backtrack(token_pos_t pos) {
+        assert(pos <= tokens_it_);
+        tokens_it_ = pos;
+    }
 
     Token *
     currentToken() const {
@@ -97,11 +109,16 @@ public:
 
         if (auto *p_next_token_typed = dynamic_cast<T *>(p_next_token)) {
             ++tokens_it_;
-            unsuccessful_token_reprs_.clear();
             return p_next_token_typed;
         }
 
-        unsuccessful_token_reprs_.insert(T::HUMAN_REPRESENTATION);
+        if (tokens_it_ >= unexpected_token_it_) {
+            if (tokens_it_ > unexpected_token_it_) {
+                unsuccessful_token_reprs_.clear();
+                unexpected_token_it_ = tokens_it_;
+            }
+            unsuccessful_token_reprs_.insert(T::HUMAN_REPRESENTATION);
+        }
         return nullptr;
     }
 
@@ -170,8 +187,9 @@ private:
         return result;
     }
 
-    std::span<const std::unique_ptr<Token>>::iterator tokens_it_, tokens_end_;
+    token_pos_t tokens_it_, tokens_end_;
 
+    token_pos_t unexpected_token_it_;
     std::set<std::string_view> unsuccessful_token_reprs_;
 };
 
@@ -217,11 +235,27 @@ public:
     template <typename TokenSeparator, typename N>
     void
     parseSeparatedList(std::vector<N> &nodes, void (Parser::*parse_item)(N &)) {
-        do {
-            nodes.push_back({});
-            (this->*parse_item)(nodes.back());
+        {
+            N node;
+            (this->*parse_item)(node);
+            nodes.push_back(std::move(node));
         }
-        while (token_reader_.tryConsume<TokenSeparator>());
+
+        for (;;) {
+            auto pos = token_reader_.pos();
+
+            if (!token_reader_.tryConsume<TokenSeparator>()) break;
+
+            try {
+                N node;
+                (this->*parse_item)(node);
+                nodes.push_back(std::move(node));
+            }
+            catch (TokenReader::UnexpectedToken &) {
+                token_reader_.backtrack(pos);
+                return;
+            }
+        }
     }
 
     void
@@ -254,8 +288,13 @@ public:
             token_reader_.consume<TokenSemicolon>();
         }
 
+        if (token_reader_.tryConsume<TokenWsConst>()) {
+            parseSeparatedList<TokenSemicolon>(
+                block.constant_definitions, &Parser::parseConstantDefinition);
+            token_reader_.consume<TokenSemicolon>();
+        }
+
         /* TODO:
-            constant-definition-part
             type-definition-part
             variable-declaration-part
             procedure-and-function-declaration-part
