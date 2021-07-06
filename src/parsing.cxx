@@ -285,6 +285,23 @@ public:
         }
     }
 
+    template <typename B, typename N0, typename ...Ns>
+    void
+    parseAlternatives(
+        std::unique_ptr<B> &node_ptr,
+        parse_f<N0> parse_alternative0, parse_f<Ns> ...parse_alternative
+    ) {
+        if constexpr (sizeof...(Ns) == 0) {
+            parseAlternative(node_ptr, parse_alternative0);
+        }
+        else {
+            if (tryParseAlternative(node_ptr, parse_alternative0))
+                return;
+
+            parseAlternatives(node_ptr, parse_alternative...);
+        }
+    }
+
     void
     parseLabelDeclaration(nodes::LabelDeclaration &ld) {
         auto rec = viewRecorder(ld);
@@ -295,6 +312,12 @@ public:
     parseUnsignedIntegerConstant(nodes::UnsignedIntegerConstant &usc) {
         auto rec = viewRecorder(usc);
         usc.value = token_reader_.consumeInt();
+    }
+
+    void
+    parseConstantIdentifier(nodes::ConstantIdentifier &ci) {
+        auto rec = viewRecorder(ci);
+        ci.name = token_reader_.consumeId();
     }
 
     void
@@ -309,7 +332,9 @@ public:
             sc.sign = PascalSign::MINUS;
         }
 
-        parseAlternative(sc.unsigned_value, &Parser::parseUnsignedIntegerConstant);
+        parseAlternatives(sc.unsigned_value,
+            &Parser::parseUnsignedIntegerConstant,
+            &Parser::parseConstantIdentifier);
     }
 
     void
@@ -318,10 +343,10 @@ public:
         cd.name = token_reader_.consumeId();
         token_reader_.consume<TokenEqual>();
 
-        if (tryParseAlternative(cd.value, &Parser::parseSignedConstant))
-            return;
-
-        parseAlternative(cd.value, &Parser::parseUnsignedIntegerConstant);
+        parseAlternatives(cd.value,
+            &Parser::parseSignedConstant,
+            &Parser::parseUnsignedIntegerConstant,
+            &Parser::parseConstantIdentifier);
         // TODO: parse other types of values
     }
 

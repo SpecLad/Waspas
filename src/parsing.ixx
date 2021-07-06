@@ -113,6 +113,20 @@ public:
 };
 
 export
+class ConstantIdentifier : public UnsignedConstant {
+public:
+    std::string name;
+
+    std::string_view
+    type() const override { return "ConstantIdentifier"sv; }
+
+    virtual void
+        describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveIdField("name", name);
+    }
+};
+
+export
 class SignedConstant : public Constant {
 public:
     PascalSign sign;
