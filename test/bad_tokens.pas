@@ -6,3 +6,4 @@
 '
 { "nested" (* comment *) }
  { ASCII SOH character }
+'' { empty string }

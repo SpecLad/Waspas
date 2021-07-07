@@ -81,6 +81,7 @@ class TestErrorMessages(unittest.TestCase):
         self.assertIn(ErrorMessage(6, 1, 'invalid-token'), messages)
         self.assertIn(ErrorMessage(7, 26, 'invalid-token'), messages)
         self.assertIn(ErrorMessage(8, 1, 'invalid-token'), messages)
+        self.assertIn(ErrorMessage(9, 1, 'invalid-token'), messages)
 
     def test_invalid_token(self):
         messages = self.try_compile_ill_formed_source('empty.pas')
