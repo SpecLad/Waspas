@@ -3,6 +3,7 @@ module;
 #include <cassert>
 #include <cctype>
 #include <charconv>
+#include <concepts>
 #include <memory>
 #include <optional>
 #include <regex>
@@ -215,7 +216,7 @@ public:
     static const std::regex PATTERN;
     static const std::string HUMAN_REPRESENTATION;
 
-    template <typename T>
+    template <std::integral T>
     std::optional<T>
     spelling() const {
         auto v = view();
@@ -223,8 +224,10 @@ public:
         auto conversion_result
             = std::from_chars(v.data(), v.data() + v.size(), value, 10);
 
-        if (conversion_result.ec == std::errc{})
+        if (conversion_result.ec == std::errc{}) {
+            assert(conversion_result.ptr == v.data() + v.size());
             return value;
+        }
 
         // no other errors should be possible, since the pattern only admits valid integers
         assert(conversion_result.ec == std::errc::result_out_of_range);
