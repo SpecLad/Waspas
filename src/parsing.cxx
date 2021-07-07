@@ -74,6 +74,22 @@ public:
         }
     };
 
+    class InvalidReal : public Error {
+    public:
+        using Error::Error;
+
+        void
+        report(Reporter &reporter) {
+            auto *p_token = (*reader_.tokens_it_).get();
+
+            reporter.err(p_token->view().data(), "invalid-real",
+                "real value {} is not in the representable range; minimum is {}, maximum is {}",
+                p_token->view(),
+                std::numeric_limits<pascal_real_t>::denorm_min(),
+                std::numeric_limits<pascal_real_t>::max());
+        }
+    };
+
     using token_pos_t = std::span<const std::unique_ptr<Token>>::iterator;
 
     TokenReader(
@@ -159,6 +175,18 @@ public:
         }
 
         return *maybeInt;
+    }
+
+    pascal_real_t
+    consumeReal() {
+        auto maybeReal = consume<TokenUnsignedReal>().spelling<pascal_real_t>();
+
+        if (!maybeReal) {
+            --tokens_it_;
+            throw InvalidReal(*this);
+        }
+
+        return *maybeReal;
     }
 
 private:
@@ -315,6 +343,12 @@ public:
     }
 
     void
+    parseUnsignedRealConstant(nodes::UnsignedRealConstant &urc) {
+        auto rec = viewRecorder(urc);
+        urc.value = token_reader_.consumeReal();
+    }
+
+    void
     parseConstantIdentifier(nodes::ConstantIdentifier &ci) {
         auto rec = viewRecorder(ci);
         ci.name = token_reader_.consumeId();
@@ -334,6 +368,7 @@ public:
 
         parseAlternatives(sc.unsigned_value,
             &Parser::parseUnsignedIntegerConstant,
+            &Parser::parseUnsignedRealConstant,
             &Parser::parseConstantIdentifier);
     }
 
@@ -346,6 +381,7 @@ public:
         parseAlternatives(cd.value,
             &Parser::parseSignedConstant,
             &Parser::parseUnsignedIntegerConstant,
+            &Parser::parseUnsignedRealConstant,
             &Parser::parseConstantIdentifier);
         // TODO: parse other types of values
     }

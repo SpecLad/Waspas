@@ -18,6 +18,13 @@ export
 using pascal_integer_t = std::int32_t;
 
 export
+using pascal_real_t = double;
+
+static_assert(sizeof(pascal_real_t) == 8);
+static_assert(std::numeric_limits<pascal_real_t>::is_iec559);
+static_assert(std::numeric_limits<pascal_real_t>::digits == 53);
+
+export
 enum class PascalSign {
     PLUS, MINUS,
 };
@@ -36,6 +43,9 @@ public:
 
     virtual void
     receiveIntField(std::string_view name, pascal_integer_t value) = 0;
+
+    virtual void
+    receiveRealField(std::string_view name, pascal_real_t value) = 0;
 
     virtual void
     receiveNodeField(std::string_view name, const Node &value) = 0;
@@ -109,6 +119,20 @@ public:
     virtual void
     describeFields(NodeFieldReceiver &receiver) const {
         receiver.receiveIntField("value", value);
+    }
+};
+
+export
+class UnsignedRealConstant : public UnsignedConstant {
+public:
+    pascal_real_t value;
+
+    std::string_view
+    type() const override { return "UnsignedRealConstant"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveRealField("value", value);
     }
 };
 

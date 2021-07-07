@@ -244,6 +244,24 @@ public:
     using TokenWithCustomHR::TokenWithCustomHR;
     static const std::regex PATTERN;
     static const std::string HUMAN_REPRESENTATION;
+
+    template <std::floating_point T>
+    std::optional<T>
+    spelling() const {
+        auto v = view();
+        T value;
+        auto conversion_result
+            = std::from_chars(v.data(), v.data() + v.size(), value);
+
+        if (conversion_result.ec == std::errc{}) {
+            assert(conversion_result.ptr == v.data() + v.size());
+            return value;
+        }
+
+        // no other errors should be possible, since the pattern only admits valid reals
+        assert(conversion_result.ec == std::errc::result_out_of_range);
+        return std::nullopt;
+    }
 };
 
 export

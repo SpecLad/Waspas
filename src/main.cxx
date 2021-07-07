@@ -62,6 +62,12 @@ dumpAstHelper(
         }
 
         void
+        receiveRealField(std::string_view name, pascal_real_t value) override {
+            printFieldName(name);
+            printError("{}", value);
+        }
+
+        void
         receiveNodeField(std::string_view name, const Node &value) {
             printFieldName(name);
             dumpAstHelper(value, indent + INDENT_SIZE, source_start, line_indexer);
