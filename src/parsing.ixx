@@ -48,6 +48,9 @@ public:
     receiveRealField(std::string_view name, pascal_real_t value) = 0;
 
     virtual void
+    receiveStringField(std::string_view name, std::string_view value) = 0;
+
+    virtual void
     receiveNodeField(std::string_view name, const Node &value) = 0;
 
     virtual void
@@ -163,6 +166,20 @@ public:
     describeFields(NodeFieldReceiver &receiver) const {
         receiver.receiveIdField("sign", sign == PascalSign::PLUS ? "PLUS" : "MINUS");
         receiver.receiveNodeField("unsigned_value", *unsigned_value);
+    }
+};
+
+export
+class CharacterString : public Constant {
+public:
+    std::string value;
+
+    std::string_view
+    type() const override { return "CharacterString"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveStringField("value", value);
     }
 };
 

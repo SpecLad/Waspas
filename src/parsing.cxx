@@ -373,6 +373,12 @@ public:
     }
 
     void
+    parseCharacterString(nodes::CharacterString &cs) {
+        auto rec = viewRecorder(cs);
+        cs.value = token_reader_.consume<TokenCharacterString>().value();
+    }
+
+    void
     parseConstantDefinition(nodes::ConstantDefinition &cd) {
         auto rec = viewRecorder(cd);
         cd.name = token_reader_.consumeId();
@@ -382,8 +388,8 @@ public:
             &Parser::parseSignedConstant,
             &Parser::parseUnsignedIntegerConstant,
             &Parser::parseUnsignedRealConstant,
-            &Parser::parseConstantIdentifier);
-        // TODO: parse other types of values
+            &Parser::parseConstantIdentifier,
+            &Parser::parseCharacterString);
     }
 
     void

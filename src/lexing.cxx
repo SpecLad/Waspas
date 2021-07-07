@@ -67,6 +67,27 @@ const std::regex TokenUnsignedReal::PATTERN(R"([0-9]+(?:\.[0-9]+(?:e[+-]?[0-9]+)
 
 const std::regex TokenCharacterString::PATTERN(R"('(?:[^'\n]|'')+')");
 
+std::string
+TokenCharacterString::value() const {
+    auto v = view();
+    std::string result;
+    result.reserve(v.size());
+
+    auto it = v.begin();
+    ++it; // skip initial apostrophe
+
+    auto it_end = v.end();
+    --it_end; // skip final apostrophe
+
+    while (it != it_end) {
+        result.push_back(*it);
+        if (*it == '\'') it += 2;
+        else ++it;
+    }
+
+    return result;
+}
+
 const std::string TokenIdentifier::HUMAN_REPRESENTATION = "ID"s;
 
 std::string

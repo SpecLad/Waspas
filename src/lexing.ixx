@@ -273,6 +273,9 @@ public:
     using TokenWithCustomHR::TokenWithCustomHR;
     static const std::regex PATTERN;
     static const std::string HUMAN_REPRESENTATION;
+
+    std::string
+    value() const;
 };
 
 export

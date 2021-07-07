@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -65,6 +66,20 @@ dumpAstHelper(
         receiveRealField(std::string_view name, pascal_real_t value) override {
             printFieldName(name);
             printError("{}", value);
+        }
+
+        void
+        receiveStringField(std::string_view name, std::string_view value) override {
+            printFieldName(name);
+
+            std::string value_with_escapes;
+            value_with_escapes.reserve(value.size() + std::ranges::count(value, '\''));
+            for (auto c : value) {
+                value_with_escapes += c;
+                if (c == '\'') value_with_escapes += c;
+            }
+
+            printError("'{}'", value_with_escapes); // TODO: do something about control chars
         }
 
         void
