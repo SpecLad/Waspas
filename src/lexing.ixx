@@ -218,7 +218,7 @@ public:
 
     template <std::integral T>
     std::optional<T>
-    spelling() const {
+    value() const {
         auto v = view();
         T value;
         auto conversion_result
@@ -247,7 +247,7 @@ public:
 
     template <std::floating_point T>
     std::optional<T>
-    spelling() const {
+    value() const {
         auto v = view();
         T value;
         auto conversion_result

@@ -155,7 +155,7 @@ public:
 
     int
     consumeLabel() {
-        auto maybeInt = consume<TokenUnsignedInteger>().spelling<pascal_integer_t>();
+        auto maybeInt = consume<TokenUnsignedInteger>().value<pascal_integer_t>();
 
         if (!maybeInt || *maybeInt > MAX_LABEL_VALUE) {
             --tokens_it_;
@@ -167,7 +167,7 @@ public:
 
     pascal_integer_t
     consumeInt() {
-        auto maybeInt = consume<TokenUnsignedInteger>().spelling<pascal_integer_t>();
+        auto maybeInt = consume<TokenUnsignedInteger>().value<pascal_integer_t>();
 
         if (!maybeInt) {
             --tokens_it_;
@@ -179,7 +179,7 @@ public:
 
     pascal_real_t
     consumeReal() {
-        auto maybeReal = consume<TokenUnsignedReal>().spelling<pascal_real_t>();
+        auto maybeReal = consume<TokenUnsignedReal>().value<pascal_real_t>();
 
         if (!maybeReal) {
             --tokens_it_;
