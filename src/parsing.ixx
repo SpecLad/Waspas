@@ -112,6 +112,9 @@ export
 class UnsignedConstant : public Constant {};
 
 export
+class TypeDenoter : public virtual Node {};
+
+export
 class UnsignedIntegerConstant : public UnsignedConstant {
 public:
     pascal_integer_t value;
@@ -140,7 +143,7 @@ public:
 };
 
 export
-class Identifier : public UnsignedConstant {
+class Identifier : public UnsignedConstant, public TypeDenoter {
 public:
     std::string name;
 
@@ -200,10 +203,27 @@ public:
 };
 
 export
+class TypeDefinition : public Node {
+public:
+    std::string name;
+    std::unique_ptr<TypeDenoter> denoter;
+
+    std::string_view
+    type() const override { return "TypeDefinition"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveIdField("name", name);
+        receiver.receiveNodeField("denoter", *denoter);
+    }
+};
+
+export
 class Block : public Node {
 public:
     std::vector<LabelDeclaration> label_declarations;
     std::vector<ConstantDefinition> constant_definitions;
+    std::vector<TypeDefinition> type_definitions;
 
     std::string_view
     type() const override { return "Block"sv; }
@@ -212,20 +232,7 @@ public:
     describeFields(NodeFieldReceiver &receiver) const {
         declareNodeListField(receiver, "label_declarations", label_declarations);
         declareNodeListField(receiver, "constant_definitions", constant_definitions);
-    }
-};
-
-export
-class ProgramParameterDeclaration : public Node {
-public:
-    std::string name;
-
-    std::string_view
-    type() const override { return "ProgramParameterDeclaration"sv; }
-
-    void
-    describeFields(NodeFieldReceiver &receiver) const override {
-        receiver.receiveIdField("name", name);
+        declareNodeListField(receiver, "type_definitions", type_definitions);
     }
 };
 

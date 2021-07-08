@@ -393,6 +393,26 @@ public:
     }
 
     void
+    parseTypeDefinition(nodes::TypeDefinition &td) {
+        auto rec = viewRecorder(td);
+        td.name = token_reader_.consumeId();
+        token_reader_.consume<TokenEqual>();
+
+        parseAlternatives(td.denoter,
+            /* TODO:
+            &Parser::parseEnumeratedType,
+            &Parser::parseSubrangeType,
+            &Parser::parseArrayType,
+            &Parser::parseRecordType,
+            &Parser::parseSetType,
+            &Parser::parseFileType,
+            &Parser::parsePointerType,*/
+            // Identifier has to come after subrange type,
+            // because a subrange type can begin with an identifier.
+            &Parser::parseIdentifier);
+    }
+
+    void
     parseBlock(nodes::Block &block) {
         auto rec = viewRecorder(block);
 
@@ -408,8 +428,13 @@ public:
             token_reader_.consume<TokenSemicolon>();
         }
 
+        if (token_reader_.tryConsume<TokenWsType>()) {
+            parseSeparatedList<TokenSemicolon>(
+                block.type_definitions, &Parser::parseTypeDefinition);
+            token_reader_.consume<TokenSemicolon>();
+        }
+
         /* TODO:
-            type-definition-part
             variable-declaration-part
             procedure-and-function-declaration-part
             statement-part
