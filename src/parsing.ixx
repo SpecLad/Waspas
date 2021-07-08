@@ -106,7 +106,7 @@ public:
 };
 
 export
-class Constant : public Node {};
+class Constant : public virtual Node {};
 
 export
 class UnsignedConstant : public Constant {};
@@ -140,15 +140,15 @@ public:
 };
 
 export
-class ConstantIdentifier : public UnsignedConstant {
+class Identifier : public UnsignedConstant {
 public:
     std::string name;
 
     std::string_view
-    type() const override { return "ConstantIdentifier"sv; }
+    type() const override { return "Identifier"sv; }
 
     virtual void
-        describeFields(NodeFieldReceiver &receiver) const {
+    describeFields(NodeFieldReceiver &receiver) const {
         receiver.receiveIdField("name", name);
     }
 };
@@ -233,7 +233,7 @@ export
 class Program : public Node {
 public:
     std::string name;
-    std::vector<ProgramParameterDeclaration> parameter_declarations;
+    std::vector<Identifier> parameter_declarations;
     Block block;
 
     std::string_view

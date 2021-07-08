@@ -349,9 +349,9 @@ public:
     }
 
     void
-    parseConstantIdentifier(nodes::ConstantIdentifier &ci) {
-        auto rec = viewRecorder(ci);
-        ci.name = token_reader_.consumeId();
+    parseIdentifier(nodes::Identifier &i) {
+        auto rec = viewRecorder(i);
+        i.name = token_reader_.consumeId();
     }
 
     void
@@ -369,7 +369,7 @@ public:
         parseAlternatives(sc.unsigned_value,
             &Parser::parseUnsignedIntegerConstant,
             &Parser::parseUnsignedRealConstant,
-            &Parser::parseConstantIdentifier);
+            &Parser::parseIdentifier);
     }
 
     void
@@ -388,7 +388,7 @@ public:
             &Parser::parseSignedConstant,
             &Parser::parseUnsignedIntegerConstant,
             &Parser::parseUnsignedRealConstant,
-            &Parser::parseConstantIdentifier,
+            &Parser::parseIdentifier,
             &Parser::parseCharacterString);
     }
 
@@ -417,12 +417,6 @@ public:
     }
 
     void
-    parseProgramParameterDeclaration(nodes::ProgramParameterDeclaration &ppd) {
-        auto rec = viewRecorder(ppd);
-        ppd.name = token_reader_.consumeId();
-    }
-
-    void
     parseProgram(nodes::Program &program) {
         auto rec = viewRecorder(program);
 
@@ -432,7 +426,7 @@ public:
 
         if (token_reader_.tryConsume<TokenLeftParenthesis>()) {
             parseSeparatedList<TokenComma>(
-                program.parameter_declarations, &Parser::parseProgramParameterDeclaration);
+                program.parameter_declarations, &Parser::parseIdentifier);
             token_reader_.consume<TokenRightParenthesis>();
         }
 
