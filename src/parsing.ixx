@@ -203,6 +203,20 @@ public:
 };
 
 export
+class EnumeratedType : public TypeDenoter {
+public:
+    std::vector<Identifier> constants;
+
+    std::string_view
+    type() const override { return "EnumeratedType"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        declareNodeListField(receiver, "constants", constants);
+    }
+};
+
+export
 class TypeDefinition : public Node {
 public:
     std::string name;

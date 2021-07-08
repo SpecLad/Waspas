@@ -393,14 +393,24 @@ public:
     }
 
     void
+    parseEnumeratedType(nodes::EnumeratedType &et) {
+        auto rec = viewRecorder(et);
+
+        token_reader_.consume<TokenLeftParenthesis>();
+        parseSeparatedList<TokenComma>(
+            et.constants, &Parser::parseIdentifier);
+        token_reader_.consume<TokenRightParenthesis>();
+    }
+
+    void
     parseTypeDefinition(nodes::TypeDefinition &td) {
         auto rec = viewRecorder(td);
         td.name = token_reader_.consumeId();
         token_reader_.consume<TokenEqual>();
 
         parseAlternatives(td.denoter,
-            /* TODO:
             &Parser::parseEnumeratedType,
+            /* TODO:
             &Parser::parseSubrangeType,
             &Parser::parseArrayType,
             &Parser::parseRecordType,
