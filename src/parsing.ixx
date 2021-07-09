@@ -106,8 +106,8 @@ public:
     std::string_view
     type() const override { return "LabelDeclaration"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIntField("value", value);
     }
 };
@@ -135,8 +135,8 @@ public:
     std::string_view
     type() const override { return "UnsignedIntegerConstant"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIntField("value", value);
     }
 };
@@ -149,8 +149,8 @@ public:
     std::string_view
     type() const override { return "UnsignedRealConstant"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveRealField("value", value);
     }
 };
@@ -163,8 +163,8 @@ public:
     std::string_view
     type() const override { return "Identifier"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIdField("name", name);
     }
 };
@@ -178,8 +178,8 @@ public:
     std::string_view
     type() const override { return "SignedConstant"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIdField("sign", sign == PascalSign::PLUS ? "PLUS" : "MINUS");
         receiver.receiveNodeField("unsigned_value", *unsigned_value);
     }
@@ -193,8 +193,8 @@ public:
     std::string_view
     type() const override { return "CharacterString"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveStringField("value", value);
     }
 };
@@ -208,8 +208,8 @@ public:
     std::string_view
     type() const override { return "ConstantDefinition"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIdField("name", name);
         receiver.receiveNodeField("value", *value);
     }
@@ -223,8 +223,8 @@ public:
     std::string_view
     type() const override { return "EnumeratedType"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         declareNodeListField(receiver, "constants", constants);
     }
 };
@@ -237,8 +237,8 @@ public:
     std::string_view
     type() const override { return "SubrangeType"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveNodeField("smallest", *smallest);
         receiver.receiveNodeField("largest", *largest);
     }
@@ -253,8 +253,8 @@ public:
     std::string_view
     type() const override { return "ArrayType"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         declareNodeListField(receiver, "index_types", index_types);
         receiver.receiveNodeField("component_type", *component_type);
     }
@@ -269,8 +269,8 @@ public:
     std::string_view
     type() const override { return "NewStructuredType"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveBooleanField("is_packed", is_packed);
         receiver.receiveNodeField("unpacked", *unpacked);
     }
@@ -285,8 +285,8 @@ public:
     std::string_view
     type() const override { return "TypeDefinition"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIdField("name", name);
         receiver.receiveNodeField("denoter", *denoter);
     }
@@ -302,8 +302,8 @@ public:
     std::string_view
     type() const override { return "Block"sv; }
 
-    virtual void
-    describeFields(NodeFieldReceiver &receiver) const {
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
         declareNodeListField(receiver, "label_declarations", label_declarations);
         declareNodeListField(receiver, "constant_definitions", constant_definitions);
         declareNodeListField(receiver, "type_definitions", type_definitions);
