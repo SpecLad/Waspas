@@ -5,6 +5,7 @@ module;
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 export module parsing;
@@ -40,6 +41,9 @@ public:
 
     virtual void
     receiveIdField(std::string_view name, std::string_view value) = 0;
+
+    virtual void
+    receiveBooleanField(std::string_view name, bool value) = 0;
 
     virtual void
     receiveIntField(std::string_view name, pascal_integer_t value) = 0;
@@ -83,7 +87,10 @@ protected:
         pointers.reserve(nodes.size());
 
         for (const auto &node: nodes)
-            pointers.push_back(&node);
+            if constexpr (std::is_base_of_v<Node, T>)
+                pointers.push_back(&node);
+            else
+                pointers.push_back(std::to_address(node));
 
         receiver.receiveNodeListField(name, pointers);
     }
@@ -115,6 +122,12 @@ export
 class TypeDenoter : public virtual Node {};
 
 export
+class OrdinalType : public TypeDenoter {};
+
+export
+class UnpackedStructuredType : public virtual Node {};
+
+export
 class UnsignedIntegerConstant : public UnsignedConstant {
 public:
     pascal_integer_t value;
@@ -143,7 +156,7 @@ public:
 };
 
 export
-class Identifier : public UnsignedConstant, public TypeDenoter {
+class Identifier : public UnsignedConstant, public OrdinalType {
 public:
     std::string name;
 
@@ -203,7 +216,7 @@ public:
 };
 
 export
-class EnumeratedType : public TypeDenoter {
+class EnumeratedType : public OrdinalType {
 public:
     std::vector<Identifier> constants;
 
@@ -217,7 +230,7 @@ public:
 };
 
 export
-class SubrangeType : public TypeDenoter {
+class SubrangeType : public OrdinalType {
 public:
     std::unique_ptr<Constant> smallest, largest;
 
@@ -228,6 +241,38 @@ public:
     describeFields(NodeFieldReceiver &receiver) const {
         receiver.receiveNodeField("smallest", *smallest);
         receiver.receiveNodeField("largest", *largest);
+    }
+};
+
+export
+class ArrayType : public UnpackedStructuredType {
+public:
+    std::vector<std::unique_ptr<OrdinalType>> index_types;
+    std::unique_ptr<TypeDenoter> component_type;
+
+    std::string_view
+    type() const override { return "ArrayType"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        declareNodeListField(receiver, "index_types", index_types);
+        receiver.receiveNodeField("component_type", *component_type);
+    }
+};
+
+export
+class NewStructuredType : public TypeDenoter {
+public:
+    bool is_packed;
+    std::unique_ptr<UnpackedStructuredType> unpacked;
+
+    std::string_view
+    type() const override { return "NewStructuredType"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveBooleanField("is_packed", is_packed);
+        receiver.receiveNodeField("unpacked", *unpacked);
     }
 };
 

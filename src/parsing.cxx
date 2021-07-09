@@ -415,23 +415,55 @@ public:
     }
 
     void
-    parseTypeDefinition(nodes::TypeDefinition &td) {
-        auto rec = viewRecorder(td);
-        td.name = token_reader_.consumeId();
-        token_reader_.consume<TokenEqual>();
-
-        parseAlternatives(td.denoter,
+    parseOrdinalType(std::unique_ptr<nodes::OrdinalType> &ot) {
+        parseAlternatives(ot,
             &Parser::parseEnumeratedType,
             &Parser::parseSubrangeType,
+            &Parser::parseIdentifier);
+    }
+
+    void
+    parseArrayType(nodes::ArrayType &at) {
+        auto rec = viewRecorder(at);
+        token_reader_.consume<TokenWsArray>();
+        token_reader_.consume<TokenLeftBracket>();
+        parseSeparatedList<TokenComma>(at.index_types, &Parser::parseOrdinalType);
+        token_reader_.consume<TokenRightBracket>();
+        token_reader_.consume<TokenWsOf>();
+        parseTypeDenoter(at.component_type);
+    }
+
+    void
+    parseNewStructuredType(nodes::NewStructuredType &nst) {
+        auto rec = viewRecorder(nst);
+        nst.is_packed = token_reader_.tryConsume<TokenWsPacked>();
+        parseAlternatives(nst.unpacked,
+            &Parser::parseArrayType
             /* TODO:
-            &Parser::parseArrayType,
             &Parser::parseRecordType,
             &Parser::parseSetType,
-            &Parser::parseFileType,
+            &Parser::parseFileType*/);
+    }
+
+    void
+    parseTypeDenoter(std::unique_ptr<nodes::TypeDenoter> &td) {
+        parseAlternatives(td,
+            &Parser::parseEnumeratedType,
+            &Parser::parseSubrangeType,
+            &Parser::parseNewStructuredType,
+            /* TODO:
             &Parser::parsePointerType,*/
             // Identifier has to come after subrange type,
             // because a subrange type can begin with an identifier.
             &Parser::parseIdentifier);
+    }
+
+    void
+    parseTypeDefinition(nodes::TypeDefinition &td) {
+        auto rec = viewRecorder(td);
+        td.name = token_reader_.consumeId();
+        token_reader_.consume<TokenEqual>();
+        parseTypeDenoter(td.denoter);
     }
 
     void

@@ -57,6 +57,12 @@ dumpAstHelper(
         }
 
         void
+        receiveBooleanField(std::string_view name, bool value) override {
+            printFieldName(name);
+            printError("{}", value);
+        }
+
+        void
         receiveIntField(std::string_view name, pascal_integer_t value) override {
             printFieldName(name);
             printError("{}", value);
