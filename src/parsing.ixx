@@ -217,6 +217,21 @@ public:
 };
 
 export
+class SubrangeType : public TypeDenoter {
+public:
+    std::unique_ptr<Constant> smallest, largest;
+
+    std::string_view
+    type() const override { return "SubrangeType"sv; }
+
+    virtual void
+    describeFields(NodeFieldReceiver &receiver) const {
+        receiver.receiveNodeField("smallest", *smallest);
+        receiver.receiveNodeField("largest", *largest);
+    }
+};
+
+export
 class TypeDefinition : public Node {
 public:
     std::string name;

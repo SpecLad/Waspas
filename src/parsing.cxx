@@ -379,17 +379,21 @@ public:
     }
 
     void
-    parseConstantDefinition(nodes::ConstantDefinition &cd) {
-        auto rec = viewRecorder(cd);
-        cd.name = token_reader_.consumeId();
-        token_reader_.consume<TokenEqual>();
-
-        parseAlternatives(cd.value,
+    parseConstant(std::unique_ptr<nodes::Constant> &c) {
+        parseAlternatives(c,
             &Parser::parseSignedConstant,
             &Parser::parseUnsignedIntegerConstant,
             &Parser::parseUnsignedRealConstant,
             &Parser::parseIdentifier,
             &Parser::parseCharacterString);
+    }
+
+    void
+    parseConstantDefinition(nodes::ConstantDefinition &cd) {
+        auto rec = viewRecorder(cd);
+        cd.name = token_reader_.consumeId();
+        token_reader_.consume<TokenEqual>();
+        parseConstant(cd.value);
     }
 
     void
@@ -403,6 +407,14 @@ public:
     }
 
     void
+    parseSubrangeType(nodes::SubrangeType &st) {
+        auto rec = viewRecorder(st);
+        parseConstant(st.smallest);
+        token_reader_.consume<TokenDotDot>();
+        parseConstant(st.largest);
+    }
+
+    void
     parseTypeDefinition(nodes::TypeDefinition &td) {
         auto rec = viewRecorder(td);
         td.name = token_reader_.consumeId();
@@ -410,8 +422,8 @@ public:
 
         parseAlternatives(td.denoter,
             &Parser::parseEnumeratedType,
-            /* TODO:
             &Parser::parseSubrangeType,
+            /* TODO:
             &Parser::parseArrayType,
             &Parser::parseRecordType,
             &Parser::parseSetType,
