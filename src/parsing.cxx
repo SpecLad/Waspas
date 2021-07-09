@@ -434,13 +434,35 @@ public:
     }
 
     void
+    parseRecordSection(nodes::RecordSection &rs) {
+        auto rec = viewRecorder(rs);
+
+        parseSeparatedList<TokenComma>(rs.field_names, &Parser::parseIdentifier);
+        token_reader_.consume<TokenColon>();
+        parseTypeDenoter(rs.field_type);
+    }
+
+    void
+    parseRecordType(nodes::RecordType &rt) {
+        auto rec = viewRecorder(rt);
+
+        token_reader_.consume<TokenWsRecord>();
+        if (token_reader_.tryConsume<TokenWsEnd>())
+            return;
+
+        parseSeparatedList<TokenSemicolon>(rt.fixed_sections, &Parser::parseRecordSection);
+        token_reader_.tryConsume<TokenSemicolon>();
+        token_reader_.consume<TokenWsEnd>();
+    }
+
+    void
     parseNewStructuredType(nodes::NewStructuredType &nst) {
         auto rec = viewRecorder(nst);
         nst.is_packed = token_reader_.tryConsume<TokenWsPacked>();
         parseAlternatives(nst.unpacked,
-            &Parser::parseArrayType
+            &Parser::parseArrayType,
+            &Parser::parseRecordType
             /* TODO:
-            &Parser::parseRecordType,
             &Parser::parseSetType,
             &Parser::parseFileType*/);
     }

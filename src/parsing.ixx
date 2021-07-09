@@ -261,6 +261,37 @@ public:
 };
 
 export
+class RecordSection : public Node {
+public:
+    std::vector<Identifier> field_names;
+    std::unique_ptr<TypeDenoter> field_type;
+
+    std::string_view
+    type() const override { return "RecordSection"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        declareNodeListField(receiver, "field_names", field_names);
+        receiver.receiveNodeField("field_type", *field_type);
+    }
+};
+
+export
+class RecordType : public UnpackedStructuredType {
+public:
+    std::vector<RecordSection> fixed_sections;
+    // TODO: variant part
+
+    std::string_view
+    type() const override { return "RecordType"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        declareNodeListField(receiver, "fixed_sections", fixed_sections);
+    }
+};
+
+export
 class NewStructuredType : public TypeDenoter {
 public:
     bool is_packed;
