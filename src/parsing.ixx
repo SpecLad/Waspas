@@ -292,6 +292,34 @@ public:
 };
 
 export
+class SetType : public UnpackedStructuredType {
+public:
+    std::unique_ptr<OrdinalType> base_type;
+
+    std::string_view
+    type() const override { return "SetType"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("base_type", *base_type);
+    }
+};
+
+export
+class FileType : public UnpackedStructuredType {
+public:
+    std::unique_ptr<TypeDenoter> component_type;
+
+    std::string_view
+    type() const override { return "FileType"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("component_type", *component_type);
+    }
+};
+
+export
 class NewStructuredType : public TypeDenoter {
 public:
     bool is_packed;

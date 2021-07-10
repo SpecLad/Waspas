@@ -456,15 +456,32 @@ public:
     }
 
     void
+    parseSetType(nodes::SetType &st) {
+        auto rec = viewRecorder(st);
+
+        token_reader_.consume<TokenWsSet>();
+        token_reader_.consume<TokenWsOf>();
+        parseOrdinalType(st.base_type);
+    }
+
+    void
+    parseFileType(nodes::FileType &ft) {
+        auto rec = viewRecorder(ft);
+
+        token_reader_.consume<TokenWsFile>();
+        token_reader_.consume<TokenWsOf>();
+        parseTypeDenoter(ft.component_type);
+    }
+
+    void
     parseNewStructuredType(nodes::NewStructuredType &nst) {
         auto rec = viewRecorder(nst);
         nst.is_packed = token_reader_.tryConsume<TokenWsPacked>();
         parseAlternatives(nst.unpacked,
             &Parser::parseArrayType,
-            &Parser::parseRecordType
-            /* TODO:
+            &Parser::parseRecordType,
             &Parser::parseSetType,
-            &Parser::parseFileType*/);
+            &Parser::parseFileType);
     }
 
     void
