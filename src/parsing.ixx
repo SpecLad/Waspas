@@ -336,6 +336,20 @@ public:
 };
 
 export
+class NewPointerType : public TypeDenoter {
+public:
+    Identifier domain_type;
+
+    std::string_view
+    type() const override { return "NewPointerType"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("domain_type", domain_type);
+    }
+};
+
+export
 class TypeDefinition : public Node {
 public:
     std::string name;

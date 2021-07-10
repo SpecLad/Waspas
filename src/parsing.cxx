@@ -485,13 +485,19 @@ public:
     }
 
     void
+    parseNewPointerType(nodes::NewPointerType &npt) {
+        auto rec = viewRecorder(npt);
+        token_reader_.consume<TokenCaret>();
+        parseIdentifier(npt.domain_type);
+    }
+
+    void
     parseTypeDenoter(std::unique_ptr<nodes::TypeDenoter> &td) {
         parseAlternatives(td,
             &Parser::parseEnumeratedType,
             &Parser::parseSubrangeType,
             &Parser::parseNewStructuredType,
-            /* TODO:
-            &Parser::parsePointerType,*/
+            &Parser::parseNewPointerType,
             // Identifier has to come after subrange type,
             // because a subrange type can begin with an identifier.
             &Parser::parseIdentifier);
