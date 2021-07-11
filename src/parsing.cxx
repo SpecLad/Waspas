@@ -306,27 +306,28 @@ public:
         }
     }
 
-    template <typename N, typename B>
+    template <typename N, typename Alt>
     void
-    parseAlternative(std::unique_ptr<B> &node_ptr, parse_f<N> parse_alternative) {
-        N node;
+    parseAlternative(std::unique_ptr<N> &node_ptr, parse_f<Alt> parse_alternative) {
+        Alt node;
         (this->*parse_alternative)(node);
-        node_ptr = std::make_unique<N>(std::move(node));
+        node_ptr = std::make_unique<Alt>(std::move(node));
     }
 
-    template <typename N, typename B>
+    template <typename N, typename Alt>
     bool
-    tryParseAlternative(std::unique_ptr<B> &node_ptr, parse_f<N> parse_alternative) {
-        return tryParse(node_ptr, &Parser::parseAlternative<N, B>, parse_alternative);
+    tryParseAlternative(std::unique_ptr<N> &node_ptr, parse_f<Alt> parse_alternative) {
+        return tryParse(node_ptr, &Parser::parseAlternative<N, Alt>, parse_alternative);
     }
 
-    template <typename B, typename N0, typename ...Ns>
+    template <typename N, typename Alt0, typename ...Alts>
     void
     parseAlternatives(
-        std::unique_ptr<B> &node_ptr,
-        parse_f<N0> parse_alternative0, parse_f<Ns> ...parse_alternative
+        std::unique_ptr<N> &node_ptr,
+        parse_f<Alt0> parse_alternative0,
+        parse_f<Alts> ...parse_alternative
     ) {
-        if constexpr (sizeof...(Ns) == 0) {
+        if constexpr (sizeof...(Alts) == 0) {
             parseAlternative(node_ptr, parse_alternative0);
         }
         else {
