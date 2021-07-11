@@ -2,6 +2,7 @@ module;
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -93,6 +94,22 @@ protected:
                 pointers.push_back(std::to_address(node));
 
         receiver.receiveNodeListField(name, pointers);
+    }
+
+    template <typename T>
+    static void
+    declareOptionalNodeField(
+        NodeFieldReceiver &receiver,
+        std::string_view name,
+        const std::optional<T> &maybe_node
+    ) {
+        if (maybe_node) {
+            const Node *pointers[] = { &*maybe_node };
+            receiver.receiveNodeListField(name, pointers);
+        }
+        else {
+            receiver.receiveNodeListField(name, {});
+        }
     }
 };
 
@@ -277,17 +294,69 @@ public:
 };
 
 export
-class RecordType : public UnpackedStructuredType {
+class Variant;
+
+export
+class VariantPart : public Node {
+public:
+    std::optional<Identifier> tag_field;
+    Identifier tag_type;
+    std::vector<Variant> variants;
+
+    std::string_view
+    type() const override { return "VariantPart"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        declareOptionalNodeField(receiver, "tag_field", tag_field);
+        receiver.receiveNodeField("tag_type", tag_type);
+        declareNodeListField(receiver, "variants", variants);
+    }
+};
+
+export
+class FieldList : public Node {
 public:
     std::vector<RecordSection> fixed_sections;
-    // TODO: variant part
+    std::optional<VariantPart> variant_part;
+
+    std::string_view
+    type() const override { return "FieldList"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        declareNodeListField(receiver, "fixed_sections", fixed_sections);
+        declareOptionalNodeField(receiver, "variant_part", variant_part);
+    }
+};
+
+export
+class Variant : public Node {
+public:
+    std::vector<std::unique_ptr<Constant>> case_constants;
+    FieldList fields;
+
+    std::string_view
+    type() const override { return "Variant"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        declareNodeListField(receiver, "case_constants", case_constants);
+        receiver.receiveNodeField("fields", fields);
+    }
+};
+
+export
+class RecordType : public UnpackedStructuredType {
+public:
+    FieldList fields;
 
     std::string_view
     type() const override { return "RecordType"sv; }
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "fixed_sections", fixed_sections);
+        receiver.receiveNodeField("fields", fields);
     }
 };
 

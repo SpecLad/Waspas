@@ -7,6 +7,7 @@ module;
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 module parsing;
@@ -254,14 +255,29 @@ private:
 
 class Parser {
 public:
-    template <typename N>
-    using parse_f = void (Parser::*)(N &);
+    template <typename N, typename ...Args>
+    using parse_f = void (Parser::*)(N &, Args...);
 
     explicit Parser(TokenReader &token_reader) : token_reader_(token_reader) {}
 
     ViewRecorder
     viewRecorder(Node &node) {
         return ViewRecorder(node, token_reader_);
+    }
+
+    template <typename N, typename ...Args>
+    bool
+    tryParse(N &node, parse_f<N, Args...> parse, Args ...args) {
+        auto pos = token_reader_.pos();
+
+        try {
+            (this->*parse)(node, args...);
+            return true;
+        }
+        catch (TokenReader::UnexpectedToken &) {
+            token_reader_.backtrack(pos);
+            return false;
+        }
     }
 
     template <typename TokenSeparator, typename N>
@@ -301,16 +317,7 @@ public:
     template <typename N, typename B>
     bool
     tryParseAlternative(std::unique_ptr<B> &node_ptr, parse_f<N> parse_alternative) {
-        auto pos = token_reader_.pos();
-
-        try {
-            parseAlternative(node_ptr, parse_alternative);
-            return true;
-        }
-        catch (TokenReader::UnexpectedToken &) {
-            token_reader_.backtrack(pos);
-            return false;
-        }
+        return tryParse(node_ptr, &Parser::parseAlternative<N, B>, parse_alternative);
     }
 
     template <typename B, typename N0, typename ...Ns>
@@ -328,6 +335,14 @@ public:
 
             parseAlternatives(node_ptr, parse_alternative...);
         }
+    }
+
+    template <typename N>
+    void
+    parseOptional(std::optional<N> &maybe_node, parse_f<N> parse) {
+        N node;
+        if (tryParse(node, parse))
+            maybe_node = std::move(node);
     }
 
     void
@@ -443,15 +458,58 @@ public:
     }
 
     void
+    parseVariant(nodes::Variant &variant) {
+        auto rec = viewRecorder(variant);
+
+        parseSeparatedList<TokenComma>(variant.case_constants, &Parser::parseConstant);
+        token_reader_.consume<TokenColon>();
+        token_reader_.consume<TokenLeftParenthesis>();
+        parseFieldList(variant.fields);
+        token_reader_.consume<TokenRightParenthesis>();
+    }
+
+    void
+    parseVariantPart(nodes::VariantPart &vp) {
+        auto rec = viewRecorder(vp);
+
+        token_reader_.consume<TokenWsCase>();
+
+        nodes::Identifier tag_field_or_type;
+        parseIdentifier(tag_field_or_type);
+
+        if (token_reader_.tryConsume<TokenColon>()) {
+            vp.tag_field = std::move(tag_field_or_type);
+            parseIdentifier(vp.tag_type);
+        }
+        else {
+            vp.tag_type = std::move(tag_field_or_type);
+        }
+
+        token_reader_.consume<TokenWsOf>();
+        parseSeparatedList<TokenSemicolon>(vp.variants, &Parser::parseVariant);
+    }
+
+    void
+    parseFieldList(nodes::FieldList &fl) {
+        auto rec = viewRecorder(fl);
+
+        bool has_fixed = tryParse(fl.fixed_sections,
+            &Parser::parseSeparatedList<TokenSemicolon, nodes::RecordSection>,
+            &Parser::parseRecordSection);
+
+        if (!has_fixed || token_reader_.tryConsume<TokenSemicolon>()) {
+            parseOptional(fl.variant_part, &Parser::parseVariantPart);
+            if (fl.variant_part)
+                token_reader_.tryConsume<TokenSemicolon>();
+        }
+    }
+
+    void
     parseRecordType(nodes::RecordType &rt) {
         auto rec = viewRecorder(rt);
 
         token_reader_.consume<TokenWsRecord>();
-        if (token_reader_.tryConsume<TokenWsEnd>())
-            return;
-
-        parseSeparatedList<TokenSemicolon>(rt.fixed_sections, &Parser::parseRecordSection);
-        token_reader_.tryConsume<TokenSemicolon>();
+        parseFieldList(rt.fields);
         token_reader_.consume<TokenWsEnd>();
     }
 
