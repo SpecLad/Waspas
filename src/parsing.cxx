@@ -571,6 +571,14 @@ public:
     }
 
     void
+    parseVariableDeclaration(nodes::VariableDeclaration &vd) {
+        auto rec = viewRecorder(vd);
+        parseSeparatedList<TokenComma>(vd.var_names, &Parser::parseIdentifier);
+        token_reader_.consume<TokenColon>();
+        parseTypeDenoter(vd.var_type);
+    }
+
+    void
     parseBlock(nodes::Block &block) {
         auto rec = viewRecorder(block);
 
@@ -592,8 +600,13 @@ public:
             token_reader_.consume<TokenSemicolon>();
         }
 
+        if (token_reader_.tryConsume<TokenWsVar>()) {
+            parseSeparatedList<TokenSemicolon>(
+                block.variable_declarations, &Parser::parseVariableDeclaration);
+            token_reader_.consume<TokenSemicolon>();
+        }
+
         /* TODO:
-            variable-declaration-part
             procedure-and-function-declaration-part
             statement-part
         */

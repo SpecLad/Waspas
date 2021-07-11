@@ -435,11 +435,28 @@ public:
 };
 
 export
+class VariableDeclaration : public Node {
+public:
+    std::vector<Identifier> var_names;
+    std::unique_ptr<TypeDenoter> var_type;
+
+    std::string_view
+    type() const override { return "VariableDeclaration"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        declareNodeListField(receiver, "var_names", var_names);
+        receiver.receiveNodeField("var_type", *var_type);
+    }
+};
+
+export
 class Block : public Node {
 public:
     std::vector<LabelDeclaration> label_declarations;
     std::vector<ConstantDefinition> constant_definitions;
     std::vector<TypeDefinition> type_definitions;
+    std::vector<VariableDeclaration> variable_declarations;
 
     std::string_view
     type() const override { return "Block"sv; }
@@ -449,6 +466,7 @@ public:
         declareNodeListField(receiver, "label_declarations", label_declarations);
         declareNodeListField(receiver, "constant_definitions", constant_definitions);
         declareNodeListField(receiver, "type_definitions", type_definitions);
+        declareNodeListField(receiver, "variable_declarations", variable_declarations);
     }
 };
 
