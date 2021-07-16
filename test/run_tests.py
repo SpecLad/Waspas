@@ -83,7 +83,7 @@ class TestErrorMessages(unittest.TestCase):
         self.assertIn(ErrorMessage(8, 1, 'invalid-token'), messages)
         self.assertIn(ErrorMessage(9, 1, 'invalid-token'), messages)
 
-    def test_invalid_token(self):
+    def test_unexpected_eof(self):
         messages = self.try_compile_ill_formed_source('empty.pas')
 
         self.assertIn(ErrorMessage(1, 1, 'unexpected-token'), messages)
