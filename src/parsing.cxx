@@ -66,7 +66,7 @@ public:
         using Error::Error;
 
         void
-            report(Reporter &reporter) {
+        report(Reporter &reporter) {
             auto *p_token = (*reader_.tokens_it_).get();
 
             reporter.err(p_token->view().data(), "invalid-integer",
@@ -156,38 +156,38 @@ public:
 
     int
     consumeLabel() {
-        auto maybeInt = consume<TokenUnsignedInteger>().value<pascal_integer_t>();
+        auto maybe_int = consume<TokenUnsignedInteger>().value<pascal_integer_t>();
 
-        if (!maybeInt || *maybeInt > MAX_LABEL_VALUE) {
+        if (!maybe_int || *maybe_int > MAX_LABEL_VALUE) {
             --tokens_it_;
             throw InvalidLabel(*this);
         }
 
-        return int(*maybeInt);
+        return int(*maybe_int);
     }
 
     pascal_integer_t
     consumeInt() {
-        auto maybeInt = consume<TokenUnsignedInteger>().value<pascal_integer_t>();
+        auto maybe_int = consume<TokenUnsignedInteger>().value<pascal_integer_t>();
 
-        if (!maybeInt) {
+        if (!maybe_int) {
             --tokens_it_;
             throw InvalidInteger(*this);
         }
 
-        return *maybeInt;
+        return *maybe_int;
     }
 
     pascal_real_t
     consumeReal() {
-        auto maybeReal = consume<TokenUnsignedReal>().value<pascal_real_t>();
+        auto maybe_real = consume<TokenUnsignedReal>().value<pascal_real_t>();
 
-        if (!maybeReal) {
+        if (!maybe_real) {
             --tokens_it_;
             throw InvalidReal(*this);
         }
 
-        return *maybeReal;
+        return *maybe_real;
     }
 
 private:
