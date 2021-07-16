@@ -88,6 +88,11 @@ class TestErrorMessages(unittest.TestCase):
 
         self.assertIn(ErrorMessage(1, 1, 'unexpected-token'), messages)
 
+    def test_invalid_directive(self):
+        messages = self.try_compile_ill_formed_source('bad_directive.pas')
+
+        self.assertIn(ErrorMessage(2, 16, 'invalid-directive'), messages)
+
     def test_invalid_label(self):
         messages = self.try_compile_ill_formed_source('bad_label_1.pas')
 
