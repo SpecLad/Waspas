@@ -785,7 +785,7 @@ parse(
 
     try {
         parser.parseProgram(program);
-        // TODO: token_reader.consume<TokenEof>();
+        token_reader.consume<TokenEof>();
     }
     catch (TokenReader::Error &e) {
         e.report(reporter);

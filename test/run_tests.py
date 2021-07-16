@@ -88,6 +88,11 @@ class TestErrorMessages(unittest.TestCase):
 
         self.assertIn(ErrorMessage(1, 1, 'unexpected-token'), messages)
 
+    def test_junk_after_end(self):
+        messages = self.try_compile_ill_formed_source('junk_after_end.pas')
+
+        self.assertIn(ErrorMessage(4, 1, 'unexpected-token'), messages)
+
     def test_invalid_directive(self):
         messages = self.try_compile_ill_formed_source('bad_directive.pas')
 
