@@ -476,15 +476,17 @@ public:
 };
 
 export
-class FormalParameterSection : public Node {
+class FormalParameterSection : public virtual Node {};
+
+export
+class RegularParameterSection : public FormalParameterSection {
 public:
     bool is_variable;
     std::vector<Identifier> parameter_names;
     Identifier parameter_type;
-    // TODO: other kinds of parameters
 
     std::string_view
-    type() const override { return "FormalParameterSection"sv; }
+    type() const override { return "RegularParameterSection"sv; }
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
@@ -499,9 +501,9 @@ public:
     Identifier name;
 };
 
-class ProcedureHeading : public SubroutineHeading {
+class ProcedureHeading : public SubroutineHeading, public FormalParameterSection {
 public:
-    std::vector<FormalParameterSection> parameters;
+    std::vector<std::unique_ptr<FormalParameterSection>> parameters;
 
     std::string_view
     type() const override { return "ProcedureHeading"sv; }
@@ -516,9 +518,9 @@ public:
 // There is no ProcedureIdentification, because it would be indistinguishable
 // from a ProcedureHeading with no parameters.
 
-class FunctionHeading : public SubroutineHeading {
+class FunctionHeading : public SubroutineHeading, public FormalParameterSection {
 public:
-    std::vector<FormalParameterSection> parameters;
+    std::vector<std::unique_ptr<FormalParameterSection>> parameters;
     Identifier result_type;
 
     std::string_view

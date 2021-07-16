@@ -625,12 +625,21 @@ public:
     }
 
     void
-    parseFormalParameterSection(nodes::FormalParameterSection &fps) {
-        auto rec = viewRecorder(fps);
-        fps.is_variable = token_reader_.tryConsume<TokenWsVar>();
-        parseSeparatedList<TokenComma>(fps.parameter_names, &Parser::parseIdentifier);
+    parseRegularParameterSection(nodes::RegularParameterSection &rps) {
+        auto rec = viewRecorder(rps);
+        rps.is_variable = token_reader_.tryConsume<TokenWsVar>();
+        parseSeparatedList<TokenComma>(rps.parameter_names, &Parser::parseIdentifier);
         token_reader_.consume<TokenColon>();
-        parseIdentifier(fps.parameter_type);
+        parseIdentifier(rps.parameter_type);
+    }
+
+    void
+    parseFormalParameterSection(std::unique_ptr<nodes::FormalParameterSection> &rps) {
+        parseAlternatives(rps,
+            &Parser::parseRegularParameterSection,
+            &Parser::parseProcedureHeading,
+            &Parser::parseFunctionHeading);
+        // TODO: add conformant arrays
     }
 
     void
