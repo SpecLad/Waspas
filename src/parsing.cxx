@@ -47,6 +47,28 @@ public:
         }
     };
 
+    class InvalidDirective : public Error {
+    public:
+        InvalidDirective(
+            TokenReader &reader,
+            std::string_view expected_directive
+        )
+            : Error(reader), expected_directive_(expected_directive)
+        {}
+
+        void
+        report(Reporter &reporter) {
+            auto *p_token = (*reader_.tokens_it_).get();
+
+            reporter.err(p_token->view().data(), "invalid-directive",
+                "expected directive \"{}\"; got \"{}\" instead",
+                expected_directive_, p_token->view());
+        }
+
+    private:
+        std::string_view expected_directive_;
+    };
+
     class InvalidLabel : public Error {
     public:
         using Error::Error;
@@ -120,6 +142,18 @@ public:
         return (*(tokens_it_ - 1)).get();
     }
 
+    // must call tryConsume at the current token at least once before this!
+    const Token *
+    consumeAny() {
+        auto *p_next_token = (*tokens_it_).get();
+        if (dynamic_cast<TokenEof *>(p_next_token)) {
+            throw UnexpectedToken(*this);
+        }
+
+        ++tokens_it_;
+        return p_next_token;
+    }
+
     template <typename T>
     const T *
     tryConsume() {
@@ -152,6 +186,18 @@ public:
     std::string
     consumeId() {
         return consume<TokenIdentifier>().spelling();
+    }
+
+    void
+    consumeDirectiveForward() {
+        auto maybe_directive = consume<TokenIdentifier>().spelling();
+
+        static constexpr std::string_view FORWARD("forward");
+
+        if (maybe_directive != FORWARD) {
+            --tokens_it_;
+            throw InvalidDirective(*this, FORWARD);
+        }
     }
 
     int
@@ -579,6 +625,81 @@ public:
     }
 
     void
+    parseFormalParameterSection(nodes::FormalParameterSection &fps) {
+        auto rec = viewRecorder(fps);
+        fps.is_variable = token_reader_.tryConsume<TokenWsVar>();
+        parseSeparatedList<TokenComma>(fps.parameter_names, &Parser::parseIdentifier);
+        token_reader_.consume<TokenColon>();
+        parseIdentifier(fps.parameter_type);
+    }
+
+    void
+    parseProcedureHeading(nodes::ProcedureHeading &ph) {
+        auto rec = viewRecorder(ph);
+
+        token_reader_.consume<TokenWsProcedure>();
+        parseIdentifier(ph.name);
+
+        if (token_reader_.tryConsume<TokenLeftParenthesis>()) {
+            parseSeparatedList<TokenSemicolon>(
+                ph.parameters, &Parser::parseFormalParameterSection);
+            token_reader_.consume<TokenRightParenthesis>();
+        }
+    }
+
+    void
+    parseFunctionHeading(nodes::FunctionHeading &fh) {
+        auto rec = viewRecorder(fh);
+
+        token_reader_.consume<TokenWsFunction>();
+        parseIdentifier(fh.name);
+
+        if (token_reader_.tryConsume<TokenLeftParenthesis>()) {
+            parseSeparatedList<TokenSemicolon>(
+                fh.parameters, &Parser::parseFormalParameterSection);
+            token_reader_.consume<TokenRightParenthesis>();
+        }
+
+        token_reader_.consume<TokenColon>();
+        parseIdentifier(fh.result_type);
+    }
+
+    void
+    parseFunctionIdentification(nodes::FunctionIdentification &fi) {
+        auto rec = viewRecorder(fi);
+
+        token_reader_.consume<TokenWsFunction>();
+        parseIdentifier(fi.name);
+    }
+
+    void
+    parseSubroutineDeclaration(nodes::SubroutineDeclaration &sd) {
+        auto rec = viewRecorder(sd);
+
+        parseAlternatives(sd.heading,
+            &Parser::parseProcedureHeading,
+            // parseFunctionHeading has to go before parseFunctionIdentification,
+            // because a function heading always starts with a function identification,
+            &Parser::parseFunctionHeading,
+            &Parser::parseFunctionIdentification);
+
+        token_reader_.consume<TokenSemicolon>();
+
+        if (dynamic_cast<nodes::FunctionIdentification *>(sd.heading.get())) {
+            // function identifications can't be combined with a forward directive
+            nodes::Block block;
+            parseBlock(block);
+            sd.block = std::move(block);
+            return;
+        }
+
+        parseOptional(sd.block, &Parser::parseBlock);
+        if (sd.block) return;
+
+        token_reader_.consumeDirectiveForward();
+    }
+
+    void
     parseBlock(nodes::Block &block) {
         auto rec = viewRecorder(block);
 
@@ -606,10 +727,25 @@ public:
             token_reader_.consume<TokenSemicolon>();
         }
 
-        /* TODO:
-            procedure-and-function-declaration-part
-            statement-part
-        */
+        if (tryParse(
+            block.subroutine_declarations,
+            &Parser::parseSeparatedList<TokenSemicolon, nodes::SubroutineDeclaration>,
+            &Parser::parseSubroutineDeclaration)
+        ) {
+            token_reader_.consume<TokenSemicolon>();
+        }
+
+        // TODO: move this to parseCompoundStatement and implement properly
+        token_reader_.consume<TokenWsBegin>();
+
+        int nesting_level = 1;
+        do {
+            if (token_reader_.tryConsume<TokenWsBegin>()) ++nesting_level;
+            else if (token_reader_.tryConsume<TokenWsCase>()) ++nesting_level;
+            else if (token_reader_.tryConsume<TokenWsEnd>()) --nesting_level;
+            else token_reader_.consumeAny();
+        }
+        while (nesting_level > 0);
     }
 
     void
@@ -630,7 +766,7 @@ public:
 
         parseBlock(program.block);
 
-        // TODO: token_reader_.consume<TokenDot>();
+        token_reader_.consume<TokenDot>();
     }
 
 private:

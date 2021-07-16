@@ -451,12 +451,16 @@ public:
 };
 
 export
+class SubroutineDeclaration;
+
+export
 class Block : public Node {
 public:
     std::vector<LabelDeclaration> label_declarations;
     std::vector<ConstantDefinition> constant_definitions;
     std::vector<TypeDefinition> type_definitions;
     std::vector<VariableDeclaration> variable_declarations;
+    std::vector<SubroutineDeclaration> subroutine_declarations;
 
     std::string_view
     type() const override { return "Block"sv; }
@@ -467,6 +471,91 @@ public:
         declareNodeListField(receiver, "constant_definitions", constant_definitions);
         declareNodeListField(receiver, "type_definitions", type_definitions);
         declareNodeListField(receiver, "variable_declarations", variable_declarations);
+        declareNodeListField(receiver, "subroutine_declarations", subroutine_declarations);
+    }
+};
+
+export
+class FormalParameterSection : public Node {
+public:
+    bool is_variable;
+    std::vector<Identifier> parameter_names;
+    Identifier parameter_type;
+    // TODO: other kinds of parameters
+
+    std::string_view
+    type() const override { return "FormalParameterSection"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveBooleanField("is_variable", is_variable);
+        declareNodeListField(receiver, "parameter_names", parameter_names);
+        receiver.receiveNodeField("parameter_type", parameter_type);
+    }
+};
+
+class SubroutineHeading : public virtual Node {
+public:
+    Identifier name;
+};
+
+class ProcedureHeading : public SubroutineHeading {
+public:
+    std::vector<FormalParameterSection> parameters;
+
+    std::string_view
+    type() const override { return "ProcedureHeading"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("name", name);
+        declareNodeListField(receiver, "parameters", parameters);
+    }
+};
+
+// There is no ProcedureIdentification, because it would be indistinguishable
+// from a ProcedureHeading with no parameters.
+
+class FunctionHeading : public SubroutineHeading {
+public:
+    std::vector<FormalParameterSection> parameters;
+    Identifier result_type;
+
+    std::string_view
+    type() const override { return "FunctionHeading"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("name", name);
+        declareNodeListField(receiver, "parameters", parameters);
+        receiver.receiveNodeField("result_type", result_type);
+    }
+};
+
+class FunctionIdentification : public SubroutineHeading {
+public:
+    std::string_view
+    type() const override { return "FunctionIdentification"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("name", name);
+    }
+};
+
+export
+class SubroutineDeclaration : public Node {
+public:
+    std::unique_ptr<SubroutineHeading> heading;
+    std::optional<Block> block;
+
+    std::string_view
+    type() const override { return "SubroutineDeclaration"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("heading", *heading);
+        declareOptionalNodeField(receiver, "block", block);
     }
 };
 
