@@ -145,6 +145,9 @@ export
 class UnpackedStructuredType : public virtual Node {};
 
 export
+class FormalParameterTypeOrSchema : public virtual Node {};
+
+export
 class UnsignedIntegerConstant : public UnsignedConstant {
 public:
     pascal_integer_t value;
@@ -173,7 +176,7 @@ public:
 };
 
 export
-class Identifier : public UnsignedConstant, public OrdinalType {
+class Identifier : public UnsignedConstant, public OrdinalType, public FormalParameterTypeOrSchema {
 public:
     std::string name;
 
@@ -479,11 +482,61 @@ export
 class FormalParameterSection : public virtual Node {};
 
 export
+class IndexTypeSpecification : public Node {
+public:
+    Identifier smallest;
+    Identifier largest;
+    Identifier bound_type;
+
+    std::string_view
+    type() const override { return "IndexTypeSpecification"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("smallest", smallest);
+        receiver.receiveNodeField("largest", largest);
+        receiver.receiveNodeField("bound_type", bound_type);
+    }
+};
+
+export
+class PackedConformantArraySchema : public FormalParameterTypeOrSchema {
+public:
+    IndexTypeSpecification index_type;
+    Identifier component_type;
+
+    std::string_view
+    type() const override { return "PackedConformantArraySchema"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        receiver.receiveNodeField("index_type", index_type);
+        receiver.receiveNodeField("component_type", component_type);
+    }
+};
+
+export
+class UnpackedConformantArraySchema : public FormalParameterTypeOrSchema {
+public:
+    std::vector<IndexTypeSpecification> index_types;
+    std::unique_ptr<FormalParameterTypeOrSchema> component_type;
+
+    std::string_view
+    type() const override { return "UnpackedConformantArraySchema"sv; }
+
+    void
+    describeFields(NodeFieldReceiver &receiver) const override {
+        declareNodeListField(receiver, "index_types", index_types);
+        receiver.receiveNodeField("component_type", *component_type);
+    }
+};
+
+export
 class RegularParameterSection : public FormalParameterSection {
 public:
     bool is_variable;
     std::vector<Identifier> parameter_names;
-    Identifier parameter_type;
+    std::unique_ptr<FormalParameterTypeOrSchema> parameter_type;
 
     std::string_view
     type() const override { return "RegularParameterSection"sv; }
@@ -492,7 +545,7 @@ public:
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveBooleanField("is_variable", is_variable);
         declareNodeListField(receiver, "parameter_names", parameter_names);
-        receiver.receiveNodeField("parameter_type", parameter_type);
+        receiver.receiveNodeField("parameter_type", *parameter_type);
     }
 };
 

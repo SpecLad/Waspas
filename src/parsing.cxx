@@ -625,12 +625,57 @@ public:
     }
 
     void
+    parseIndexTypeSpecification(nodes::IndexTypeSpecification &its) {
+        auto rec = viewRecorder(its);
+
+        parseIdentifier(its.smallest);
+        token_reader_.consume<TokenDotDot>();
+        parseIdentifier(its.largest);
+        token_reader_.consume<TokenColon>();
+        parseIdentifier(its.bound_type);
+    }
+
+    void
+    parsePackedConformantArraySchema(nodes::PackedConformantArraySchema &pcas) {
+        auto rec = viewRecorder(pcas);
+
+        token_reader_.consume<TokenWsPacked>();
+        token_reader_.consume<TokenWsArray>();
+        token_reader_.consume<TokenLeftBracket>();
+        parseIndexTypeSpecification(pcas.index_type);
+        token_reader_.consume<TokenRightBracket>();
+        token_reader_.consume<TokenWsOf>();
+        parseIdentifier(pcas.component_type);
+    }
+
+    void
+    parseUnpackedConformantArraySchema(nodes::UnpackedConformantArraySchema &ucas) {
+        auto rec = viewRecorder(ucas);
+
+        token_reader_.consume<TokenWsArray>();
+        token_reader_.consume<TokenLeftBracket>();
+        parseSeparatedList<TokenSemicolon>(ucas.index_types,
+            &Parser::parseIndexTypeSpecification);
+        token_reader_.consume<TokenRightBracket>();
+        token_reader_.consume<TokenWsOf>();
+        parseFormalParameterTypeOrSchema(ucas.component_type);
+    }
+
+    void
+    parseFormalParameterTypeOrSchema(std::unique_ptr<nodes::FormalParameterTypeOrSchema> &fptos) {
+        parseAlternatives(fptos,
+            &Parser::parseIdentifier,
+            &Parser::parsePackedConformantArraySchema,
+            &Parser::parseUnpackedConformantArraySchema);
+    }
+
+    void
     parseRegularParameterSection(nodes::RegularParameterSection &rps) {
         auto rec = viewRecorder(rps);
         rps.is_variable = token_reader_.tryConsume<TokenWsVar>();
         parseSeparatedList<TokenComma>(rps.parameter_names, &Parser::parseIdentifier);
         token_reader_.consume<TokenColon>();
-        parseIdentifier(rps.parameter_type);
+        parseFormalParameterTypeOrSchema(rps.parameter_type);
     }
 
     void
@@ -639,7 +684,6 @@ public:
             &Parser::parseRegularParameterSection,
             &Parser::parseProcedureHeading,
             &Parser::parseFunctionHeading);
-        // TODO: add conformant arrays
     }
 
     void
