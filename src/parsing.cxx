@@ -413,7 +413,7 @@ public:
     void
     parseIdentifier(nodes::Identifier &i) {
         auto rec = viewRecorder(i);
-        i.name = token_reader_.consumeId();
+        i.spelling = token_reader_.consumeId();
     }
 
     void

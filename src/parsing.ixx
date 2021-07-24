@@ -178,14 +178,14 @@ public:
 export
 class Identifier : public UnsignedConstant, public OrdinalType, public FormalParameterTypeOrSchema {
 public:
-    std::string name;
+    std::string spelling;
 
     std::string_view
     type() const override { return "Identifier"sv; }
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        receiver.receiveIdField("name", name);
+        receiver.receiveIdField("spelling", spelling);
     }
 };
 
