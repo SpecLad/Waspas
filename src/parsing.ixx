@@ -116,12 +116,12 @@ protected:
 namespace nodes {
 
 export
-class LabelDeclaration : public Node {
+class Label : public Node {
 public:
     int value;
 
     std::string_view
-    type() const override { return "LabelDeclaration"sv; }
+    type() const override { return "Label"sv; }
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
@@ -459,7 +459,7 @@ class SubroutineDeclaration;
 export
 class Block : public Node {
 public:
-    std::vector<LabelDeclaration> label_declarations;
+    std::vector<Label> label_declarations;
     std::vector<ConstantDefinition> constant_definitions;
     std::vector<TypeDefinition> type_definitions;
     std::vector<VariableDeclaration> variable_declarations;

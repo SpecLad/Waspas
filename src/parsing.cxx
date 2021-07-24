@@ -393,7 +393,7 @@ public:
     }
 
     void
-    parseLabelDeclaration(nodes::LabelDeclaration &ld) {
+    parseLabel(nodes::Label &ld) {
         auto rec = viewRecorder(ld);
         ld.value = token_reader_.consumeLabel();
     }
@@ -758,7 +758,7 @@ public:
 
         if (token_reader_.tryConsume<TokenWsLabel>()) {
             parseSeparatedList<TokenComma>(
-                block.label_declarations, &Parser::parseLabelDeclaration);
+                block.label_declarations, &Parser::parseLabel);
             token_reader_.consume<TokenSemicolon>();
         }
 
