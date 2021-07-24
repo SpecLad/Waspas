@@ -453,7 +453,7 @@ public:
     void
     parseConstantDefinition(nodes::ConstantDefinition &cd) {
         auto rec = viewRecorder(cd);
-        cd.name = token_reader_.consumeId();
+        parseIdentifier(cd.name);
         token_reader_.consume<TokenEqual>();
         parseConstant(cd.value);
     }
@@ -611,7 +611,7 @@ public:
     void
     parseTypeDefinition(nodes::TypeDefinition &td) {
         auto rec = viewRecorder(td);
-        td.name = token_reader_.consumeId();
+        parseIdentifier(td.name);
         token_reader_.consume<TokenEqual>();
         parseTypeDenoter(td.denoter);
     }
@@ -807,7 +807,7 @@ public:
 
         token_reader_.consume<TokenWsProgram>();
 
-        program.name = token_reader_.consumeId();
+        parseIdentifier(program.name);
 
         if (token_reader_.tryConsume<TokenLeftParenthesis>()) {
             parseSeparatedList<TokenComma>(

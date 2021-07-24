@@ -222,7 +222,7 @@ public:
 export
 class ConstantDefinition : public Node {
 public:
-    std::string name;
+    Identifier name;
     std::unique_ptr<Constant> value;
 
     std::string_view
@@ -230,7 +230,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        receiver.receiveIdField("name", name);
+        receiver.receiveNodeField("name", name);
         receiver.receiveNodeField("value", *value);
     }
 };
@@ -424,7 +424,7 @@ public:
 export
 class TypeDefinition : public Node {
 public:
-    std::string name;
+    Identifier name;
     std::unique_ptr<TypeDenoter> denoter;
 
     std::string_view
@@ -432,7 +432,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        receiver.receiveIdField("name", name);
+        receiver.receiveNodeField("name", name);
         receiver.receiveNodeField("denoter", *denoter);
     }
 };
@@ -617,7 +617,7 @@ public:
 export
 class Program : public Node {
 public:
-    std::string name;
+    Identifier name;
     std::vector<Identifier> parameter_declarations;
     Block block;
 
@@ -626,7 +626,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        receiver.receiveIdField("name", name);
+        receiver.receiveNodeField("name", name);
         describeNodeListField(receiver, "parameter_declarations", parameter_declarations);
         receiver.receiveNodeField("block", block);
     }
