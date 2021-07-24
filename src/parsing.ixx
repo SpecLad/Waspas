@@ -79,7 +79,7 @@ public:
 protected:
     template <typename T>
     static void
-    declareNodeListField(
+    describeNodeListField(
         NodeFieldReceiver &receiver,
         std::string_view name,
         const std::vector<T> &nodes
@@ -98,7 +98,7 @@ protected:
 
     template <typename T>
     static void
-    declareOptionalNodeField(
+    describeOptionalNodeField(
         NodeFieldReceiver &receiver,
         std::string_view name,
         const std::optional<T> &maybe_node
@@ -245,7 +245,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "constants", constants);
+        describeNodeListField(receiver, "constants", constants);
     }
 };
 
@@ -275,7 +275,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "index_types", index_types);
+        describeNodeListField(receiver, "index_types", index_types);
         receiver.receiveNodeField("component_type", *component_type);
     }
 };
@@ -291,7 +291,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "field_names", field_names);
+        describeNodeListField(receiver, "field_names", field_names);
         receiver.receiveNodeField("field_type", *field_type);
     }
 };
@@ -311,9 +311,9 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareOptionalNodeField(receiver, "tag_field", tag_field);
+        describeOptionalNodeField(receiver, "tag_field", tag_field);
         receiver.receiveNodeField("tag_type", tag_type);
-        declareNodeListField(receiver, "variants", variants);
+        describeNodeListField(receiver, "variants", variants);
     }
 };
 
@@ -328,8 +328,8 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "fixed_sections", fixed_sections);
-        declareOptionalNodeField(receiver, "variant_part", variant_part);
+        describeNodeListField(receiver, "fixed_sections", fixed_sections);
+        describeOptionalNodeField(receiver, "variant_part", variant_part);
     }
 };
 
@@ -344,7 +344,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "case_constants", case_constants);
+        describeNodeListField(receiver, "case_constants", case_constants);
         receiver.receiveNodeField("fields", fields);
     }
 };
@@ -448,7 +448,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "var_names", var_names);
+        describeNodeListField(receiver, "var_names", var_names);
         receiver.receiveNodeField("var_type", *var_type);
     }
 };
@@ -470,11 +470,11 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "label_declarations", label_declarations);
-        declareNodeListField(receiver, "constant_definitions", constant_definitions);
-        declareNodeListField(receiver, "type_definitions", type_definitions);
-        declareNodeListField(receiver, "variable_declarations", variable_declarations);
-        declareNodeListField(receiver, "subroutine_declarations", subroutine_declarations);
+        describeNodeListField(receiver, "label_declarations", label_declarations);
+        describeNodeListField(receiver, "constant_definitions", constant_definitions);
+        describeNodeListField(receiver, "type_definitions", type_definitions);
+        describeNodeListField(receiver, "variable_declarations", variable_declarations);
+        describeNodeListField(receiver, "subroutine_declarations", subroutine_declarations);
     }
 };
 
@@ -526,7 +526,7 @@ public:
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
-        declareNodeListField(receiver, "index_types", index_types);
+        describeNodeListField(receiver, "index_types", index_types);
         receiver.receiveNodeField("component_type", *component_type);
     }
 };
@@ -544,7 +544,7 @@ public:
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveBooleanField("is_variable", is_variable);
-        declareNodeListField(receiver, "parameter_names", parameter_names);
+        describeNodeListField(receiver, "parameter_names", parameter_names);
         receiver.receiveNodeField("parameter_type", *parameter_type);
     }
 };
@@ -564,7 +564,7 @@ public:
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveNodeField("name", name);
-        declareNodeListField(receiver, "parameters", parameters);
+        describeNodeListField(receiver, "parameters", parameters);
     }
 };
 
@@ -582,7 +582,7 @@ public:
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveNodeField("name", name);
-        declareNodeListField(receiver, "parameters", parameters);
+        describeNodeListField(receiver, "parameters", parameters);
         receiver.receiveNodeField("result_type", result_type);
     }
 };
@@ -610,7 +610,7 @@ public:
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveNodeField("heading", *heading);
-        declareOptionalNodeField(receiver, "block", block);
+        describeOptionalNodeField(receiver, "block", block);
     }
 };
 
@@ -627,7 +627,7 @@ public:
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIdField("name", name);
-        declareNodeListField(receiver, "parameter_declarations", parameter_declarations);
+        describeNodeListField(receiver, "parameter_declarations", parameter_declarations);
         receiver.receiveNodeField("block", block);
     }
 };
