@@ -121,7 +121,7 @@ namespace nodes {
 export
 class Label : public Node {
 public:
-    int value;
+    pascal_integer_t value;
 
     std::string_view
     type() const override { return "Label"sv; }
