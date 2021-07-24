@@ -71,6 +71,9 @@ public:
     virtual std::string_view
     type() const = 0;
 
+    virtual bool
+    isAtomic() const { return false; }
+
     virtual void
     describeFields(NodeFieldReceiver &receiver) const {}
 
@@ -123,6 +126,9 @@ public:
     std::string_view
     type() const override { return "Label"sv; }
 
+    bool
+    isAtomic() const override { return true; }
+
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIntField("value", value);
@@ -155,6 +161,9 @@ public:
     std::string_view
     type() const override { return "UnsignedIntegerConstant"sv; }
 
+    bool
+    isAtomic() const override { return true; }
+
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveIntField("value", value);
@@ -169,6 +178,9 @@ public:
     std::string_view
     type() const override { return "UnsignedRealConstant"sv; }
 
+    bool
+    isAtomic() const override { return true; }
+
     void
     describeFields(NodeFieldReceiver &receiver) const override {
         receiver.receiveRealField("value", value);
@@ -182,6 +194,9 @@ public:
 
     std::string_view
     type() const override { return "Identifier"sv; }
+
+    bool
+    isAtomic() const override { return true; }
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {
@@ -212,6 +227,9 @@ public:
 
     std::string_view
     type() const override { return "CharacterString"sv; }
+
+    bool
+    isAtomic() const override { return true; }
 
     void
     describeFields(NodeFieldReceiver &receiver) const override {

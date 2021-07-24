@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -33,11 +34,13 @@ dumpAstHelper(
         explicit FieldDumper(
             int indent,
             const char *source_start,
-            LineIndexer &line_indexer
+            LineIndexer &line_indexer,
+            bool atomic
         )
             : indent(indent)
             , source_start(source_start)
             , line_indexer(line_indexer)
+            , atomic(atomic)
         {}
 
         void
@@ -46,8 +49,14 @@ dumpAstHelper(
                 printError(":");
                 first = false;
             }
+            else {
+                assert(!atomic);
+            }
 
-            printError("\n{:{}}{} = ", "", indent + INDENT_SIZE, name);
+            if (atomic)
+                printError(" "); // omit the name, since atomic nodes only have one member
+            else
+                printError("\n{:{}}{} = ", "", indent + INDENT_SIZE, name);
         }
 
         void
@@ -115,7 +124,8 @@ dumpAstHelper(
         bool first = true;
         const char *source_start;
         LineIndexer &line_indexer;
-    } dumper(indent, source_start, line_indexer);
+        bool atomic;
+    } dumper(indent, source_start, line_indexer, root.isAtomic());
 
     root.describeFields(dumper);
 }
