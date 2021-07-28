@@ -223,6 +223,12 @@ def generate(node_types):
 
 
 NODE_TYPES = (
+    NodeType('ActualParameter', fields=(
+        NodeField('value', 'Expression'),
+        NodeField('total_width', 'Expression'),
+        NodeField('frac_digits', 'Expression'),
+    )),
+
     NodeType('ArrayType', bases=('UnpackedStructuredType',), fields=(
         NodeListField('index_types', 'OrdinalType'),
         NodeField('component_type', 'TypeDenoter'),
@@ -338,6 +344,11 @@ NODE_TYPES = (
 
     # There is no ProcedureIdentification, because it would be indistinguishable
     # from a ProcedureHeading with no parameters.
+
+    NodeType('ProcedureStatement', bases=('UnlabeledStatement',), fields=(
+        NodeField('procedure', 'Identifier'),
+        NodeListField('parameters', 'ActualParameter'),
+    )),
 
     NodeType('Program', fields=(
         NodeField('name', 'Identifier'),

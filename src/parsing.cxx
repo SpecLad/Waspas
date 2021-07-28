@@ -772,8 +772,10 @@ public:
         if (statement.label) token_reader_.consume<TokenColon>();
         parseAlternatives(statement.unlabeled,
             &Parser::parseAssignmentStatement,
-            /*
+            // parseProcedureStatement must come after parseAssignmentStatement,
+            // since it can preempt it if there are no parameters.
             &Parser::parseProcedureStatement,
+            /*
             &Parser::parseGotoStatement,
             */
             &Parser::parseCompoundStatement,
@@ -796,6 +798,32 @@ public:
         parseVariableAccess(as.access);
         token_reader_.consume<TokenAssign>();
         parseExpression(as.expression);
+    }
+
+    void
+    parseActualParameter(nodes::ActualParameter &ap) {
+        auto rec = viewRecorder(ap);
+
+        parseExpression(ap.value);
+
+        if (token_reader_.tryConsume<TokenColon>()) {
+            parseExpression(ap.total_width);
+
+            if (token_reader_.tryConsume<TokenColon>())
+                parseExpression(ap.frac_digits);
+        }
+    }
+
+    void
+    parseProcedureStatement(nodes::ProcedureStatement &ps) {
+        auto rec = viewRecorder(ps);
+
+        parseIdentifier(ps.procedure);
+
+        if (token_reader_.tryConsume<TokenLeftParenthesis>()) {
+            parseSeparatedList<TokenComma>(ps.parameters, &Parser::parseActualParameter);
+            token_reader_.consume<TokenRightParenthesis>();
+        }
     }
 
     void
