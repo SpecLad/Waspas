@@ -228,6 +228,11 @@ NODE_TYPES = (
         NodeField('component_type', 'TypeDenoter'),
     )),
 
+    NodeType('AssignmentStatement', bases=('UnlabeledStatement',), fields=(
+        NodeField('access', 'VariableAccess'),
+        NodeField('expression', 'Expression'),
+    )),
+
     NodeType('Block', fields=(
         NodeListField('label_declarations', 'Label'),
         NodeListField('constant_definitions', 'ConstantDefinition'),
@@ -260,6 +265,10 @@ NODE_TYPES = (
         NodeListField('constants', 'Identifier'),
     )),
 
+    NodeType('Expression', fields=(
+        NodeField('identifier', 'Identifier'), # TODO: replace with proper fields
+    )),
+
     NodeType('FieldList', fields=(
         NodeListField('fixed_sections', 'RecordSection'),
         OptionalNodeField('variant_part', 'VariantPart'),
@@ -287,6 +296,7 @@ NODE_TYPES = (
         'FormalParameterTypeOrSchema',
         'OrdinalType',
         'UnsignedConstant',
+        'VariableAccess',
     ), fields=(
         IdentifierField('spelling'),
     )),
@@ -411,6 +421,8 @@ NODE_TYPES = (
     ), fields=(
         RealField('value'),
     )),
+
+    NodeType('VariableAccess', abstract=True),
 
     NodeType('VariableDeclaration', fields=(
         NodeListField('var_names', 'Identifier'),

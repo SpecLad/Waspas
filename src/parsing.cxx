@@ -753,14 +753,26 @@ public:
     }
 
     void
+    parseVariableAccess(std::unique_ptr<nodes::VariableAccess> &va) {
+        parseAlternatives(va,
+            &Parser::parseIdentifier); // TODO: other alternatives
+    }
+
+    void
+    parseExpression(nodes::Expression &expression) {
+        auto rec = viewRecorder(expression);
+        parseIdentifier(expression.identifier); // TODO: replace with proper parsing
+    }
+
+    void
     parseStatement(nodes::Statement &statement) {
         auto rec = viewRecorder(statement);
 
         parseOptional(statement.label, &Parser::parseLabel);
         if (statement.label) token_reader_.consume<TokenColon>();
         parseAlternatives(statement.unlabeled,
-            /*
             &Parser::parseAssignmentStatement,
+            /*
             &Parser::parseProcedureStatement,
             &Parser::parseGotoStatement,
             */
@@ -776,6 +788,14 @@ public:
             // parseEmptyStatement must go to the bottom,
             // or it will preempt everything else.
             &Parser::parseEmptyStatement);
+    }
+
+    void
+    parseAssignmentStatement(nodes::AssignmentStatement &as) {
+        auto rec = viewRecorder(as);
+        parseVariableAccess(as.access);
+        token_reader_.consume<TokenAssign>();
+        parseExpression(as.expression);
     }
 
     void
