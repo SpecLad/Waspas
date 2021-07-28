@@ -145,7 +145,9 @@ class NodeType:
         else:
             bases_str = ', '.join(f'public {base}' for base in self.bases)
 
-        print(f'class {self.name} : {bases_str} {{')
+        final = '' if self.abstract else ' final'
+
+        print(f'class {self.name}{final} : {bases_str} {{')
         print('public:')
 
         for field in self.fields:
