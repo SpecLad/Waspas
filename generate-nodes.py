@@ -141,7 +141,7 @@ class NodeType:
         print('export')
 
         if len(self.bases) == 0:
-            bases_str = 'public virtual Node' if self.abstract else 'public Node'
+            bases_str = 'public virtual Node'
         else:
             bases_str = ', '.join(f'public {base}' for base in self.bases)
 
