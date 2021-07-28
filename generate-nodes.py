@@ -234,6 +234,7 @@ NODE_TYPES = (
         NodeListField('type_definitions', 'TypeDefinition'),
         NodeListField('variable_declarations', 'VariableDeclaration'),
         NodeListField('subroutine_declarations', 'SubroutineDeclaration'),
+        NodeField('statement', 'CompoundStatement'),
     )),
 
     NodeType('CharacterString', atomic=True, bases=(
@@ -242,12 +243,18 @@ NODE_TYPES = (
         StringField('value'),
     )),
 
+    NodeType('CompoundStatement', bases=('UnlabeledStatement',), fields=(
+        NodeListField('statements', 'Statement'),
+    )),
+
     NodeType('Constant', abstract=True),
 
     NodeType('ConstantDefinition', fields=(
         NodeField('name', 'Identifier'),
         NodeField('value', 'Constant'),
     )),
+
+    NodeType('EmptyStatement', bases=('UnlabeledStatement',)),
 
     NodeType('EnumeratedType', bases=('OrdinalType',), fields=(
         NodeListField('constants', 'Identifier'),
@@ -354,6 +361,11 @@ NODE_TYPES = (
         NodeField('unsigned_value', 'Constant'),
     )),
 
+    NodeType('Statement', fields=(
+        OptionalNodeField('label', 'Label'),
+        NodeField('unlabeled', 'UnlabeledStatement'),
+    )),
+
     NodeType('SubrangeType', bases=('OrdinalType',), fields=(
         NodeField('smallest', 'Constant'),
         NodeField('largest', 'Constant'),
@@ -374,6 +386,8 @@ NODE_TYPES = (
     )),
 
     NodeType('TypeDenoter', abstract=True),
+
+    NodeType('UnlabeledStatement', abstract=True),
 
     NodeType('UnpackedConformantArraySchema', bases=(
         'FormalParameterTypeOrSchema',

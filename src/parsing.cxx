@@ -753,6 +753,56 @@ public:
     }
 
     void
+    parseStatement(nodes::Statement &statement) {
+        auto rec = viewRecorder(statement);
+
+        parseOptional(statement.label, &Parser::parseLabel);
+        if (statement.label) token_reader_.consume<TokenColon>();
+        parseAlternatives(statement.unlabeled,
+            /*
+            &Parser::parseAssignmentStatement,
+            &Parser::parseProcedureStatement,
+            &Parser::parseGotoStatement,
+            */
+            &Parser::parseCompoundStatement,
+            /*
+            &Parser::parseIfStatement,
+            &Parser::parseCaseStatement,
+            &Parser::parseRepeatStatement,
+            &Parser::parseWhileStatement,
+            &Parser::parseForStatement,
+            &Parser::parseWithStatement,
+            */
+            // parseEmptyStatement must go to the bottom,
+            // or it will preempt everything else.
+            &Parser::parseEmptyStatement);
+    }
+
+    void
+    parseEmptyStatement(nodes::EmptyStatement &es) {
+        auto rec = viewRecorder(es);
+    }
+
+    void
+    parseCompoundStatement(nodes::CompoundStatement &cs) {
+        auto rec = viewRecorder(cs);
+
+        token_reader_.consume<TokenWsBegin>();
+
+        parseSeparatedList<TokenSemicolon>(cs.statements, &Parser::parseStatement);
+
+        // TODO: remove this
+        int nesting_level = 1;
+        do {
+            if (token_reader_.tryConsume<TokenWsBegin>()) ++nesting_level;
+            else if (token_reader_.tryConsume<TokenWsCase>()) ++nesting_level;
+            else if (token_reader_.tryConsume<TokenWsEnd>()) --nesting_level;
+            else token_reader_.consumeAny();
+        }
+        while (nesting_level > 0);
+    }
+
+    void
     parseBlock(nodes::Block &block) {
         auto rec = viewRecorder(block);
 
@@ -788,17 +838,7 @@ public:
             token_reader_.consume<TokenSemicolon>();
         }
 
-        // TODO: move this to parseCompoundStatement and implement properly
-        token_reader_.consume<TokenWsBegin>();
-
-        int nesting_level = 1;
-        do {
-            if (token_reader_.tryConsume<TokenWsBegin>()) ++nesting_level;
-            else if (token_reader_.tryConsume<TokenWsCase>()) ++nesting_level;
-            else if (token_reader_.tryConsume<TokenWsEnd>()) --nesting_level;
-            else token_reader_.consumeAny();
-        }
-        while (nesting_level > 0);
+        parseCompoundStatement(block.statement);
     }
 
     void
