@@ -301,7 +301,7 @@ NODE_TYPES = (
     NodeType('Identifier', atomic=True, bases=(
         'FormalParameterTypeOrSchema',
         'OrdinalType',
-        'UnsignedConstant',
+        'SignableConstant',
         'VariableAccess',
     ), fields=(
         IdentifierField('spelling'),
@@ -377,9 +377,11 @@ NODE_TYPES = (
         NodeField('base_type', 'OrdinalType'),
     )),
 
+    NodeType('SignableConstant', abstract=True, bases=('Constant',)),
+
     NodeType('SignedConstant', bases=('Constant',), fields=(
         EnumField('sign', 'PascalSign'),
-        NodeField('unsigned_value', 'UnsignedConstant'),
+        NodeField('unsigned_value', 'SignableConstant'),
     )),
 
     NodeType('Statement', fields=(
@@ -419,16 +421,14 @@ NODE_TYPES = (
 
     NodeType('UnpackedStructuredType', abstract=True),
 
-    NodeType('UnsignedConstant', abstract=True, bases=('Constant',)),
-
     NodeType('UnsignedIntegerConstant', atomic=True, bases=(
-        'UnsignedConstant',
+        'SignableConstant',
     ), fields=(
         IntegerField('value'),
     )),
 
     NodeType('UnsignedRealConstant', atomic=True, bases=(
-        'UnsignedConstant',
+        'SignableConstant',
     ), fields=(
         RealField('value'),
     )),
