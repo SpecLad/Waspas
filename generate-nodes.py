@@ -305,7 +305,6 @@ NODE_TYPES = (
         'FormalParameterTypeOrSchema',
         'OrdinalType',
         'SignableConstant',
-        'VariableAccess',
     ), fields=(
         IdentifierField('spelling'),
     )),
@@ -314,6 +313,10 @@ NODE_TYPES = (
         NodeField('smallest', 'Identifier'),
         NodeField('largest', 'Identifier'),
         NodeField('bound_type', 'Identifier'),
+    )),
+
+    NodeType('IndexingModifier', bases=('VariableModifier',), fields=(
+        NodeListField('indices', 'Expression'),
     )),
 
     NodeType('Label', atomic=True, fields=(
@@ -342,6 +345,10 @@ NODE_TYPES = (
     ), fields=(
         NodeField('index_type', 'IndexTypeSpecification'),
         NodeField('component_type', 'Identifier'),
+    )),
+
+    NodeType('Parenthetical', bases=('Factor',), fields=(
+        NodeField('inner_expression', 'Expression'),
     )),
 
     NodeType('ProcedureHeading', bases=(
@@ -444,12 +451,17 @@ NODE_TYPES = (
         RealField('value'),
     )),
 
-    NodeType('VariableAccess', abstract=True, bases=('Factor',)),
+    NodeType('VariableAccess', bases=('Factor',), fields=(
+        NodeField('variable', 'Identifier'),
+        NodeListField('modifiers', 'VariableModifier'),
+    )),
 
     NodeType('VariableDeclaration', fields=(
         NodeListField('var_names', 'Identifier'),
         NodeField('var_type', 'TypeDenoter'),
     )),
+
+    NodeType('VariableModifier', abstract=True),
 
     NodeType('Variant', fields=(
         NodeListField('case_constants', 'Constant'),

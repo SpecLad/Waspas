@@ -760,15 +760,51 @@ public:
     }
 
     void
-    parseVariableAccess(std::unique_ptr<nodes::VariableAccess> &va) {
-        parseAlternatives(va,
-            &Parser::parseIdentifier); // TODO: other alternatives
+    parseIndexingModifier(nodes::IndexingModifier &im) {
+        auto rec = viewRecorder(im);
+
+        token_reader_.consume<TokenLeftBracket>();
+        parseSeparatedList<TokenComma>(im.indices, &Parser::parseExpression);
+        token_reader_.consume<TokenRightBracket>();
+    }
+
+    void
+    parseVariableModifier(std::unique_ptr<nodes::VariableModifier> &vm) {
+        parseAlternatives(vm,
+            &Parser::parseIndexingModifier
+            /* TODO:
+            &Parser::parseFieldModifier,
+            &Parser::parseDereferencingModifier*/);
+    }
+
+    void
+    parseVariableAccess(nodes::VariableAccess &va) {
+        auto rec = viewRecorder(va);
+
+        parseIdentifier(va.variable);
+
+        for (;;) {
+            std::unique_ptr<nodes::VariableModifier> modifier;
+
+            if (!tryParse(modifier, &Parser::parseVariableModifier))
+                break;
+
+            va.modifiers.push_back(std::move(modifier));
+        }
     }
 
     void
     parseNil(nodes::Nil &nil) {
         auto rec = viewRecorder(nil);
         token_reader_.consume<TokenWsNil>();
+    }
+
+    void
+    parseParenthetical(nodes::Parenthetical &p) {
+        auto rec = viewRecorder(p);
+        token_reader_.consume<TokenLeftParenthesis>();
+        parseExpression(p.inner_expression);
+        token_reader_.consume<TokenRightParenthesis>();
     }
 
     void
@@ -789,8 +825,8 @@ public:
             /*
             &Parser::parseFunctionDesignator,
             &Parser::parseSetConstructor,
-            &Parser::parseParenthetical,
             */
+            &Parser::parseParenthetical,
             &Parser::parseNotExpression);
     }
 
