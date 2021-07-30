@@ -379,7 +379,7 @@ NODE_TYPES = (
 
     NodeType('SignedConstant', bases=('Constant',), fields=(
         EnumField('sign', 'PascalSign'),
-        NodeField('unsigned_value', 'Constant'),
+        NodeField('unsigned_value', 'UnsignedConstant'),
     )),
 
     NodeType('Statement', fields=(
