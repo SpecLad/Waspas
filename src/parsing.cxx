@@ -807,10 +807,13 @@ public:
         parseExpression(ap.value);
 
         if (token_reader_.tryConsume<TokenColon>()) {
-            parseExpression(ap.total_width);
+            ap.total_width.emplace();
+            parseExpression(*ap.total_width);
 
-            if (token_reader_.tryConsume<TokenColon>())
-                parseExpression(ap.frac_digits);
+            if (token_reader_.tryConsume<TokenColon>()) {
+                ap.frac_digits.emplace();
+                parseExpression(*ap.frac_digits);
+            }
         }
     }
 

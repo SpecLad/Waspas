@@ -225,8 +225,8 @@ def generate(node_types):
 NODE_TYPES = (
     NodeType('ActualParameter', fields=(
         NodeField('value', 'Expression'),
-        NodeField('total_width', 'Expression'),
-        NodeField('frac_digits', 'Expression'),
+        OptionalNodeField('total_width', 'Expression'),
+        OptionalNodeField('frac_digits', 'Expression'),
     )),
 
     NodeType('ArrayType', bases=('UnpackedStructuredType',), fields=(
