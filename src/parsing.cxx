@@ -787,6 +787,7 @@ public:
             &Parser::parseCharacterString,
             &Parser::parseNil,
             /*
+            &Parser::parseFunctionDesignator,
             &Parser::parseSetConstructor,
             &Parser::parseParenthetical,
             */
