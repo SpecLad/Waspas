@@ -761,7 +761,18 @@ public:
     void
     parseExpression(nodes::Expression &expression) {
         auto rec = viewRecorder(expression);
-        parseIdentifier(expression.identifier); // TODO: replace with proper parsing
+        // TODO: replace with proper parsing
+
+        parseAlternatives(expression.factor,
+            &Parser::parseIdentifier,
+            &Parser::parseUnsignedIntegerConstant,
+            &Parser::parseUnsignedRealConstant,
+            &Parser::parseCharacterString
+            /*
+            &Parser::parseNil,
+            &Parser::parseSetConstructor,
+            &Parser::parseParenthetical,
+            &Parser::parseNotExpression*/);
     }
 
     void

@@ -250,6 +250,7 @@ NODE_TYPES = (
 
     NodeType('CharacterString', atomic=True, bases=(
         'Constant',
+        'Factor',
     ), fields=(
         StringField('value'),
     )),
@@ -272,8 +273,10 @@ NODE_TYPES = (
     )),
 
     NodeType('Expression', fields=(
-        NodeField('identifier', 'Identifier'), # TODO: replace with proper fields
+        NodeField('factor', 'Factor'), # TODO: replace with proper fields
     )),
+
+    NodeType('Factor', abstract=True),
 
     NodeType('FieldList', fields=(
         NodeListField('fixed_sections', 'RecordSection'),
@@ -422,18 +425,20 @@ NODE_TYPES = (
     NodeType('UnpackedStructuredType', abstract=True),
 
     NodeType('UnsignedIntegerConstant', atomic=True, bases=(
+        'Factor',
         'SignableConstant',
     ), fields=(
         IntegerField('value'),
     )),
 
     NodeType('UnsignedRealConstant', atomic=True, bases=(
+        'Factor',
         'SignableConstant',
     ), fields=(
         RealField('value'),
     )),
 
-    NodeType('VariableAccess', abstract=True),
+    NodeType('VariableAccess', abstract=True, bases=('Factor',)),
 
     NodeType('VariableDeclaration', fields=(
         NodeListField('var_names', 'Identifier'),
