@@ -329,6 +329,8 @@ NODE_TYPES = (
         NodeField('unpacked', 'UnpackedStructuredType'),
     )),
 
+    NodeType('Nil', bases=('Factor',)),
+
     NodeType('NotExpression', bases=('Factor',), fields=(
         NodeField('operand', 'Factor'),
     )),

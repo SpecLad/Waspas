@@ -766,6 +766,12 @@ public:
     }
 
     void
+    parseNil(nodes::Nil &nil) {
+        auto rec = viewRecorder(nil);
+        token_reader_.consume<TokenWsNil>();
+    }
+
+    void
     parseNotExpression(nodes::NotExpression &ne) {
         auto rec = viewRecorder(ne);
         token_reader_.consume<TokenWsNot>();
@@ -779,8 +785,8 @@ public:
             &Parser::parseUnsignedIntegerConstant,
             &Parser::parseUnsignedRealConstant,
             &Parser::parseCharacterString,
-            /*
             &Parser::parseNil,
+            /*
             &Parser::parseSetConstructor,
             &Parser::parseParenthetical,
             */
