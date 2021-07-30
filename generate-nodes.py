@@ -329,6 +329,10 @@ NODE_TYPES = (
         NodeField('unpacked', 'UnpackedStructuredType'),
     )),
 
+    NodeType('NotExpression', bases=('Factor',), fields=(
+        NodeField('operand', 'Factor'),
+    )),
+
     NodeType('OrdinalType', abstract=True, bases=('TypeDenoter',)),
 
     NodeType('PackedConformantArraySchema', bases=(

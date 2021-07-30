@@ -766,20 +766,32 @@ public:
     }
 
     void
-    parseExpression(nodes::Expression &expression) {
-        auto rec = viewRecorder(expression);
-        // TODO: replace with proper parsing
+    parseNotExpression(nodes::NotExpression &ne) {
+        auto rec = viewRecorder(ne);
+        token_reader_.consume<TokenWsNot>();
+        parseFactor(ne.operand);
+    }
 
-        parseAlternatives(expression.factor,
+    void
+    parseFactor(std::unique_ptr<nodes::Factor> &factor) {
+        parseAlternatives(factor,
             &Parser::parseVariableAccess,
             &Parser::parseUnsignedIntegerConstant,
             &Parser::parseUnsignedRealConstant,
-            &Parser::parseCharacterString
+            &Parser::parseCharacterString,
             /*
             &Parser::parseNil,
             &Parser::parseSetConstructor,
             &Parser::parseParenthetical,
-            &Parser::parseNotExpression*/);
+            */
+            &Parser::parseNotExpression);
+    }
+
+    void
+    parseExpression(nodes::Expression &expression) {
+        auto rec = viewRecorder(expression);
+        // TODO: replace with proper parsing
+        parseFactor(expression.factor);
     }
 
     void
