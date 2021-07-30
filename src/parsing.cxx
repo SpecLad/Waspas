@@ -357,7 +357,11 @@ public:
     parseAlternative(std::unique_ptr<N> &node_ptr, parse_f<Alt> parse_alternative) {
         Alt node;
         (this->*parse_alternative)(node);
-        node_ptr = std::make_unique<Alt>(std::move(node));
+
+        if constexpr (std::is_base_of_v<Node, Alt>)
+            node_ptr = std::make_unique<Alt>(std::move(node));
+        else
+            node_ptr = std::move(node);
     }
 
     template <typename N, typename Alt>
@@ -417,6 +421,14 @@ public:
     }
 
     void
+    parseSignableConstant(std::unique_ptr<nodes::SignableConstant> &sc) {
+        parseAlternatives(sc,
+            &Parser::parseUnsignedIntegerConstant,
+            &Parser::parseUnsignedRealConstant,
+            &Parser::parseIdentifier);
+    }
+
+    void
     parseSignedConstant(nodes::SignedConstant &sc) {
         auto rec = viewRecorder(sc);
 
@@ -428,10 +440,7 @@ public:
             sc.sign = PascalSign::MINUS;
         }
 
-        parseAlternatives(sc.unsigned_value,
-            &Parser::parseUnsignedIntegerConstant,
-            &Parser::parseUnsignedRealConstant,
-            &Parser::parseIdentifier);
+        parseSignableConstant(sc.unsigned_value);
     }
 
     void
@@ -444,9 +453,7 @@ public:
     parseConstant(std::unique_ptr<nodes::Constant> &c) {
         parseAlternatives(c,
             &Parser::parseSignedConstant,
-            &Parser::parseUnsignedIntegerConstant,
-            &Parser::parseUnsignedRealConstant,
-            &Parser::parseIdentifier,
+            &Parser::parseSignableConstant,
             &Parser::parseCharacterString);
     }
 
@@ -764,7 +771,7 @@ public:
         // TODO: replace with proper parsing
 
         parseAlternatives(expression.factor,
-            &Parser::parseIdentifier,
+            &Parser::parseVariableAccess,
             &Parser::parseUnsignedIntegerConstant,
             &Parser::parseUnsignedRealConstant,
             &Parser::parseCharacterString
