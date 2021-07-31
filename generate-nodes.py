@@ -266,6 +266,8 @@ NODE_TYPES = (
         NodeField('value', 'Constant'),
     )),
 
+    NodeType('DereferencingModifier', bases=('VariableModifier',)),
+
     NodeType('EmptyStatement', bases=('UnlabeledStatement',)),
 
     NodeType('EnumeratedType', bases=('OrdinalType',), fields=(
@@ -277,6 +279,10 @@ NODE_TYPES = (
     )),
 
     NodeType('Factor', abstract=True),
+
+    NodeType('FieldAccessModifier', bases=('VariableModifier',), fields=(
+        NodeField('field', 'Identifier'),
+    )),
 
     NodeType('FieldList', fields=(
         NodeListField('fixed_sections', 'RecordSection'),

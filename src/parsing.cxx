@@ -769,12 +769,24 @@ public:
     }
 
     void
+    parseFieldAccessModifier(nodes::FieldAccessModifier &fam) {
+        auto rec = viewRecorder(fam);
+        token_reader_.consume<TokenDot>();
+        parseIdentifier(fam.field);
+    }
+
+    void
+    parseDereferencingModifier(nodes::DereferencingModifier &dm) {
+        auto rec = viewRecorder(dm);
+        token_reader_.consume<TokenCaret>();
+    }
+
+    void
     parseVariableModifier(std::unique_ptr<nodes::VariableModifier> &vm) {
         parseAlternatives(vm,
-            &Parser::parseIndexingModifier
-            /* TODO:
-            &Parser::parseFieldModifier,
-            &Parser::parseDereferencingModifier*/);
+            &Parser::parseIndexingModifier,
+            &Parser::parseFieldAccessModifier,
+            &Parser::parseDereferencingModifier);
     }
 
     void
