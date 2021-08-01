@@ -415,6 +415,11 @@ NODE_TYPES = (
         NodeField('parameter_type', 'FormalParameterTypeOrSchema'),
     )),
 
+    NodeType('RepeatStatement', bases=('UnlabeledStatement',), fields=(
+        NodeListField('statements', 'Statement'),
+        NodeField('condition', 'Expression'),
+    )),
+
     NodeType('SetType', bases=('UnpackedStructuredType',), fields=(
         NodeField('base_type', 'OrdinalType'),
     )),
@@ -498,6 +503,11 @@ NODE_TYPES = (
         OptionalNodeField('tag_field', 'Identifier'),
         NodeField('tag_type', 'Identifier'),
         NodeListField('variants', 'Variant'),
+    )),
+
+    NodeType('WhileStatement', bases=('UnlabeledStatement',), fields=(
+        NodeField('condition', 'Expression'),
+        NodeField('statement', 'Statement'),
     )),
 )
 

@@ -864,9 +864,9 @@ public:
             &Parser::parseCompoundStatement,
             &Parser::parseIfStatement,
             &Parser::parseCaseStatement,
-            /*
             &Parser::parseRepeatStatement,
             &Parser::parseWhileStatement,
+            /*
             &Parser::parseForStatement,
             &Parser::parseWithStatement,
             */
@@ -953,6 +953,26 @@ public:
         parseSeparatedList<TokenSemicolon>(cs.cases, &Parser::parseCaseListElement);
         token_reader_.tryConsume<TokenSemicolon>();
         token_reader_.consume<TokenWsEnd>();
+    }
+
+    void
+    parseRepeatStatement(nodes::RepeatStatement &rs) {
+        auto rec = viewRecorder(rs);
+
+        token_reader_.consume<TokenWsRepeat>();
+        parseSeparatedList<TokenSemicolon>(rs.statements, &Parser::parseStatement);
+        token_reader_.consume<TokenWsUntil>();
+        parseExpression(rs.condition);
+    }
+
+    void
+    parseWhileStatement(nodes::WhileStatement &ws) {
+        auto rec = viewRecorder(ws);
+
+        token_reader_.consume<TokenWsWhile>();
+        parseExpression(ws.condition);
+        token_reader_.consume<TokenWsDo>();
+        parseStatement(ws.statement);
     }
 
     void
