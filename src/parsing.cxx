@@ -860,13 +860,11 @@ public:
             // parseProcedureStatement must come after parseAssignmentStatement,
             // since it can preempt it if there are no parameters.
             &Parser::parseProcedureStatement,
-            /*
             &Parser::parseGotoStatement,
-            */
             &Parser::parseCompoundStatement,
-            /*
             &Parser::parseIfStatement,
             &Parser::parseCaseStatement,
+            /*
             &Parser::parseRepeatStatement,
             &Parser::parseWhileStatement,
             &Parser::parseForStatement,
@@ -912,6 +910,49 @@ public:
             parseSeparatedList<TokenComma>(ps.parameters, &Parser::parseActualParameter);
             token_reader_.consume<TokenRightParenthesis>();
         }
+    }
+
+    void
+    parseGotoStatement(nodes::GotoStatement &gs) {
+        auto rec = viewRecorder(gs);
+        token_reader_.consume<TokenWsGoto>();
+        parseLabel(gs.label);
+    }
+
+    void
+    parseIfStatement(nodes::IfStatement &is) {
+        auto rec = viewRecorder(is);
+
+        token_reader_.consume<TokenWsIf>();
+        parseExpression(is.condition);
+        token_reader_.consume<TokenWsThen>();
+        parseStatement(is.true_branch);
+
+        if (token_reader_.tryConsume<TokenWsElse>()) {
+            is.false_branch.emplace();
+            parseStatement(*is.false_branch);
+        }
+    }
+
+    void
+    parseCaseListElement(nodes::CaseListElement &cle) {
+        auto rec = viewRecorder(cle);
+
+        parseSeparatedList<TokenComma>(cle.constants, &Parser::parseConstant);
+        token_reader_.consume<TokenColon>();
+        parseStatement(cle.statement);
+    }
+
+    void
+    parseCaseStatement(nodes::CaseStatement &cs) {
+        auto rec = viewRecorder(cs);
+
+        token_reader_.consume<TokenWsCase>();
+        parseExpression(cs.case_index);
+        token_reader_.consume<TokenWsOf>();
+        parseSeparatedList<TokenSemicolon>(cs.cases, &Parser::parseCaseListElement);
+        token_reader_.tryConsume<TokenSemicolon>();
+        token_reader_.consume<TokenWsEnd>();
     }
 
     void

@@ -248,6 +248,16 @@ NODE_TYPES = (
         NodeField('statement', 'CompoundStatement'),
     )),
 
+    NodeType('CaseListElement', fields=(
+        NodeListField('constants', 'Constant'),
+        NodeField('statement', 'Statement'),
+    )),
+
+    NodeType('CaseStatement', bases=('UnlabeledStatement',), fields=(
+        NodeField('case_index', 'Expression'),
+        NodeListField('cases', 'CaseListElement'),
+    )),
+
     NodeType('CharacterString', atomic=True, bases=(
         'Constant',
         'Factor',
@@ -307,12 +317,22 @@ NODE_TYPES = (
 
     NodeType('FunctionIdentification', bases=('SubroutineHeading',)),
 
+    NodeType('GotoStatement', bases=('UnlabeledStatement',), fields=(
+        NodeField('label', 'Label'),
+    )),
+
     NodeType('Identifier', atomic=True, bases=(
         'FormalParameterTypeOrSchema',
         'OrdinalType',
         'SignableConstant',
     ), fields=(
         IdentifierField('spelling'),
+    )),
+
+    NodeType('IfStatement', bases=('UnlabeledStatement',), fields=(
+        NodeField('condition', 'Expression'),
+        NodeField('true_branch', 'Statement'),
+        OptionalNodeField('false_branch', 'Statement'),
     )),
 
     NodeType('IndexTypeSpecification', fields=(
