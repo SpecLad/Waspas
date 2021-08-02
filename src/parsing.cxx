@@ -1009,7 +1009,7 @@ public:
         token_reader_.consume<TokenWsWhile>();
         parseExpression(ws.condition);
         token_reader_.consume<TokenWsDo>();
-        parseStatement(ws.statement);
+        parseStatement(ws.body);
     }
 
     void

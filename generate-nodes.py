@@ -564,7 +564,7 @@ NODE_TYPES = (
 
     NodeType('WhileStatement', bases=('UnlabeledStatement',), fields=(
         NodeField('condition', 'Expression'),
-        NodeField('statement', 'Statement'),
+        NodeField('body', 'Statement'),
     )),
 )
 
