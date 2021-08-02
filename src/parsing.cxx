@@ -903,8 +903,8 @@ public:
             &Parser::parseCaseStatement,
             &Parser::parseRepeatStatement,
             &Parser::parseWhileStatement,
-            /*
             &Parser::parseForStatement,
+            /*
             &Parser::parseWithStatement,
             */
             // parseEmptyStatement must go to the bottom,
@@ -1010,6 +1010,28 @@ public:
         parseExpression(ws.condition);
         token_reader_.consume<TokenWsDo>();
         parseStatement(ws.body);
+    }
+
+    void
+    parseForStatement(nodes::ForStatement &fs) {
+        auto rec = viewRecorder(fs);
+
+        token_reader_.consume<TokenWsFor>();
+        parseIdentifier(fs.control_variable);
+        token_reader_.consume<TokenAssign>();
+        parseExpression(fs.initial_value);
+
+        if (token_reader_.tryConsume<TokenWsTo>()) {
+            fs.direction = nodes::RangeDirection::TO;
+        }
+        else {
+            token_reader_.consume<TokenWsDownto>();
+            fs.direction = nodes::RangeDirection::DOWNTO;
+        }
+
+        parseExpression(fs.final_value);
+        token_reader_.consume<TokenWsDo>();
+        parseStatement(fs.body);
     }
 
     void

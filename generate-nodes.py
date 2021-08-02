@@ -256,6 +256,8 @@ def generate(enumerations, node_types):
     print('}')
 
 ENUMERATIONS = (
+    Enumeration('RangeDirection', ['TO', 'DOWNTO']),
+
     Enumeration('RelationalOperator', [
         'EQUAL',
         'NOT_EQUAL',
@@ -354,6 +356,14 @@ NODE_TYPES = (
 
     NodeType('FileType', bases=('UnpackedStructuredType',), fields=(
         NodeField('component_type', 'TypeDenoter'),
+    )),
+
+    NodeType('ForStatement', bases=('UnlabeledStatement',), fields=(
+        NodeField('control_variable', 'Identifier'),
+        NodeField('initial_value', 'Expression'),
+        EnumField('direction', 'RangeDirection'),
+        NodeField('final_value', 'Expression'),
+        NodeField('body', 'Statement'),
     )),
 
     NodeType('FormalParameterSection', abstract=True),
