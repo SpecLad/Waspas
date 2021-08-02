@@ -7,6 +7,31 @@ from dataclasses import dataclass, field
 from typing import Union
 
 @dataclass
+class Enumeration:
+    name: str
+    enumerators: Collection[str] = field(default_factory=tuple)
+
+    def generate(self):
+        print('export')
+        print(f'enum class {self.name} {{')
+
+        for enumerator in self.enumerators:
+            print(f'    {enumerator},')
+
+        print('};')
+        print()
+        print('std::string_view')
+        print(f'asString({self.name} value) {{')
+        print('    switch (value) {')
+
+        for enumerator in self.enumerators:
+            print(f'    case {self.name}::{enumerator}: return "{enumerator}"sv;')
+
+        print('    default: return "???"sv;')
+        print('    }')
+        print('}')
+
+@dataclass
 class Field:
     name: str
 
@@ -181,7 +206,12 @@ class NodeType:
         print('}')
 
 
-def generate(node_types):
+def generate(enumerations, node_types):
+    assert all(
+        enumerations[i].name < enumerations[i + 1].name
+        for i in range(len(enumerations) - 1)
+    )
+
     assert all(
         node_types[i].name < node_types[i + 1].name
         for i in range(len(node_types) - 1)
@@ -198,6 +228,10 @@ def generate(node_types):
     print()
 
     print('namespace nodes {')
+
+    for enumeration in enumerations:
+        print()
+        enumeration.generate()
 
     for node_type in node_types:
         print()
@@ -221,6 +255,9 @@ def generate(node_types):
     print()
     print('}')
 
+ENUMERATIONS = (
+    Enumeration('Sign', ['PLUS', 'MINUS']),
+)
 
 NODE_TYPES = (
     NodeType('ActualParameter', fields=(
@@ -427,7 +464,7 @@ NODE_TYPES = (
     NodeType('SignableConstant', abstract=True, bases=('Constant',)),
 
     NodeType('SignedConstant', bases=('Constant',), fields=(
-        EnumField('sign', 'PascalSign'),
+        EnumField('sign', 'Sign'),
         NodeField('unsigned_value', 'SignableConstant'),
     )),
 
@@ -512,7 +549,7 @@ NODE_TYPES = (
 )
 
 def main():
-    generate(NODE_TYPES)
+    generate(ENUMERATIONS, NODE_TYPES)
 
 if __name__ == '__main__':
     main()

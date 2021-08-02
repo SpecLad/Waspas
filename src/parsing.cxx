@@ -433,11 +433,11 @@ public:
         auto rec = viewRecorder(sc);
 
         if (token_reader_.tryConsume<TokenPlus>()) {
-            sc.sign = PascalSign::PLUS;
+            sc.sign = nodes::Sign::PLUS;
         }
         else {
             token_reader_.consume<TokenMinus>();
-            sc.sign = PascalSign::MINUS;
+            sc.sign = nodes::Sign::MINUS;
         }
 
         parseSignableConstant(sc.unsigned_value);

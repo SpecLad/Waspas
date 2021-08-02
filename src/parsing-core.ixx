@@ -24,20 +24,6 @@ static_assert(std::numeric_limits<pascal_real_t>::is_iec559);
 static_assert(std::numeric_limits<pascal_real_t>::digits == 53);
 
 export
-enum class PascalSign {
-    PLUS, MINUS,
-};
-
-std::string_view
-asString(PascalSign value) {
-    switch (value) {
-    case PascalSign::PLUS: return "PLUS"sv;
-    case PascalSign::MINUS: return "MINUS"sv;
-    default: return "???"sv;
-    }
-}
-
-export
 class Node;
 
 export
