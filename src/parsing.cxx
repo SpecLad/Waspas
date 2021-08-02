@@ -396,6 +396,49 @@ public:
             maybe_node = std::move(node);
     }
 
+    template <typename Token, typename E>
+    struct TokenEnumPair {
+        E value;
+    };
+
+    template <typename Token, typename E>
+    TokenEnumPair<Token, E>
+    tep(E value) { return TokenEnumPair<Token, E>{value}; }
+
+    template <typename E, typename Token0, typename ...Tokens>
+    void
+    parseEnum(
+        E &value,
+        TokenEnumPair<Token0, E> tep0,
+        TokenEnumPair<Tokens, E> ...teps
+    ) {
+        if constexpr (sizeof...(Tokens) == 0) {
+            token_reader_.consume<Token0>();
+            value = tep0.value;
+        }
+        else {
+            if (token_reader_.tryConsume<Token0>())
+                value = tep0.value;
+            else
+                parseEnum(value, teps...);
+        }
+    }
+
+    template <typename E, typename Token0, typename ...Tokens>
+    void
+    parseEnum(
+        E &value,
+        E default_value,
+        TokenEnumPair<Token0, E> tep0,
+        TokenEnumPair<Tokens, E> ...teps
+    ) {
+        if (!tryParse(
+            value, &Parser::parseEnum<E, Token0, Tokens...>,
+            tep0, teps...)
+        )
+            value = default_value;
+    }
+
     void
     parseLabel(nodes::Label &ld) {
         auto rec = viewRecorder(ld);
@@ -432,12 +475,9 @@ public:
     parseSignedConstant(nodes::SignedConstant &sc) {
         auto rec = viewRecorder(sc);
 
-        if (token_reader_.tryConsume<TokenPlus>())
-            sc.sign = nodes::Sign::PLUS;
-        else if (token_reader_.tryConsume<TokenMinus>())
-            sc.sign = nodes::Sign::MINUS;
-        else
-            sc.sign = nodes::Sign::NONE;
+        parseEnum(sc.sign, nodes::Sign::NONE,
+            tep<TokenPlus>(nodes::Sign::PLUS),
+            tep<TokenMinus>(nodes::Sign::MINUS));
 
         parseSignableConstant(sc.unsigned_value);
     }
@@ -851,28 +891,17 @@ public:
     parseExpressionModifier(nodes::ExpressionModifier &em) {
         auto rec = viewRecorder(em);
 
-        if (token_reader_.tryConsume<TokenEqual>()) {
-            em.operator_ = nodes::RelationalOperator::EQUAL;
-        }
-        else if (token_reader_.tryConsume<TokenNotEqual>()) {
-            em.operator_ = nodes::RelationalOperator::NOT_EQUAL;
-        }
-        else if (token_reader_.tryConsume<TokenLessThan>()) {
-            em.operator_ = nodes::RelationalOperator::LESS;
-        }
-        else if (token_reader_.tryConsume<TokenGreaterThan>()) {
-            em.operator_ = nodes::RelationalOperator::GREATER;
-        }
-        else if (token_reader_.tryConsume<TokenLessThanOrEqual>()) {
-            em.operator_ = nodes::RelationalOperator::LESS_OR_EQUAL;
-        }
-        else if (token_reader_.tryConsume<TokenGreaterThanOrEqual>()) {
-            em.operator_ = nodes::RelationalOperator::GREATER_OR_EQUAL;
-        }
-        else {
-            token_reader_.consume<TokenWsIn>();
-            em.operator_ = nodes::RelationalOperator::IN;
-        }
+        using enum nodes::RelationalOperator;
+
+        parseEnum(em.operator_,
+            tep<TokenEqual>(EQUAL),
+            tep<TokenNotEqual>(NOT_EQUAL),
+            tep<TokenLessThan>(LESS),
+            tep<TokenGreaterThan>(GREATER),
+            tep<TokenLessThanOrEqual>(LESS_OR_EQUAL),
+            tep<TokenGreaterThanOrEqual>(GREATER_OR_EQUAL),
+            tep<TokenWsIn>(IN)
+        );
 
         parseSimpleExpression(em.operand);
     }
@@ -1027,13 +1056,9 @@ public:
         token_reader_.consume<TokenAssign>();
         parseExpression(fs.initial_value);
 
-        if (token_reader_.tryConsume<TokenWsTo>()) {
-            fs.direction = nodes::RangeDirection::TO;
-        }
-        else {
-            token_reader_.consume<TokenWsDownto>();
-            fs.direction = nodes::RangeDirection::DOWNTO;
-        }
+        parseEnum(fs.direction,
+            tep<TokenWsTo>(nodes::RangeDirection::TO),
+            tep<TokenWsDownto>(nodes::RangeDirection::DOWNTO));
 
         parseExpression(fs.final_value);
         token_reader_.consume<TokenWsDo>();
