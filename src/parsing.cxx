@@ -432,13 +432,12 @@ public:
     parseSignedConstant(nodes::SignedConstant &sc) {
         auto rec = viewRecorder(sc);
 
-        if (token_reader_.tryConsume<TokenPlus>()) {
+        if (token_reader_.tryConsume<TokenPlus>())
             sc.sign = nodes::Sign::PLUS;
-        }
-        else {
-            token_reader_.consume<TokenMinus>();
+        else if (token_reader_.tryConsume<TokenMinus>())
             sc.sign = nodes::Sign::MINUS;
-        }
+        else
+            sc.sign = nodes::Sign::NONE;
 
         parseSignableConstant(sc.unsigned_value);
     }
@@ -453,7 +452,6 @@ public:
     parseConstant(std::unique_ptr<nodes::Constant> &c) {
         parseAlternatives(c,
             &Parser::parseSignedConstant,
-            &Parser::parseSignableConstant,
             &Parser::parseCharacterString);
     }
 

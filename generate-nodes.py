@@ -268,7 +268,7 @@ ENUMERATIONS = (
         'IN',
     ]),
 
-    Enumeration('Sign', ['PLUS', 'MINUS']),
+    Enumeration('Sign', ['NONE', 'PLUS', 'MINUS']),
 )
 
 NODE_TYPES = (
@@ -487,7 +487,7 @@ NODE_TYPES = (
         NodeField('base_type', 'OrdinalType'),
     )),
 
-    NodeType('SignableConstant', abstract=True, bases=('Constant',)),
+    NodeType('SignableConstant', abstract=True),
 
     NodeType('SignedConstant', bases=('Constant',), fields=(
         EnumField('sign', 'Sign'),
