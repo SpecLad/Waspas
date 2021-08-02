@@ -856,6 +856,20 @@ public:
     }
 
     void
+    parseFunctionDesignator(nodes::FunctionDesignator &fd) {
+        auto rec = viewRecorder(fd);
+
+        parseIdentifier(fd.function);
+
+        // A function without a parameter list will get parsed
+        // as a variable access, so we can assume that a parameter list
+        // is present.
+        token_reader_.consume<TokenLeftParenthesis>();
+        parseSeparatedList<TokenComma>(fd.parameters, &Parser::parseExpression);
+        token_reader_.consume<TokenRightParenthesis>();
+    }
+
+    void
     parseParenthetical(nodes::Parenthetical &p) {
         auto rec = viewRecorder(p);
         token_reader_.consume<TokenLeftParenthesis>();
@@ -873,13 +887,15 @@ public:
     void
     parseFactor(std::unique_ptr<nodes::Factor> &factor) {
         parseAlternatives(factor,
+            // parseFunctionDesignator has to go before parseVariableAccess,
+            // lest it's preempted by it.
+            &Parser::parseFunctionDesignator,
             &Parser::parseVariableAccess,
             &Parser::parseUnsignedIntegerConstant,
             &Parser::parseUnsignedRealConstant,
             &Parser::parseCharacterString,
             &Parser::parseNil,
             /*
-            &Parser::parseFunctionDesignator,
             &Parser::parseSetConstructor,
             */
             &Parser::parseParenthetical,

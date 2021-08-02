@@ -380,6 +380,11 @@ NODE_TYPES = (
 
     NodeType('FormalParameterTypeOrSchema', abstract=True),
 
+    NodeType('FunctionDesignator', bases=('Factor',), fields=(
+        NodeField('function', 'Identifier'),
+        NodeListField('parameters', 'Expression'),
+    )),
+
     NodeType('FunctionHeading', bases=(
         'FormalParameterSection',
         'SubroutineHeading',
