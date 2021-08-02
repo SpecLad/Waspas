@@ -904,9 +904,7 @@ public:
             &Parser::parseRepeatStatement,
             &Parser::parseWhileStatement,
             &Parser::parseForStatement,
-            /*
             &Parser::parseWithStatement,
-            */
             // parseEmptyStatement must go to the bottom,
             // or it will preempt everything else.
             &Parser::parseEmptyStatement);
@@ -1008,6 +1006,16 @@ public:
 
         token_reader_.consume<TokenWsWhile>();
         parseExpression(ws.condition);
+        token_reader_.consume<TokenWsDo>();
+        parseStatement(ws.body);
+    }
+
+    void
+    parseWithStatement(nodes::WithStatement &ws) {
+        auto rec = viewRecorder(ws);
+
+        token_reader_.consume<TokenWsWith>();
+        parseSeparatedList<TokenComma>(ws.variables, &Parser::parseVariableAccess);
         token_reader_.consume<TokenWsDo>();
         parseStatement(ws.body);
     }

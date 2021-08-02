@@ -576,6 +576,11 @@ NODE_TYPES = (
         NodeField('condition', 'Expression'),
         NodeField('body', 'Statement'),
     )),
+
+    NodeType('WithStatement', bases=('UnlabeledStatement',), fields=(
+        NodeListField('variables', 'VariableAccess'),
+        NodeField('body', 'Statement'),
+    )),
 )
 
 def main():
