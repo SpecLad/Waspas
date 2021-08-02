@@ -256,6 +256,16 @@ def generate(enumerations, node_types):
     print('}')
 
 ENUMERATIONS = (
+    Enumeration('RelationalOperator', [
+        'EQUAL',
+        'NOT_EQUAL',
+        'LESS',
+        'GREATER',
+        'LESS_OR_EQUAL',
+        'GREATER_OR_EQUAL',
+        'IN',
+    ]),
+
     Enumeration('Sign', ['PLUS', 'MINUS']),
 )
 
@@ -322,7 +332,13 @@ NODE_TYPES = (
     )),
 
     NodeType('Expression', fields=(
-        NodeField('factor', 'Factor'), # TODO: replace with proper fields
+        NodeField('operand', 'SimpleExpression'),
+        OptionalNodeField('modifier', 'ExpressionModifier'),
+    )),
+
+    NodeType('ExpressionModifier', fields=(
+        EnumField('operator_', 'RelationalOperator'),
+        NodeField('operand', 'SimpleExpression'),
     )),
 
     NodeType('Factor', abstract=True),
@@ -466,6 +482,10 @@ NODE_TYPES = (
     NodeType('SignedConstant', bases=('Constant',), fields=(
         EnumField('sign', 'Sign'),
         NodeField('unsigned_value', 'SignableConstant'),
+    )),
+
+    NodeType('SimpleExpression', fields=(
+        NodeField('factor', 'Factor'), # TODO: replace with proper fields
     )),
 
     NodeType('Statement', fields=(

@@ -843,10 +843,47 @@ public:
     }
 
     void
+    parseSimpleExpression(nodes::SimpleExpression &se) {
+        auto rec = viewRecorder(se);
+        // TODO: replace with proper parsing
+        parseFactor(se.factor);
+    }
+
+    void
+    parseExpressionModifier(nodes::ExpressionModifier &em) {
+        auto rec = viewRecorder(em);
+
+        if (token_reader_.tryConsume<TokenEqual>()) {
+            em.operator_ = nodes::RelationalOperator::EQUAL;
+        }
+        else if (token_reader_.tryConsume<TokenNotEqual>()) {
+            em.operator_ = nodes::RelationalOperator::NOT_EQUAL;
+        }
+        else if (token_reader_.tryConsume<TokenLessThan>()) {
+            em.operator_ = nodes::RelationalOperator::LESS;
+        }
+        else if (token_reader_.tryConsume<TokenGreaterThan>()) {
+            em.operator_ = nodes::RelationalOperator::GREATER;
+        }
+        else if (token_reader_.tryConsume<TokenLessThanOrEqual>()) {
+            em.operator_ = nodes::RelationalOperator::LESS_OR_EQUAL;
+        }
+        else if (token_reader_.tryConsume<TokenGreaterThanOrEqual>()) {
+            em.operator_ = nodes::RelationalOperator::GREATER_OR_EQUAL;
+        }
+        else {
+            token_reader_.consume<TokenWsIn>();
+            em.operator_ = nodes::RelationalOperator::IN;
+        }
+
+        parseSimpleExpression(em.operand);
+    }
+
+    void
     parseExpression(nodes::Expression &expression) {
         auto rec = viewRecorder(expression);
-        // TODO: replace with proper parsing
-        parseFactor(expression.factor);
+        parseSimpleExpression(expression.operand);
+        parseOptional(expression.modifier, &Parser::parseExpressionModifier);
     }
 
     void
