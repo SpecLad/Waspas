@@ -484,13 +484,16 @@ public:
     }
 
     void
-    parseSignedConstant(nodes::SignedConstant &sc) {
-        auto rec = viewRecorder(sc);
-
-        parseEnum(sc.sign, nodes::Sign::NONE,
+    parseSign(nodes::Sign &sign) {
+        parseEnum(sign, nodes::Sign::NONE,
             tep<TokenPlus>(nodes::Sign::PLUS),
             tep<TokenMinus>(nodes::Sign::MINUS));
+    }
 
+    void
+    parseSignedConstant(nodes::SignedConstant &sc) {
+        auto rec = viewRecorder(sc);
+        parseSign(sc.sign);
         parseSignableConstant(sc.unsigned_value);
     }
 
@@ -884,10 +887,50 @@ public:
     }
 
     void
+    parseTermModifier(nodes::TermModifier &tm) {
+        auto rec = viewRecorder(tm);
+
+        using enum nodes::MultiplyingOperator;
+
+        parseEnum(tm.operator_,
+            tep<TokenAsterisk>(MULTIPLY),
+            tep<TokenSlash>(DIVIDE_REAL),
+            tep<TokenWsDiv>(DIVIDE_INTEGER),
+            tep<TokenWsMod>(MODULO),
+            tep<TokenWsAnd>(AND)
+        );
+
+        parseFactor(tm.operand);
+    }
+
+    void
+    parseTerm(nodes::Term &term) {
+        auto rec = viewRecorder(term);
+        parseFactor(term.operand);
+        parseList(term.modifiers, &Parser::parseTermModifier);
+    }
+
+    void
+    parseSimpleExpressionModifier(nodes::SimpleExpressionModifier &sem) {
+        auto rec = viewRecorder(sem);
+
+        using enum nodes::AddingOperator;
+
+        parseEnum(sem.operator_,
+            tep<TokenPlus>(PLUS),
+            tep<TokenMinus>(MINUS),
+            tep<TokenWsOr>(OR)
+        );
+
+        parseTerm(sem.operand);
+    }
+
+    void
     parseSimpleExpression(nodes::SimpleExpression &se) {
         auto rec = viewRecorder(se);
-        // TODO: replace with proper parsing
-        parseFactor(se.factor);
+        parseSign(se.sign);
+        parseTerm(se.operand);
+        parseList(se.modifiers, &Parser::parseSimpleExpressionModifier);
     }
 
     void

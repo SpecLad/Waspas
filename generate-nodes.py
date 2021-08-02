@@ -256,6 +256,16 @@ def generate(enumerations, node_types):
     print('}')
 
 ENUMERATIONS = (
+    Enumeration('AddingOperator', ['PLUS', 'MINUS', 'OR']),
+
+    Enumeration('MultiplyingOperator', [
+        'MULTIPLY',
+        'DIVIDE_REAL',
+        'DIVIDE_INTEGER',
+        'MODULO',
+        'AND'
+    ]),
+
     Enumeration('RangeDirection', ['TO', 'DOWNTO']),
 
     Enumeration('RelationalOperator', [
@@ -495,7 +505,14 @@ NODE_TYPES = (
     )),
 
     NodeType('SimpleExpression', fields=(
-        NodeField('factor', 'Factor'), # TODO: replace with proper fields
+        EnumField('sign', 'Sign'),
+        NodeField('operand', 'Term'),
+        NodeListField('modifiers', 'SimpleExpressionModifier'),
+    )),
+
+    NodeType('SimpleExpressionModifier', fields=(
+        EnumField('operator_', 'AddingOperator'),
+        NodeField('operand', 'Term'),
     )),
 
     NodeType('Statement', fields=(
@@ -515,6 +532,16 @@ NODE_TYPES = (
 
     NodeType('SubroutineHeading', abstract=True, fields=(
         NodeField('name', 'Identifier'),
+    )),
+
+    NodeType('Term', fields=(
+        NodeField('operand', 'Factor'),
+        NodeListField('modifiers', 'TermModifier'),
+    )),
+
+    NodeType('TermModifier', fields=(
+        EnumField('operator_', 'MultiplyingOperator'),
+        NodeField('operand', 'Factor'),
     )),
 
     NodeType('TypeDefinition', fields=(
