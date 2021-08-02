@@ -326,6 +326,18 @@ public:
         }
     }
 
+    template <typename N>
+    void
+    parseList(std::vector<N> &nodes, parse_f<N> parse_item) {
+        for (;;) {
+            N item;
+
+            if (!tryParse(item, parse_item)) break;
+
+            nodes.push_back(std::move(item));
+        }
+    }
+
     template <typename TokenSeparator, typename N>
     void
     parseSeparatedList(std::vector<N> &nodes, parse_f<N> parse_item) {
@@ -830,17 +842,8 @@ public:
     void
     parseVariableAccess(nodes::VariableAccess &va) {
         auto rec = viewRecorder(va);
-
         parseIdentifier(va.variable);
-
-        for (;;) {
-            std::unique_ptr<nodes::VariableModifier> modifier;
-
-            if (!tryParse(modifier, &Parser::parseVariableModifier))
-                break;
-
-            va.modifiers.push_back(std::move(modifier));
-        }
+        parseList(va.modifiers, &Parser::parseVariableModifier);
     }
 
     void
