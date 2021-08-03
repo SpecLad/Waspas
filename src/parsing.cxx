@@ -1155,20 +1155,9 @@ public:
     void
     parseCompoundStatement(nodes::CompoundStatement &cs) {
         auto rec = viewRecorder(cs);
-
         token_reader_.consume<TokenWsBegin>();
-
         parseSeparatedList<TokenSemicolon>(cs.statements, &Parser::parseStatement);
-
-        // TODO: remove this
-        int nesting_level = 1;
-        do {
-            if (token_reader_.tryConsume<TokenWsBegin>()) ++nesting_level;
-            else if (token_reader_.tryConsume<TokenWsCase>()) ++nesting_level;
-            else if (token_reader_.tryConsume<TokenWsEnd>()) --nesting_level;
-            else token_reader_.consumeAny();
-        }
-        while (nesting_level > 0);
+        token_reader_.consume<TokenWsEnd>();
     }
 
     void
