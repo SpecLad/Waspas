@@ -427,6 +427,11 @@ NODE_TYPES = (
         IntegerField('value'),
     )),
 
+    NodeType('MemberDesignator', fields=(
+        NodeField('smallest', 'Expression'),
+        OptionalNodeField('largest', 'Expression'),
+    )),
+
     NodeType('NewPointerType', bases=('TypeDenoter',), fields=(
         NodeField('domain_type', 'Identifier'),
     )),
@@ -496,6 +501,10 @@ NODE_TYPES = (
     NodeType('RepeatStatement', bases=('UnlabeledStatement',), fields=(
         NodeListField('statements', 'Statement'),
         NodeField('condition', 'Expression'),
+    )),
+
+    NodeType('SetConstructor', bases=('Factor',), fields=(
+        NodeListField('members', 'MemberDesignator'),
     )),
 
     NodeType('SetType', bases=('UnpackedStructuredType',), fields=(

@@ -856,6 +856,28 @@ public:
     }
 
     void
+    parseMemberDesignator(nodes::MemberDesignator &md) {
+        auto rec = viewRecorder(md);
+
+        parseExpression(md.smallest);
+
+        if (token_reader_.tryConsume<TokenDotDot>()) {
+            md.largest.emplace();
+            parseExpression(*md.largest);
+        }
+    }
+
+    void
+    parseSetConstructor(nodes::SetConstructor &sc) {
+        auto rec = viewRecorder(sc);
+        token_reader_.consume<TokenLeftBracket>();
+        tryParse(sc.members,
+            &Parser::parseSeparatedList<TokenComma, nodes::MemberDesignator>,
+            &Parser::parseMemberDesignator);
+        token_reader_.consume<TokenRightBracket>();
+    }
+
+    void
     parseFunctionDesignator(nodes::FunctionDesignator &fd) {
         auto rec = viewRecorder(fd);
 
@@ -895,9 +917,7 @@ public:
             &Parser::parseUnsignedRealConstant,
             &Parser::parseCharacterString,
             &Parser::parseNil,
-            /*
             &Parser::parseSetConstructor,
-            */
             &Parser::parseParenthetical,
             &Parser::parseNotExpression);
     }
