@@ -1,3 +1,8 @@
+module;
+
+#include <unordered_set>
+#include <string>
+
 export module semantics;
 
 import parsing;
@@ -10,6 +15,8 @@ namespace sem {
 
 export
 class Program {
+    std::unordered_set<std::string> parameters;
+
     friend class ProgramBuilder;
 };
 

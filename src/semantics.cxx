@@ -1,3 +1,8 @@
+module;
+
+#include <string>
+#include <unordered_set>
+
 module semantics;
 
 class ProgramBuilder {
@@ -8,6 +13,15 @@ public:
     sem::Program
     build(const nodes::Program &program_node) {
         sem::Program program;
+
+        for (auto &parameter_node : program_node.parameter_declarations) {
+            auto [it, success] = program.parameters.insert(parameter_node.spelling);
+            if (!success)
+                reporter_.err(parameter_node.view.data(), "duplicate-program-parameter",
+                    "duplicate program parameter \"{}\"", parameter_node.spelling);
+        }
+
+        // TODO: check that program parameters correspond to variables
 
         return program;
     }

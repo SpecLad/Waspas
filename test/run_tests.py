@@ -120,6 +120,11 @@ class TestParsingErrors(TestErrorMessages):
 
         self.assertIn(ErrorMessage(2, 12, 'unexpected-token'), messages)
 
+class TestAnalysisErrors(TestErrorMessages):
+    def test_duplicate_program_parameter(self):
+        messages = self.try_compile_ill_formed_source('duplicate_program_parameter.pas')
+
+        self.assertIn(ErrorMessage(1, 20, 'duplicate-program-parameter'), messages)
 
 if __name__ == '__main__':
     EXE_PATH = Path(os.environ['WASPAS_TEST_EXE_PATH'])
