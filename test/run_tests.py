@@ -61,10 +61,12 @@ class TestErrorMessages(unittest.TestCase):
 
         return error_messages
 
+class TestReadingErrors(TestErrorMessages):
     def test_non_ascii_char(self):
         self.assertIn(ErrorMessage(2, 1, 'non-ascii-char'),
             self.try_compile_ill_formed_source('non_ascii.pas'))
 
+class TestLexingErrors(TestErrorMessages):
     def test_invalid_token(self):
         messages = self.try_compile_ill_formed_source('bad_tokens.pas')
 
@@ -83,6 +85,7 @@ class TestErrorMessages(unittest.TestCase):
         self.assertIn(ErrorMessage(8, 1, 'invalid-token'), messages)
         self.assertIn(ErrorMessage(9, 1, 'invalid-token'), messages)
 
+class TestParsingErrors(TestErrorMessages):
     def test_unexpected_eof(self):
         messages = self.try_compile_ill_formed_source('empty.pas')
 
