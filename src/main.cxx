@@ -12,6 +12,7 @@ import io;
 import lexing;
 import parsing;
 import reporting;
+import semantics;
 
 void
 dumpAstHelper(
@@ -207,7 +208,10 @@ main(int, char **argv) {
     if (reporter.hadErrors())
         return 1;
 
-    dumpAst(ast, source_text.data(), line_indexer);
+    auto program = analyze(ast, reporter);
+
+    if (reporter.hadErrors())
+        return 1;
 
     return 0;
 }
