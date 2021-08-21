@@ -11,13 +11,19 @@ from pathlib import Path
 EXE_PATH = None
 TEST_CASE_DIR = Path(__file__).resolve().parent
 
-ERROR_MESSAGE_RE = re.compile(r'^(.+?):(\d+):(\d+): .+ \(([a-z-]+)\)$')
+ERROR_MESSAGE_RE = re.compile(r'^(.+?):(\d+):(\d+): error: .+ \(([a-z-]+)\)$')
+NOTE_MESSAGE_RE = re.compile(r'^(.+?):(\d+):(\d+): note: .+$')
 
 @dataclass
 class ErrorMessage:
     line_num: int
     column_num: int
     error_code: str
+
+@dataclass
+class NoteMessage:
+    line_num: int
+    column_num: int
 
 class TestBasicErrors(unittest.TestCase):
     def _test(self, args):
@@ -38,7 +44,7 @@ class TestBasicErrors(unittest.TestCase):
 
 class TestErrorMessages(unittest.TestCase):
     def try_compile_ill_formed_source(self, source_name):
-        error_messages = []
+        diagnostics = []
 
         file_path_arg = str(TEST_CASE_DIR / source_name)
 
@@ -49,17 +55,22 @@ class TestErrorMessages(unittest.TestCase):
             for line in process.stderr:
                 line = line.rstrip('\n')
 
-                self.assertRegex(line, ERROR_MESSAGE_RE)
-                match = ERROR_MESSAGE_RE.search(line)
-                
-                file_path, line_num, column_num, error_code = match.groups()
-                self.assertEqual(file_path, file_path_arg)
-                error_messages.append(ErrorMessage(
-                    line_num=int(line_num), column_num=int(column_num), error_code=error_code))
+                if match := ERROR_MESSAGE_RE.search(line):
+                    file_path, line_num, column_num, error_code = match.groups()
+                    self.assertEqual(file_path, file_path_arg)
+                    diagnostics.append(ErrorMessage(
+                        line_num=int(line_num), column_num=int(column_num), error_code=error_code))
+                elif match := NOTE_MESSAGE_RE.search(line):
+                    file_path, line_num, column_num = match.groups()
+                    self.assertEqual(file_path, file_path_arg)
+                    diagnostics.append(NoteMessage(
+                        line_num=int(line_num), column_num=int(column_num)))
+                else:
+                    self.fail(f"stderr line {line!r} is not a valid diagnostic")
 
         self.assertEqual(process.returncode, 1)
 
-        return error_messages
+        return diagnostics
 
 class TestReadingErrors(TestErrorMessages):
     def test_non_ascii_char(self):
@@ -124,6 +135,7 @@ class TestAnalysisErrors(TestErrorMessages):
     def test_duplicate_program_parameter(self):
         messages = self.try_compile_ill_formed_source('duplicate_program_parameter.pas')
 
+        self.assertIn(NoteMessage(1, 14), messages)
         self.assertIn(ErrorMessage(1, 20, 'duplicate-program-parameter'), messages)
 
 if __name__ == '__main__':

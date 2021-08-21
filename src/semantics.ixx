@@ -1,6 +1,6 @@
 module;
 
-#include <unordered_set>
+#include <unordered_map>
 #include <string>
 
 export module semantics;
@@ -15,7 +15,7 @@ namespace sem {
 
 export
 class Program {
-    std::unordered_set<std::string> parameters;
+    std::unordered_map<std::string, const char *> parameters;
 
     friend class ProgramBuilder;
 };

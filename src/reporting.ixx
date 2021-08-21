@@ -77,6 +77,14 @@ public:
             std::format(error_message_format, std::forward<Args>(error_message_args)...));
     }
 
+    template <typename ...Args>
+    void
+    note(const char *location,
+            std::string_view note_message_format, Args &&...note_message_args) {
+        noteRaw(location,
+            std::format(note_message_format, std::forward<Args>(note_message_args)...));
+    }
+
 private:
     void
     errRaw(const char *location, std::string_view error_code, std::string_view error_message) {
@@ -85,6 +93,14 @@ private:
             source_path_str_, locus.line() + 1, locus.column() + 1,
             error_message, error_code);
         had_errors_ = true;
+    }
+
+    void
+    noteRaw(const char *location, std::string_view note_message) {
+        Locus locus = line_indexer_.getLocusForOffset(location - source_start_);
+        printError("{}:{}:{}: note: {}\n",
+            source_path_str_, locus.line() + 1, locus.column() + 1,
+            note_message);
     }
 
     std::string source_path_str_;

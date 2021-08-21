@@ -1,7 +1,7 @@
 module;
 
 #include <string>
-#include <unordered_set>
+#include <unordered_map>
 
 module semantics;
 
@@ -15,10 +15,17 @@ public:
         sem::Program program;
 
         for (auto &parameter_node : program_node.parameter_declarations) {
-            auto [it, success] = program.parameters.insert(parameter_node.spelling);
-            if (!success)
-                reporter_.err(parameter_node.view.data(), "duplicate-program-parameter",
-                    "duplicate program parameter \"{}\"", parameter_node.spelling);
+            auto parameter_location = parameter_node.view.data();
+
+            auto [it, success] = program.parameters.try_emplace(
+                parameter_node.spelling, parameter_location);
+
+            if (!success) {
+                reporter_.err(parameter_location, "duplicate-program-parameter",
+                    "program parameter \"{}\" already defined", parameter_node.spelling);
+                reporter_.note(it->second,
+                    "defining point of \"{}\"", parameter_node.spelling); // TODO: replace with specific API
+            }
         }
 
         // TODO: check that program parameters correspond to variables
