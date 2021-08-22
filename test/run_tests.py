@@ -43,10 +43,10 @@ class TestBasicErrors(unittest.TestCase):
         self._test(['-x'])
 
 class TestErrorMessages(unittest.TestCase):
-    def try_compile_ill_formed_source(self, source_name):
+    def try_compile_ill_formed_source(self, source_path):
         diagnostics = []
 
-        file_path_arg = str(TEST_CASE_DIR / source_name)
+        file_path_arg = str(TEST_CASE_DIR / source_path)
 
         with subprocess.Popen(
             [str(EXE_PATH), '--', file_path_arg],
@@ -72,71 +72,41 @@ class TestErrorMessages(unittest.TestCase):
 
         return diagnostics
 
-class TestReadingErrors(TestErrorMessages):
-    def test_non_ascii_char(self):
-        self.assertIn(ErrorMessage(2, 1, 'non-ascii-char'),
-            self.try_compile_ill_formed_source('non_ascii.pas'))
+    def get_expected_diagnostics_from_source(self, source_path):
+        expected_diagnostics = []
 
-class TestLexingErrors(TestErrorMessages):
-    def test_invalid_token(self):
-        messages = self.try_compile_ill_formed_source('bad_tokens.pas')
+        with open(source_path) as f:
+            for i, line in enumerate(f):
+                for match in re.finditer(r'\{\^(.*?)\}', line):
+                    directive_text = match.group(1).strip()
+                    locus_args = {'line_num': i, 'column_num': match.start() + 2}
 
-        self.assertIn(ErrorMessage(1, 1, 'invalid-token'), messages)
-        self.assertIn(ErrorMessage(3, 1, 'invalid-token'), messages)
+                    if directive_text.startswith('error:'):
+                        expected_diagnostics.append(ErrorMessage(
+                            **locus_args,
+                            error_code=directive_text.removeprefix('error:'),
+                        ))
+                    elif directive_text == 'note':
+                        expected_diagnostics.append(NoteMessage(**locus_args))
+                    else:
+                        raise RuntimeError(f'unrecognized directive: {match.group()}')
 
-        # The locus is 4:4 instead of 4:1 here, because when the lexer fails to
-        # lex the entire number as a real, it lexes the integer part as an integer,
-        # and the dot as the operator, and only then fails on the fractional part.
-        # The lexer could be improved to fail at 4:1.
-        self.assertIn(ErrorMessage(4, 4, 'invalid-token'), messages)
+        return expected_diagnostics
 
-        self.assertIn(ErrorMessage(5, 1, 'invalid-token'), messages)
-        self.assertIn(ErrorMessage(6, 1, 'invalid-token'), messages)
-        self.assertIn(ErrorMessage(7, 26, 'invalid-token'), messages)
-        self.assertIn(ErrorMessage(8, 1, 'invalid-token'), messages)
-        self.assertIn(ErrorMessage(9, 1, 'invalid-token'), messages)
+    def test_auto(self):
+        for source_path in (TEST_CASE_DIR / 'ill-formed/').glob('**/*.pas'):
+            with self.subTest(source_path=source_path):
+                expected_diagnostics = self.get_expected_diagnostics_from_source(source_path)
+                actual_diagnostics = self.try_compile_ill_formed_source(source_path)
 
-class TestParsingErrors(TestErrorMessages):
+                for d in expected_diagnostics:
+                    self.assertIn(d, actual_diagnostics)
+
     def test_unexpected_eof(self):
         messages = self.try_compile_ill_formed_source('empty.pas')
 
         self.assertIn(ErrorMessage(1, 1, 'unexpected-token'), messages)
 
-    def test_junk_after_end(self):
-        messages = self.try_compile_ill_formed_source('junk_after_end.pas')
-
-        self.assertIn(ErrorMessage(4, 1, 'unexpected-token'), messages)
-
-    def test_invalid_directive(self):
-        messages = self.try_compile_ill_formed_source('bad_directive.pas')
-
-        self.assertIn(ErrorMessage(2, 16, 'invalid-directive'), messages)
-
-    def test_invalid_label(self):
-        messages = self.try_compile_ill_formed_source('bad_label_1.pas')
-
-        self.assertIn(ErrorMessage(2, 7, 'invalid-label'), messages)
-
-        messages = self.try_compile_ill_formed_source('bad_label_2.pas')
-
-        self.assertIn(ErrorMessage(2, 7, 'invalid-label'), messages)
-
-    def test_invalid_int(self):
-        messages = self.try_compile_ill_formed_source('bad_int.pas')
-
-        self.assertIn(ErrorMessage(2, 11, 'invalid-integer'), messages)
-
-    def test_invalid_label_declaration(self):
-        messages = self.try_compile_ill_formed_source('bad_label_declaration.pas')
-
-        self.assertIn(ErrorMessage(2, 12, 'unexpected-token'), messages)
-
-class TestAnalysisErrors(TestErrorMessages):
-    def test_duplicate_program_parameter(self):
-        messages = self.try_compile_ill_formed_source('duplicate_program_parameter.pas')
-
-        self.assertIn(NoteMessage(1, 14), messages)
-        self.assertIn(ErrorMessage(1, 20, 'duplicate-program-parameter'), messages)
 
 if __name__ == '__main__':
     EXE_PATH = Path(os.environ['WASPAS_TEST_EXE_PATH'])
