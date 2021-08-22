@@ -103,19 +103,88 @@ const std::string TokenUnsignedReal::HUMAN_REPRESENTATION = "REAL"s;
 const std::string TokenCharacterString::HUMAN_REPRESENTATION = "STR"s;
 const std::string TokenEof::HUMAN_REPRESENTATION = "EOF"s;
 
-const std::regex RE_SEPARATORS(R"((?:[\t\n\v\f\r ]|(?:\{|\(\*)(?:[^}*]|\*(?!\)))*(?:\}|\*\)))*)");
-
 template <typename It>
 It
 skipSeparators(It begin, It end) {
-    std::match_results<It> match;
-    bool found = std::regex_search(begin, end, match, RE_SEPARATORS,
-        std::regex_constants::match_continuous);
+    // Visual Studio's std::regex implementation overflows the stack when
+    // trying to match a long comment. See
+    // <https://developercommunity.visualstudio.com/t/grouping-within-repetition-causes-regex-stack-erro/885115>.
+    // So here's a hand-rolled state machine instead.
 
-    // the regex allows zero-length matches, so it should never fail
-    assert(found);
+    enum class State {
+        NEUTRAL, IN_COMMENT, MAYBE_COMMENT_START, MAYBE_COMMENT_END,
+    };
 
-    return begin + match.length();
+    State current_state = State::NEUTRAL;
+    It comment_start;
+
+    for (It it = begin; it < end; ++it) {
+        switch (current_state) {
+        case State::NEUTRAL:
+            switch (*it) {
+            case '\t':
+            case '\n':
+            case '\v':
+            case '\f':
+            case '\r':
+            case ' ':
+                break; // whitespace - no state change
+            case '{':
+                current_state = State::IN_COMMENT;
+                comment_start = it;
+                break;
+            case '(':
+                current_state = State::MAYBE_COMMENT_START;
+                comment_start = it;
+                break;
+            default:
+                return it;
+            }
+            break;
+
+        case State::IN_COMMENT:
+            switch (*it) {
+            case '}':
+                current_state = State::NEUTRAL;
+                break;
+            case '*':
+                current_state = State::MAYBE_COMMENT_END;
+                break;
+            default:
+                break; // comment continues - no state change
+            }
+            break;
+
+        case State::MAYBE_COMMENT_START:
+            switch (*it) {
+            case '*':
+                current_state = State::IN_COMMENT;
+                break;
+            default:
+                return comment_start; // wasn't a comment after all
+            }
+            break;
+
+        case State::MAYBE_COMMENT_END:
+            switch (*it) {
+            case ')':
+            case '}':
+                current_state = State::NEUTRAL;
+                break;
+            case '*':
+                break; // new possible *) sequence - no state change
+            default:
+                current_state = State::IN_COMMENT;
+                break;
+            }
+            break;
+        }
+    }
+
+    if (current_state == State::NEUTRAL)
+        return end;
+    else
+        return comment_start; // unclosed comment
 }
 
 template <typename T0, typename ...Ts>
