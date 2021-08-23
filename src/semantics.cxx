@@ -24,7 +24,7 @@ public:
                 reporter_.err(parameter_location, "duplicate-program-parameter",
                     "program parameter \"{}\" already defined", parameter_node.spelling);
                 reporter_.note(it->second,
-                    "defining point of \"{}\"", parameter_node.spelling); // TODO: replace with specific API
+                    "defining point of \"{}\"", parameter_node.spelling);
             }
         }
 
