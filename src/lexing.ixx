@@ -30,6 +30,9 @@ public:
     virtual std::string_view
     humanRepresentation() const = 0;
 
+    virtual bool
+    requiresSeparation() { return false; }
+
 private:
     std::string_view view_;
 };
@@ -137,6 +140,9 @@ class TokenWordSymbol : public TokenWithQuotedHR<T>, public TokenPatternBased<T>
 public:
     using TokenWithQuotedHR<T>::TokenWithQuotedHR;
     static const std::regex PATTERN;
+
+    bool
+    requiresSeparation() override { return true; }
 };
 
 #define DECLARE_WORD_SYMBOL(name) \
@@ -202,6 +208,9 @@ public:
     static const std::regex PATTERN;
     static const std::string HUMAN_REPRESENTATION;
 
+    bool
+    requiresSeparation() override { return true; }
+
     std::string
     spelling() const;
 };
@@ -215,6 +224,9 @@ public:
     using TokenWithCustomHR::TokenWithCustomHR;
     static const std::regex PATTERN;
     static const std::string HUMAN_REPRESENTATION;
+
+    bool
+    requiresSeparation() override { return true; }
 
     template <std::integral T>
     std::optional<T>
@@ -244,6 +256,9 @@ public:
     using TokenWithCustomHR::TokenWithCustomHR;
     static const std::regex PATTERN;
     static const std::string HUMAN_REPRESENTATION;
+
+    bool
+    requiresSeparation() override { return true; }
 
     template <std::floating_point T>
     std::optional<T>

@@ -59,10 +59,10 @@ const std::regex TokenWordSymbol<T>::PATTERN(T::REPRESENTATION + R"((?![a-z0-9])
 const std::regex TokenIdentifier::PATTERN(R"([a-z][a-z0-9]*)",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
 
-const std::regex TokenUnsignedInteger::PATTERN(R"([0-9]+(?![a-z0-9]))",
+const std::regex TokenUnsignedInteger::PATTERN(R"([0-9]+)",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
 
-const std::regex TokenUnsignedReal::PATTERN(R"([0-9]+(?:\.[0-9]+(?:e[+-]?[0-9]+)?|e[+-]?[0-9]+)(?![a-z0-9]))",
+const std::regex TokenUnsignedReal::PATTERN(R"([0-9]+(?:\.[0-9]+(?:e[+-]?[0-9]+)?|e[+-]?[0-9]+))",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
 
 const std::regex TokenCharacterString::PATTERN(R"('(?:[^'\n]|'')+')");
@@ -205,8 +205,12 @@ lex(std::string_view source, Reporter &reporter) {
 
     auto it = source.begin();
 
+    bool previous_required_separation = false;
+
     for (; ;) {
-        it = skipSeparators(it, source.end());
+        auto after_separators = skipSeparators(it, source.end());
+        bool had_separation = after_separators != it;
+        it = after_separators;
 
         if (it == source.end()) break;
 
@@ -290,8 +294,19 @@ lex(std::string_view source, Reporter &reporter) {
         >(std::string_view(it, source.end()));
 
         if (token) {
+            bool current_requires_separation = token->requiresSeparation();
+
+            if (previous_required_separation && current_requires_separation
+                    && !had_separation) {
+                reporter.err(&*it, "missing-separator",
+                    "a token of type {} must not directly follow {}",
+                    token->humanRepresentation(), tokens.back()->humanRepresentation());
+            }
+
             it += token->view().size();
             tokens.push_back(std::move(token));
+
+            previous_required_separation = current_requires_separation;
         }
         else {
             if (std::isprint(*it))
