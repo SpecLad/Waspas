@@ -7,8 +7,8 @@ module semantics;
 
 const char *
 sem::Block::findDefiningPoint(std::string_view identifier) const {
-    auto it = constants.find(std::string(identifier));
-    if (it != constants.end()) return it->second.location();
+    auto it = constants_.find(std::string(identifier));
+    if (it != constants_.end()) return it->second.location();
 
     return nullptr;
 }
@@ -23,7 +23,7 @@ public:
         for (auto &label_node : block_node.label_declarations) {
             auto label_location = label_node.view.data();
 
-            auto [it, success] = block.labels.try_emplace(
+            auto [it, success] = block.labels_.try_emplace(
                 label_node.value, label_location);
 
             if (!success) {
@@ -54,7 +54,7 @@ public:
 
             // TODO: determine type/value
 
-            block.constants.emplace(constant_name, constant_location);
+            block.constants_.emplace(constant_name, constant_location);
         }
     }
 
@@ -65,7 +65,7 @@ public:
         for (auto &parameter_node : program_node.parameter_declarations) {
             auto parameter_location = parameter_node.view.data();
 
-            auto [it, success] = program.parameters.try_emplace(
+            auto [it, success] = program.parameters_.try_emplace(
                 parameter_node.spelling, parameter_location);
 
             if (!success) {
@@ -78,7 +78,7 @@ public:
 
         // TODO: check that program parameters correspond to variables
 
-        buildBlock(program_node.block, program.block);
+        buildBlock(program_node.block, program.block_);
 
         return program;
     }

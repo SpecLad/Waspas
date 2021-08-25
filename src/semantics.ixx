@@ -26,8 +26,8 @@ public:
 
 export
 class Block {
-    std::unordered_map<pascal_integer_t, const char *> labels;
-    std::unordered_map<std::string, Constant> constants;
+    std::unordered_map<pascal_integer_t, const char *> labels_;
+    std::unordered_map<std::string, Constant> constants_;
 
     const char *
     findDefiningPoint(std::string_view identifier) const;
@@ -37,9 +37,9 @@ class Block {
 
 export
 class Program {
-    std::unordered_map<std::string, const char *> parameters;
+    std::unordered_map<std::string, const char *> parameters_;
 
-    Block block;
+    Block block_;
 
     friend class ProgramBuilder;
 };
