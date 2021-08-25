@@ -14,8 +14,23 @@ ProgramBuilder;
 namespace sem {
 
 export
+class Constant {
+public:
+    const char *
+    location() const { return location_; }
+
+    const char *location_;
+
+    friend class ProgramBuilder;
+};
+
+export
 class Block {
     std::unordered_map<pascal_integer_t, const char *> labels;
+    std::unordered_map<std::string, Constant> constants;
+
+    const char *
+    findDefiningPoint(std::string_view identifier) const;
 
     friend class ProgramBuilder;
 };

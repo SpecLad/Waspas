@@ -5,6 +5,14 @@ module;
 
 module semantics;
 
+const char *
+sem::Block::findDefiningPoint(std::string_view identifier) const {
+    auto it = constants.find(std::string(identifier));
+    if (it != constants.end()) return it->second.location();
+
+    return nullptr;
+}
+
 class ProgramBuilder {
 public:
     ProgramBuilder(Reporter &reporter) : reporter_(reporter)
@@ -27,6 +35,26 @@ public:
 
             // TODO: verify that each label is used exactly once
             // in the block where it's defined
+        }
+
+        for (auto &constant_node : block_node.constant_definitions) {
+            auto constant_location = constant_node.view.data();
+
+            std::string_view constant_name = constant_node.name.spelling;
+
+            if (const char *previous_defining_point
+                = block.findDefiningPoint(constant_name)
+            ) {
+                reporter_.err(constant_location, "duplicate-identifier",
+                    "identifier \"{}\" already defined", constant_name);
+                reporter_.note(previous_defining_point,
+                    "defining point of \"{}\"", constant_name);
+                continue;
+            }
+
+            // TODO: determine type/value
+
+            block.constants.emplace(constant_name, constant_location);
         }
     }
 
