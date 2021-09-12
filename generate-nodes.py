@@ -193,7 +193,7 @@ class NodeType:
         print('    describeFields(NodeFieldReceiver &receiver) const override;')
         print('};')
 
-    def generate_describe_fields(self, node_types):
+    def generate_out_of_line_members(self, node_types, derived_node_types):
         print('void')
         print(f'{self.name}::describeFields(NodeFieldReceiver &receiver) const {{')
 
@@ -204,6 +204,24 @@ class NodeType:
             field.generate_describe_call(node_types)
 
         print('}')
+
+        if self.abstract:
+            # not really a member, but a closely associated function still
+
+            print('')
+            print('export')
+            print('template <typename T>')
+            print('void')
+            print(f'visit({self.name} &node, const T &visitor) {{')
+
+            for derived_node_type in derived_node_types[self.name]:
+                print(f'    if (auto *derived_node = dynamic_cast<{derived_node_type} *>(&node)) {{')
+                print('        visitor(*derived_node);')
+                print('        return;')
+                print('    }')
+
+            print('    std::abort();')
+            print('}')
 
 
 def generate(enumerations, node_types):
@@ -218,6 +236,7 @@ def generate(enumerations, node_types):
     )
 
     print('module;')
+    print('#include <cstdlib>')
     print('#include <memory>')
     print('#include <optional>')
     print('#include <string_view>')
@@ -233,9 +252,14 @@ def generate(enumerations, node_types):
         print()
         enumeration.generate()
 
+    derived_node_type_map = {}
+
     for node_type in node_types:
         print()
         node_type.generate_forward_declaration()
+
+        for base in node_type.bases:
+            derived_node_type_map.setdefault(base, []).append(node_type.name)
 
     node_type_map = {t.name: t for t in node_types}
 
@@ -250,7 +274,8 @@ def generate(enumerations, node_types):
 
     for node_type in node_types:
         print()
-        node_type.generate_describe_fields(node_type_map)
+        node_type.generate_out_of_line_members(
+            node_type_map, derived_node_type_map)
 
     print()
     print('}')
