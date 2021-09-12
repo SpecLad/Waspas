@@ -19,6 +19,7 @@ public:
     const char *
     location() const { return location_; }
 
+private:
     const char *location_;
 
     friend class ProgramBuilder;

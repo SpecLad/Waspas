@@ -54,7 +54,10 @@ public:
 
             // TODO: determine type/value
 
-            block.constants_.emplace(constant_name, constant_location);
+            sem::Constant constant;
+            constant.location_ = constant_location;
+
+            block.constants_.emplace(constant_name, std::move(constant));
         }
     }
 
