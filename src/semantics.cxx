@@ -6,6 +6,13 @@ module;
 
 module semantics;
 
+template<class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+template<class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+
 const char *
 sem::Block::findDefiningPoint(std::string_view identifier) const {
     auto it = constants_.find(std::string(identifier));
@@ -59,19 +66,22 @@ public:
             auto &constant_value_node = *constant_def_node.value;
             auto constant_value_location = constant_value_node.view.data();
 
-            if (auto *signed_const_node = dynamic_cast<nodes::SignedConstant*>(&constant_value_node)) {
-                if (signed_const_node->sign != nodes::Sign::NONE)
-                    reporter_.err(constant_value_location, "unsupported",
-                        "signs are not supported yet");
+            visit(constant_value_node, overloaded{
+                [&, this](nodes::SignedConstant &sc_node) {
+                    if (sc_node.sign != nodes::Sign::NONE)
+                        reporter_.err(constant_value_location, "unsupported",
+                            "signs are not supported yet");
 
-                if (auto *unsigned_integer_node
-                    = dynamic_cast<nodes::UnsignedIntegerConstant *>(
-                        signed_const_node->unsigned_value.get())
-                ) {
-                    constant.value_ = std::make_unique<sem::ConstantValueInteger>(
-                        unsigned_integer_node->value);
-                }
-            }
+                    visit(*sc_node.unsigned_value, overloaded{
+                        [&](nodes::UnsignedIntegerConstant &uic_node) {
+                            constant.value_.reset(new sem::ConstantValueInteger(
+                                uic_node.value));
+                        },
+                        [](auto &) {} // TODO: remove this
+                    });
+                },
+                [](auto &) {} // TODO: remove this
+            });
 
             if (!constant.value_) {
                 reporter_.err(constant_value_location, "unsupported", "constant type not yet supported");
