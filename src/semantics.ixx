@@ -1,7 +1,8 @@
 module;
 
-#include <unordered_map>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 export module semantics;
 
@@ -14,6 +15,27 @@ ProgramBuilder;
 namespace sem {
 
 export
+class ConstantValue {
+public:
+    virtual
+    ~ConstantValue() = default;
+};
+
+export
+class ConstantValueInteger : public ConstantValue {
+public:
+    explicit
+    ConstantValueInteger(pascal_integer_t value) : value_(value)
+    {}
+
+    pascal_integer_t
+    value() const { return value_; }
+
+private:
+    pascal_integer_t value_;
+};
+
+export
 class Constant {
 public:
     const char *
@@ -21,6 +43,7 @@ public:
 
 private:
     const char *location_;
+    std::unique_ptr<ConstantValue> value_;
 
     friend class ProgramBuilder;
 };

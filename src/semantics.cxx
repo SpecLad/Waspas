@@ -1,5 +1,6 @@
 module;
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -37,10 +38,10 @@ public:
             // in the block where it's defined
         }
 
-        for (auto &constant_node : block_node.constant_definitions) {
-            auto constant_location = constant_node.view.data();
+        for (auto &constant_def_node : block_node.constant_definitions) {
+            auto constant_location = constant_def_node.view.data();
 
-            std::string_view constant_name = constant_node.name.spelling;
+            std::string_view constant_name = constant_def_node.name.spelling;
 
             if (const char *previous_defining_point
                 = block.findDefiningPoint(constant_name)
@@ -52,10 +53,29 @@ public:
                 continue;
             }
 
-            // TODO: determine type/value
-
             sem::Constant constant;
             constant.location_ = constant_location;
+
+            auto &constant_value_node = *constant_def_node.value;
+            auto constant_value_location = constant_value_node.view.data();
+
+            if (auto *signed_const_node = dynamic_cast<nodes::SignedConstant*>(&constant_value_node)) {
+                if (signed_const_node->sign != nodes::Sign::NONE)
+                    reporter_.err(constant_value_location, "unsupported",
+                        "signs are not supported yet");
+
+                if (auto *unsigned_integer_node
+                    = dynamic_cast<nodes::UnsignedIntegerConstant *>(
+                        signed_const_node->unsigned_value.get())
+                ) {
+                    constant.value_ = std::make_unique<sem::ConstantValueInteger>(
+                        unsigned_integer_node->value);
+                }
+            }
+
+            if (!constant.value_) {
+                reporter_.err(constant_value_location, "unsupported", "constant type not yet supported");
+            }
 
             block.constants_.emplace(constant_name, std::move(constant));
         }
