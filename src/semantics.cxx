@@ -77,10 +77,21 @@ public:
                             constant.value_.reset(new sem::ConstantValueInteger(
                                 uic_node.value));
                         },
+                        [&](nodes::UnsignedRealConstant &urc_node) {
+                            constant.value_.reset(new sem::ConstantValueReal(
+                                urc_node.value));
+                        },
                         [](auto &) {} // TODO: remove this
                     });
                 },
-                [](auto &) {} // TODO: remove this
+                [&](nodes::CharacterString &cs_node) {
+                    if (cs_node.value.size() == 1)
+                        constant.value_.reset(new sem::ConstantValueChar(
+                            cs_node.value[0]));
+                    else
+                        constant.value_.reset(new sem::ConstantValueString(
+                            cs_node.value));
+                }
             });
 
             if (!constant.value_) {

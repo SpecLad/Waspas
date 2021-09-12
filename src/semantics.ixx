@@ -22,18 +22,24 @@ public:
 };
 
 export
-class ConstantValueInteger : public ConstantValue {
+template <typename T>
+class ConstantValueImpl : public ConstantValue {
 public:
     explicit
-    ConstantValueInteger(pascal_integer_t value) : value_(value)
+    ConstantValueImpl(const T &value) : value_(value)
     {}
 
-    pascal_integer_t
+    T
     value() const { return value_; }
 
 private:
-    pascal_integer_t value_;
+    T value_;
 };
+
+using ConstantValueInteger = ConstantValueImpl<pascal_integer_t>;
+using ConstantValueReal = ConstantValueImpl<pascal_real_t>;
+using ConstantValueChar = ConstantValueImpl<char>;
+using ConstantValueString = ConstantValueImpl<std::string>;
 
 export
 class Constant {
