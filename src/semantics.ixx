@@ -19,11 +19,14 @@ class ConstantValue {
 public:
     virtual
     ~ConstantValue() = default;
+
+    virtual std::unique_ptr<ConstantValue>
+    clone() const = 0;
 };
 
 export
 template <typename T>
-class ConstantValueImpl : public ConstantValue {
+class ConstantValueImpl final : public ConstantValue {
 public:
     explicit
     ConstantValueImpl(const T &value) : value_(value)
@@ -31,6 +34,11 @@ public:
 
     T
     value() const { return value_; }
+
+    std::unique_ptr<ConstantValue>
+    clone() const override {
+        return std::make_unique<ConstantValueImpl>(value_);
+    }
 
 private:
     T value_;

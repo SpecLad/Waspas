@@ -81,7 +81,19 @@ public:
                             constant.value_.reset(new sem::ConstantValueReal(
                                 urc_node.value));
                         },
-                        [](auto &) {} // TODO: remove this
+                        [&](nodes::Identifier &id_node) {
+                            // TODO: add proper ID resolving: add parent scope searching;
+                            // builtins; checks that we don't use an ID before it's defined
+                            auto it = block.constants_.find(id_node.spelling);
+
+                            if (it == block.constants_.end()) {
+                                reporter_.err(constant_value_location, "undefined-identifier",
+                                    "undefined constant identifier \"{}\"", id_node.spelling);
+                                return;
+                            }
+
+                            constant.value_ = it->second.value_->clone();
+                        }
                     });
                 },
                 [&](nodes::CharacterString &cs_node) {
@@ -95,7 +107,8 @@ public:
             });
 
             if (!constant.value_) {
-                reporter_.err(constant_value_location, "unsupported", "constant type not yet supported");
+                // use a fallback value so that we can continue with the analysis
+                constant.value_ = std::make_unique<sem::ConstantValueInteger>(0);
             }
 
             block.constants_.emplace(constant_name, std::move(constant));
