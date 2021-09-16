@@ -48,9 +48,8 @@ public:
                 v.reset(new sem::ConstantValueReal(-p_real_value->value()));
         }
         else {
-            // TODO: print the actual type of the constant
             reporter_.err(location, "type-mismatch",
-                "a sign can only be applied to a constant of integer or real type");
+                "a sign cannot be applied to a constant of type \"{}\"", v->typeStr());
         }
     }
 

@@ -1,5 +1,6 @@
 module;
 
+#include <format>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -8,6 +9,8 @@ export module semantics;
 
 import parsing;
 import reporting;
+
+using namespace std::literals;
 
 class
 ProgramBuilder;
@@ -22,32 +25,72 @@ public:
 
     virtual std::unique_ptr<ConstantValue>
     clone() const = 0;
+
+    virtual std::string
+    typeStr() const = 0;
 };
 
 export
-template <typename T>
-class ConstantValueImpl final : public ConstantValue {
+template <typename T, typename Value>
+class ConstantValueImpl : public ConstantValue {
 public:
     explicit
-    ConstantValueImpl(const T &value) : value_(value)
+    ConstantValueImpl(const Value &value) : value_(value)
     {}
 
-    T
+    Value
     value() const { return value_; }
 
     std::unique_ptr<ConstantValue>
     clone() const override {
-        return std::make_unique<ConstantValueImpl>(value_);
+        return std::make_unique<T>(value_);
     }
 
-private:
-    T value_;
+protected:
+    Value value_;
 };
 
-using ConstantValueInteger = ConstantValueImpl<pascal_integer_t>;
-using ConstantValueReal = ConstantValueImpl<pascal_real_t>;
-using ConstantValueChar = ConstantValueImpl<char>;
-using ConstantValueString = ConstantValueImpl<std::string>;
+export
+class ConstantValueInteger final
+    : public ConstantValueImpl<ConstantValueInteger, pascal_integer_t>
+{
+    using ConstantValueImpl::ConstantValueImpl;
+
+    std::string
+    typeStr() const override { return "integer"s; }
+};
+
+export
+class ConstantValueReal final
+    : public ConstantValueImpl<ConstantValueReal, pascal_real_t>
+{
+    using ConstantValueImpl::ConstantValueImpl;
+
+    std::string
+    typeStr() const override { return "real"s; }
+};
+
+export
+class ConstantValueChar final
+    : public ConstantValueImpl<ConstantValueChar, char>
+{
+    using ConstantValueImpl::ConstantValueImpl;
+
+    std::string
+    typeStr() const override { return "char"s; }
+};
+
+export
+class ConstantValueString final
+    : public ConstantValueImpl<ConstantValueString, std::string>
+{
+    using ConstantValueImpl::ConstantValueImpl;
+
+    std::string
+    typeStr() const override {
+        return std::format("packed array(1..{}) of char", value_.size());
+    }
+};
 
 export
 class Constant {
