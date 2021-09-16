@@ -110,7 +110,7 @@ public:
                             auto it = block.constants_.find(id_node.spelling);
 
                             if (it == block.constants_.end()) {
-                                reporter_.err(constant_value_location, "undefined-identifier",
+                                reporter_.err(id_node.view.data(), "undefined-identifier",
                                     "undefined constant identifier \"{}\"", id_node.spelling);
                                 return;
                             }

@@ -1,7 +1,7 @@
 program badconst;
 const
-    a = b;
-       {^ error:undefined-identifier }
+    a = -b;
+        {^ error:undefined-identifier }
     b = 123;
     c = '1';
     d = 'many';
