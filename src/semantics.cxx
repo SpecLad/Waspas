@@ -27,6 +27,34 @@ public:
     {}
 
     void
+    applySignToConstantValue(std::unique_ptr<sem::ConstantValue> &v, nodes::Sign sign, const char *location) {
+        if (sign == nodes::Sign::NONE) return;
+
+        if (auto *p_integer_value = dynamic_cast<sem::ConstantValueInteger *>(v.get())) {
+            if (sign == nodes::Sign::MINUS) {
+                if (p_integer_value->value() == std::numeric_limits<pascal_integer_t>::min()) {
+                    // It should be impossible to reach this, since integer constants can only
+                    // be defined with unsigned literals and negations, which can't produce
+                    // the lowest integer. But just in case, we'll handle it anyway.
+                    reporter_.err(location, "invalid-negation",
+                        "can't negate the lowest possible integer");
+                }
+
+                v.reset(new sem::ConstantValueInteger(-p_integer_value->value()));
+            }
+        }
+        else if (auto *p_real_value = dynamic_cast<sem::ConstantValueReal *>(v.get())) {
+            if (sign == nodes::Sign::MINUS)
+                v.reset(new sem::ConstantValueReal(-p_real_value->value()));
+        }
+        else {
+            // TODO: print the actual type of the constant
+            reporter_.err(location, "type-mismatch",
+                "a sign can only be applied to a constant of integer or real type");
+        }
+    }
+
+    void
     buildBlock(const nodes::Block &block_node, sem::Block &block) {
         for (auto &label_node : block_node.label_declarations) {
             auto label_location = label_node.view.data();
@@ -68,10 +96,6 @@ public:
 
             visit(constant_value_node, overloaded{
                 [&, this](nodes::SignedConstant &sc_node) {
-                    if (sc_node.sign != nodes::Sign::NONE)
-                        reporter_.err(constant_value_location, "unsupported",
-                            "signs are not supported yet");
-
                     visit(*sc_node.unsigned_value, overloaded{
                         [&](nodes::UnsignedIntegerConstant &uic_node) {
                             constant.value_.reset(new sem::ConstantValueInteger(
@@ -95,6 +119,9 @@ public:
                             constant.value_ = it->second.value_->clone();
                         }
                     });
+
+                    if (constant.value_)
+                        applySignToConstantValue(constant.value_, sc_node.sign, constant_value_location);
                 },
                 [&](nodes::CharacterString &cs_node) {
                     if (cs_node.value.size() == 1)
