@@ -27,6 +27,26 @@ public:
     {}
 
     void
+    analyzeLabelDeclarations(const nodes::Block &block_node, sem::Block &block) {
+        for (auto &label_node : block_node.label_declarations) {
+            auto label_location = label_node.view.data();
+
+            auto [it, success] = block.labels_.try_emplace(
+                label_node.value, label_location);
+
+            if (!success) {
+                reporter_.err(label_location, "duplicate-label",
+                    "label \"{}\" already defined", label_node.value);
+                reporter_.note(it->second,
+                    "defining point of \"{}\"", label_node.value);
+            }
+
+            // TODO: verify that each label is used exactly once
+            // in the block where it's defined
+        }
+    }
+
+    void
     applySignToConstantValue(std::unique_ptr<sem::ConstantValue> &v, nodes::Sign sign, const char *location) {
         if (sign == nodes::Sign::NONE) return;
 
@@ -54,24 +74,7 @@ public:
     }
 
     void
-    buildBlock(const nodes::Block &block_node, sem::Block &block) {
-        for (auto &label_node : block_node.label_declarations) {
-            auto label_location = label_node.view.data();
-
-            auto [it, success] = block.labels_.try_emplace(
-                label_node.value, label_location);
-
-            if (!success) {
-                reporter_.err(label_location, "duplicate-label",
-                    "label \"{}\" already defined", label_node.value);
-                reporter_.note(it->second,
-                    "defining point of \"{}\"", label_node.value);
-            }
-
-            // TODO: verify that each label is used exactly once
-            // in the block where it's defined
-        }
-
+    analyzeConstantDefinitions(const nodes::Block &block_node, sem::Block &block) {
         for (auto &constant_def_node : block_node.constant_definitions) {
             auto constant_location = constant_def_node.view.data();
 
@@ -139,6 +142,12 @@ public:
 
             block.constants_.emplace(constant_name, std::move(constant));
         }
+    }
+
+    void
+    buildBlock(const nodes::Block &block_node, sem::Block &block) {
+        analyzeLabelDeclarations(block_node, block);
+        analyzeConstantDefinitions(block_node, block);
     }
 
     sem::Program
