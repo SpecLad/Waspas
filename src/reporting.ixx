@@ -74,7 +74,8 @@ public:
     err(const char *location, std::string_view error_code,
             std::string_view error_message_format, Args &&...error_message_args) {
         errRaw(location, error_code,
-            std::format(error_message_format, std::forward<Args>(error_message_args)...));
+            std::vformat(error_message_format,
+                std::make_format_args(std::forward<Args>(error_message_args)...)));
     }
 
     template <typename ...Args>
@@ -82,7 +83,8 @@ public:
     note(const char *location,
             std::string_view note_message_format, Args &&...note_message_args) {
         noteRaw(location,
-            std::format(note_message_format, std::forward<Args>(note_message_args)...));
+            std::vformat(note_message_format,
+                std::make_format_args(std::forward<Args>(note_message_args)...)));
     }
 
 private:

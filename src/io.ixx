@@ -22,7 +22,8 @@ export
 template <typename ...Args>
 void
 printError(std::string_view format, Args &&...args) {
-    std::string message = std::format(format, std::forward<Args>(args)...);
+    std::string message = std::vformat(format,
+        std::make_format_args(std::forward<Args>(args)...));
 
 #if _WIN32
     if (isConsole(stderr)) {
