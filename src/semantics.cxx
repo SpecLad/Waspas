@@ -73,6 +73,101 @@ public:
         }
     }
 
+    struct DefiningOccurrence {
+        const char *location;
+        enum Kind { NOT_TYPE, TYPE } kind;
+    };
+
+    using defining_occurrences_t = std::unordered_map<std::string, DefiningOccurrence>;
+
+    static void
+    collectDefiningOccurrence(
+        const nodes::Identifier &id_node,
+        defining_occurrences_t &dos,
+        DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
+    ) {
+        dos[id_node.spelling] = DefiningOccurrence{id_node.view.data(), kind};
+    }
+
+    static void
+    collectDefiningOccurrencesInFieldList(
+        defining_occurrences_t &dos,
+        nodes::FieldList &field_list_node
+    ) {
+        for (const auto &fixed_section : field_list_node.fixed_sections)
+            collectDefiningOccurrencesInTypeDenoter(dos, *fixed_section.field_type);
+
+        if (field_list_node.variant_part)
+            for (auto &variant : field_list_node.variant_part->variants)
+                collectDefiningOccurrencesInFieldList(dos, variant.fields);
+    }
+
+    static void
+    collectDefiningOccurrencesInTypeDenoter(
+        defining_occurrences_t &dos,
+        nodes::TypeDenoter &denoter_node
+    ) {
+        visit(denoter_node, overloaded{
+            [](nodes::NewPointerType &) {},
+            [&dos](nodes::NewStructuredType &structured_node) {
+                visit(*structured_node.unpacked, overloaded{
+                    [&dos](nodes::ArrayType &array_node) {
+                        for (const auto &index_type : array_node.index_types)
+                            collectDefiningOccurrencesInTypeDenoter(dos, *index_type);
+
+                        collectDefiningOccurrencesInTypeDenoter(
+                            dos, *array_node.component_type);
+                    },
+                    [&dos](nodes::FileType &file_node) {
+                        collectDefiningOccurrencesInTypeDenoter(
+                            dos, *file_node.component_type);
+                    },
+                    [&dos](nodes::RecordType &record_node) {
+                        collectDefiningOccurrencesInFieldList(dos, record_node.fields);
+                    },
+                    [&dos](nodes::SetType &set_node) {
+                        collectDefiningOccurrencesInTypeDenoter(
+                            dos, *set_node.base_type);
+                    },
+                });
+            },
+            [&dos](nodes::OrdinalType &ordinal_node) {
+                visit(ordinal_node, overloaded{
+                    [&dos](nodes::EnumeratedType &enum_node) {
+                        for (auto &identifier_node : enum_node.constants)
+                            collectDefiningOccurrence(identifier_node, dos);
+                    },
+                    [](nodes::Identifier &) {},
+                    [](nodes::SubrangeType &) {},
+                });
+            },
+        });
+    }
+
+    static void
+    collectDefiningOccurrencesInBlock(
+        defining_occurrences_t &dos,
+        const nodes::Block &block_node
+    ) {
+        for (auto &constant_def_node : block_node.constant_definitions)
+            collectDefiningOccurrence(constant_def_node.name, dos);
+
+        for (auto &type_def_node : block_node.type_definitions) {
+            collectDefiningOccurrence(type_def_node.name, dos, DefiningOccurrence::TYPE);
+            collectDefiningOccurrencesInTypeDenoter(dos, *type_def_node.denoter);
+        }
+
+        for (auto &variable_decl_node : block_node.variable_declarations) {
+            for (auto &identifier_node : variable_decl_node.var_names)
+                collectDefiningOccurrence(identifier_node, dos);
+            collectDefiningOccurrencesInTypeDenoter(dos, *variable_decl_node.var_type);
+        }
+
+        // TODO: need to handle the distinction between subroutine headings/identifications
+        //for (auto &subroutine_decl_node : block_node.subroutine_declarations)
+        //    collectDefiningOccurrence(dos, subroutine_decl_node.heading->name);
+    }
+
     void
     analyzeConstantDefinitions(const nodes::Block &block_node, sem::Block &block) {
         for (auto &constant_def_node : block_node.constant_definitions) {
@@ -147,6 +242,10 @@ public:
     void
     buildBlock(const nodes::Block &block_node, sem::Block &block) {
         analyzeLabelDeclarations(block_node, block);
+
+        defining_occurrences_t defining_occurrences;
+        collectDefiningOccurrencesInBlock(defining_occurrences, block_node);
+
         analyzeConstantDefinitions(block_node, block);
     }
 
