@@ -86,7 +86,8 @@ public:
         defining_occurrences_t &dos,
         DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
     ) {
-        dos[id_node.spelling] = DefiningOccurrence{id_node.view.data(), kind};
+        // ignore duplicate IDs
+        dos.try_emplace(id_node.spelling, DefiningOccurrence{id_node.view.data(), kind});
     }
 
     static void
@@ -168,25 +169,35 @@ public:
         //    collectDefiningOccurrence(dos, subroutine_decl_node.heading->name);
     }
 
+    bool
+    checkDuplicateIdentifier(
+        const defining_occurrences_t &dos, const nodes::Identifier &id_node
+    ) {
+        const auto &occurrence = dos.at(id_node.spelling);
+
+        if (occurrence.location != id_node.view.data()) {
+            reporter_.err(id_node.view.data(), "duplicate-identifier",
+                "identifier \"{}\" already defined", id_node.spelling);
+            reporter_.note(occurrence.location,
+                "defining point of \"{}\"", id_node.spelling);
+            return true;
+        }
+
+        return false;
+    }
+
     void
-    analyzeConstantDefinitions(const nodes::Block &block_node, sem::Block &block) {
+    analyzeConstantDefinitions(
+        const nodes::Block &block_node,
+        const defining_occurrences_t &dos,
+        sem::Block &block
+    ) {
         for (auto &constant_def_node : block_node.constant_definitions) {
-            auto constant_location = constant_def_node.view.data();
-
-            std::string_view constant_name = constant_def_node.name.spelling;
-
-            if (const char *previous_defining_point
-                = block.findDefiningPoint(constant_name)
-            ) {
-                reporter_.err(constant_location, "duplicate-identifier",
-                    "identifier \"{}\" already defined", constant_name);
-                reporter_.note(previous_defining_point,
-                    "defining point of \"{}\"", constant_name);
+            if (checkDuplicateIdentifier(dos, constant_def_node.name))
                 continue;
-            }
 
             sem::Constant constant;
-            constant.location_ = constant_location;
+            constant.location_ = constant_def_node.view.data();
 
             auto &constant_value_node = *constant_def_node.value;
             auto constant_value_location = constant_value_node.view.data();
@@ -235,7 +246,7 @@ public:
                 constant.value_ = std::make_unique<sem::ConstantValueInteger>(0);
             }
 
-            block.constants_.emplace(constant_name, std::move(constant));
+            block.constants_.emplace(constant_def_node.name.spelling, std::move(constant));
         }
     }
 
@@ -246,7 +257,7 @@ public:
         defining_occurrences_t defining_occurrences;
         collectDefiningOccurrencesInBlock(defining_occurrences, block_node);
 
-        analyzeConstantDefinitions(block_node, block);
+        analyzeConstantDefinitions(block_node, defining_occurrences, block);
     }
 
     sem::Program
