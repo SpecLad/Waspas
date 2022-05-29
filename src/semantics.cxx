@@ -164,9 +164,17 @@ public:
             collectDefiningOccurrencesInTypeDenoter(dos, *variable_decl_node.var_type);
         }
 
-        // TODO: need to handle the distinction between subroutine headings/identifications
-        //for (auto &subroutine_decl_node : block_node.subroutine_declarations)
-        //    collectDefiningOccurrence(dos, subroutine_decl_node.heading->name);
+        for (auto &subroutine_decl_node : block_node.subroutine_declarations) {
+            // Function identifications do not introduce defining occurrences.
+            // Strictly speaking, this check is unnecessary, since if a function
+            // identification for a given name occurs before the corresponding
+            // function heading, that's an error (and we'll catch that error later),
+            // and if it occurs after, collectDefiningOccurrence will ignore it.
+            // We do the check anyway, just so that we can point at the real
+            // defining occurrence of the function if we need to.
+            if (!dynamic_cast<nodes::FunctionIdentification *>(subroutine_decl_node.heading.get()))
+                collectDefiningOccurrence(dos, subroutine_decl_node.heading->name);
+        }
     }
 
     bool
