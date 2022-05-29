@@ -82,8 +82,8 @@ public:
 
     static void
     collectDefiningOccurrence(
-        const nodes::Identifier &id_node,
         defining_occurrences_t &dos,
+        const nodes::Identifier &id_node,
         DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
     ) {
         // ignore duplicate IDs
@@ -136,7 +136,7 @@ public:
                 visit(ordinal_node, overloaded{
                     [&dos](nodes::EnumeratedType &enum_node) {
                         for (auto &identifier_node : enum_node.constants)
-                            collectDefiningOccurrence(identifier_node, dos);
+                            collectDefiningOccurrence(dos, identifier_node);
                     },
                     [](nodes::Identifier &) {},
                     [](nodes::SubrangeType &) {},
@@ -151,16 +151,16 @@ public:
         const nodes::Block &block_node
     ) {
         for (auto &constant_def_node : block_node.constant_definitions)
-            collectDefiningOccurrence(constant_def_node.name, dos);
+            collectDefiningOccurrence(dos, constant_def_node.name);
 
         for (auto &type_def_node : block_node.type_definitions) {
-            collectDefiningOccurrence(type_def_node.name, dos, DefiningOccurrence::TYPE);
+            collectDefiningOccurrence(dos, type_def_node.name, DefiningOccurrence::TYPE);
             collectDefiningOccurrencesInTypeDenoter(dos, *type_def_node.denoter);
         }
 
         for (auto &variable_decl_node : block_node.variable_declarations) {
             for (auto &identifier_node : variable_decl_node.var_names)
-                collectDefiningOccurrence(identifier_node, dos);
+                collectDefiningOccurrence(dos, identifier_node);
             collectDefiningOccurrencesInTypeDenoter(dos, *variable_decl_node.var_type);
         }
 
