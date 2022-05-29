@@ -1,6 +1,6 @@
 program badconst;
 const
-    a = -b;
+    a = -unknown;
         {^ error:undefined-identifier }
     b = 123;
     c = '1';
@@ -9,5 +9,38 @@ const
        {^ error:type-mismatch }
     f = -d;
        {^ error:type-mismatch }
+
+    { various variations on use-before-definition }
+    ubdSelf = ubdSelf;
+   {^ note}  {^ error:use-before-definition }
+    ubdConst = id1;
+              {^ error:use-before-definition }
+    id1 = 0;
+   {^ note }
+    ubdType = id2;
+             {^ error:use-before-definition }
+    ubdEnum = id3;
+             {^ error:use-before-definition }
+    ubdVar = id4;
+            {^ error:use-before-definition }
+    ubdEnumVar = id5;
+                {^ error:use-before-definition }
+    ubdProcedure = id6;
+                  {^ error:use-before-definition }
+    ubdFunction = id7;
+                 {^ error:use-before-definition }
+type
+    id2 = integer;
+   {^ note }
+    enum = (id3);
+           {^ note }
+var id4: integer;
+   {^ note }
+    enumVar: (id5);
+             {^ note }
+procedure id6; forward;
+         {^ note }
+function id7: integer; forward;
+        {^ note }
 begin
 end.

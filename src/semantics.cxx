@@ -13,14 +13,6 @@ struct overloaded : Ts... {
 template<class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-const char *
-sem::Block::findDefiningPoint(std::string_view identifier) const {
-    auto it = constants_.find(std::string(identifier));
-    if (it != constants_.end()) return it->second.location();
-
-    return nullptr;
-}
-
 class ProgramBuilder {
 public:
     ProgramBuilder(Reporter &reporter) : reporter_(reporter)
@@ -194,6 +186,34 @@ public:
         return false;
     }
 
+    sem::Constant *
+    lookupConstant(
+        sem::Block &block,
+        const defining_occurrences_t &dos,
+        const nodes::Identifier &applied_occurrence_node
+    ) {
+        const auto &spelling = applied_occurrence_node.spelling;
+
+        if (auto it = block.constants_.find(spelling); it != block.constants_.end())
+            return &it->second;
+
+        auto applied_occurrence_location = applied_occurrence_node.view.data();
+
+        if (auto it = dos.find(spelling); it != dos.end()) {
+            reporter_.err(applied_occurrence_location, "use-before-definition",
+                "identifier \"{}\" used before it was defined", spelling);
+            reporter_.note(it->second.location,
+                "defining point of \"{}\"", spelling);
+            return nullptr;
+        }
+
+        // TODO: look in parent block(s)
+
+        reporter_.err(applied_occurrence_location, "undefined-identifier",
+            "undefined constant identifier \"{}\"", spelling);
+        return nullptr;
+    }
+
     void
     analyzeConstantDefinitions(
         const nodes::Block &block_node,
@@ -222,17 +242,8 @@ public:
                                 urc_node.value));
                         },
                         [&](nodes::Identifier &id_node) {
-                            // TODO: add proper ID resolving: add parent scope searching;
-                            // builtins; checks that we don't use an ID before it's defined
-                            auto it = block.constants_.find(id_node.spelling);
-
-                            if (it == block.constants_.end()) {
-                                reporter_.err(id_node.view.data(), "undefined-identifier",
-                                    "undefined constant identifier \"{}\"", id_node.spelling);
-                                return;
-                            }
-
-                            constant.value_ = it->second.value_->clone();
+                            if (auto *ref_constant = lookupConstant(block, dos, id_node))
+                                constant.value_ = ref_constant->value_->clone();
                         }
                     });
 

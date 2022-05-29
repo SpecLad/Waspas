@@ -94,11 +94,6 @@ class ConstantValueString final
 
 export
 class Constant {
-public:
-    const char *
-    location() const { return location_; }
-
-private:
     const char *location_;
     std::unique_ptr<ConstantValue> value_;
 
@@ -109,9 +104,6 @@ export
 class Block {
     std::unordered_map<pascal_integer_t, const char *> labels_;
     std::unordered_map<std::string, Constant> constants_;
-
-    const char *
-    findDefiningPoint(std::string_view identifier) const;
 
     friend class ProgramBuilder;
 };
