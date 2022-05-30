@@ -38,9 +38,9 @@ var id4: integer;
    {^ note }
     enumVar: (id5);
              {^ note }
-procedure id6; forward;
+procedure id6; begin end;
          {^ note }
-function id7: integer; forward;
+function id7: integer; begin id7 := 0 end;
         {^ note }
 begin
 end.
