@@ -12,8 +12,8 @@ import reporting;
 
 using namespace std::literals;
 
-class
-ProgramBuilder;
+class ProgramBuilder;
+struct BuiltinBlockInitializer;
 
 namespace sem {
 
@@ -94,18 +94,21 @@ class ConstantValueString final
 
 export
 class Constant {
-    const char *location_;
+    const char *location_{};
     std::unique_ptr<ConstantValue> value_;
 
     friend class ProgramBuilder;
+    friend struct BuiltinBlockInitializer;
 };
 
 export
 class Block {
+    Block *parent_{};
     std::unordered_map<pascal_integer_t, const char *> labels_;
     std::unordered_map<std::string, Constant> constants_;
 
     friend class ProgramBuilder;
+    friend struct BuiltinBlockInitializer;
 };
 
 export

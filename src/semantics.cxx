@@ -1,5 +1,6 @@
 module;
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -12,6 +13,23 @@ struct overloaded : Ts... {
 };
 template<class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
+
+sem::Block builtin_block;
+
+struct BuiltinBlockInitializer {
+    BuiltinBlockInitializer() {
+        auto &c_maxint = builtin_block.constants_["maxint"];
+        c_maxint.value_.reset(new sem::ConstantValueInteger(
+            std::numeric_limits<pascal_integer_t>::max()));
+
+        // TODO:
+        // constants: false, true
+        // types: integer, real, boolean, char, text
+        // procedures: rewrite, put, reset, get, read, write, new, dispose, pack, unpack, page
+        // functions: abs, sqr, sin, cos, exp, ln, sqrt, arctan, trunc, round, ord, chr,
+        //   succ, pred, odd, eof, eoln
+    }
+} builtin_block_init;
 
 class ProgramBuilder {
 public:
@@ -207,7 +225,15 @@ public:
             return nullptr;
         }
 
-        // TODO: look in parent block(s)
+        for (
+            sem::Block *parent_block = block.parent_;
+            parent_block;
+            parent_block = parent_block->parent_
+        ) {
+            auto it = parent_block->constants_.find(spelling);
+            if (it != parent_block->constants_.end())
+                return &it->second;
+        }
 
         reporter_.err(applied_occurrence_location, "undefined-identifier",
             "undefined constant identifier \"{}\"", spelling);
@@ -299,6 +325,7 @@ public:
 
         // TODO: check that program parameters correspond to variables
 
+        program.block_.parent_ = &builtin_block;
         buildBlock(program_node.block, program.block_);
 
         return program;
