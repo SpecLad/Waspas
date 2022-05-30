@@ -57,10 +57,10 @@ public:
     }
 
     void
-    applySignToConstantValue(std::unique_ptr<sem::ConstantValue> &v, nodes::Sign sign, const char *location) {
+    applySignToConstantValue(std::shared_ptr<const sem::ConstantValue> &v, nodes::Sign sign, const char *location) {
         if (sign == nodes::Sign::NONE) return;
 
-        if (auto *p_integer_value = dynamic_cast<sem::ConstantValueInteger *>(v.get())) {
+        if (auto *p_integer_value = dynamic_cast<const sem::ConstantValueInteger *>(v.get())) {
             if (sign == nodes::Sign::MINUS) {
                 if (p_integer_value->value() == std::numeric_limits<pascal_integer_t>::min()) {
                     // It should be impossible to reach this, since integer constants can only
@@ -73,7 +73,7 @@ public:
                 v.reset(new sem::ConstantValueInteger(-p_integer_value->value()));
             }
         }
-        else if (auto *p_real_value = dynamic_cast<sem::ConstantValueReal *>(v.get())) {
+        else if (auto *p_real_value = dynamic_cast<const sem::ConstantValueReal *>(v.get())) {
             if (sign == nodes::Sign::MINUS)
                 v.reset(new sem::ConstantValueReal(-p_real_value->value()));
         }
@@ -269,7 +269,7 @@ public:
                         },
                         [&](nodes::Identifier &id_node) {
                             if (auto *ref_constant = lookupConstant(block, dos, id_node))
-                                constant.value_ = ref_constant->value_->clone();
+                                constant.value_ = ref_constant->value_;
                         }
                     });
 

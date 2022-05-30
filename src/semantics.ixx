@@ -23,9 +23,6 @@ public:
     virtual
     ~ConstantValue() = default;
 
-    virtual std::unique_ptr<ConstantValue>
-    clone() const = 0;
-
     virtual std::string
     typeStr() const = 0;
 };
@@ -40,11 +37,6 @@ public:
 
     Value
     value() const { return value_; }
-
-    std::unique_ptr<ConstantValue>
-    clone() const override {
-        return std::make_unique<T>(value_);
-    }
 
 protected:
     Value value_;
@@ -95,7 +87,7 @@ class ConstantValueString final
 export
 class Constant {
     const char *location_{};
-    std::unique_ptr<ConstantValue> value_;
+    std::shared_ptr<const ConstantValue> value_;
 
     friend class ProgramBuilder;
     friend struct BuiltinBlockInitializer;
