@@ -22,12 +22,19 @@ struct BuiltinBlockInitializer {
         c_maxint.value_.reset(new sem::ConstantValueInteger(
             std::numeric_limits<pascal_integer_t>::max()));
 
+        builtin_block.types_.emplace("integer", getBuiltinTypePtr<sem::TypeInteger>());
         // TODO:
         // constants: false, true
-        // types: integer, real, boolean, char, text
+        // types: real, boolean, char, text
         // procedures: rewrite, put, reset, get, read, write, new, dispose, pack, unpack, page
         // functions: abs, sqr, sin, cos, exp, ln, sqrt, arctan, trunc, round, ord, chr,
         //   succ, pred, odd, eof, eoln
+    }
+
+    template <typename T>
+    static std::shared_ptr<const sem::Type>
+    getBuiltinTypePtr() {
+        return std::shared_ptr<const sem::Type>(std::shared_ptr<void>(), &T::instance());
     }
 } builtin_block_init;
 
@@ -204,16 +211,22 @@ public:
         return false;
     }
 
-    sem::Constant *
-    lookupConstant(
+    template <typename T>
+    T *
+    lookupIdentifier(
         sem::Block &block,
         const defining_occurrences_t &dos,
-        const nodes::Identifier &applied_occurrence_node
+        const nodes::Identifier &applied_occurrence_node,
+        std::unordered_map<std::string, T> sem::Block::*map_member,
+        std::string_view identifier_type_str
     ) {
         const auto &spelling = applied_occurrence_node.spelling;
 
-        if (auto it = block.constants_.find(spelling); it != block.constants_.end())
-            return &it->second;
+        {
+            auto &map = block.*map_member;
+            auto it = map.find(spelling);
+            if (it != map.end()) return &it->second;
+        }
 
         auto applied_occurrence_location = applied_occurrence_node.view.data();
 
@@ -230,14 +243,35 @@ public:
             parent_block;
             parent_block = parent_block->parent_
         ) {
-            auto it = parent_block->constants_.find(spelling);
-            if (it != parent_block->constants_.end())
-                return &it->second;
+            auto &map = parent_block->*map_member;
+            auto it = map.find(spelling);
+            if (it != map.end()) return &it->second;
         }
 
         reporter_.err(applied_occurrence_location, "undefined-identifier",
-            "undefined constant identifier \"{}\"", spelling);
+            "undefined {} identifier \"{}\"", identifier_type_str, spelling);
         return nullptr;
+    }
+
+    sem::Constant *
+    lookupConstant(
+        sem::Block &block,
+        const defining_occurrences_t &dos,
+        const nodes::Identifier &applied_occurrence_node
+    ) {
+        return lookupIdentifier(block, dos, applied_occurrence_node,
+            &sem::Block::constants_, "constant");
+    }
+
+    std::shared_ptr<const sem::Type>
+    lookupType(
+        sem::Block &block,
+        const defining_occurrences_t &dos,
+        const nodes::Identifier &applied_occurrence_node
+    ) {
+        auto *ptr = lookupIdentifier(block, dos, applied_occurrence_node,
+            &sem::Block::types_, "type");
+        return ptr ? *ptr : nullptr;
     }
 
     void
@@ -296,6 +330,54 @@ public:
     }
 
     void
+    analyzeTypeDefinitions(
+        const nodes::Block &block_node,
+        const defining_occurrences_t &dos,
+        sem::Block &block
+    ) {
+        for (auto &type_def_node : block_node.type_definitions) {
+            if (checkDuplicateIdentifier(dos, type_def_node.name))
+                continue;
+
+            std::shared_ptr<const sem::Type> type;
+
+            auto &type_denoter_node = *type_def_node.denoter;
+            auto type_denoter_location = type_denoter_node.view.data();
+
+            visit(type_denoter_node, overloaded{
+                [&](nodes::NewPointerType &) {
+                    reporter_.err(type_denoter_location, "unsupported-feature",
+                        "pointer types are not yet supported");
+                },
+                [&](nodes::NewStructuredType &) {
+                    reporter_.err(type_denoter_location, "unsupported-feature",
+                        "structured types are not yet supported");
+                },
+                [&](nodes::OrdinalType &ordinal_type_node) {
+                    visit(ordinal_type_node, overloaded{
+                        [&](nodes::EnumeratedType &) {
+                            reporter_.err(type_denoter_location, "unsupported-feature",
+                                "enumerated types are not yet supported");
+                        },
+                        [&](nodes::Identifier &id_node) {
+                            type = lookupType(block, dos, id_node);
+                        },
+                        [&](nodes::SubrangeType &) {
+                            reporter_.err(type_denoter_location, "unsupported-feature",
+                                "subrange types are not yet supported");
+                        },
+                    });
+                },
+            });
+
+            if (!type) {
+                // use a fallback type so that we can continue with the analysis
+                type = BuiltinBlockInitializer::getBuiltinTypePtr<sem::TypeInteger>();
+            }
+        }
+    }
+
+    void
     buildBlock(const nodes::Block &block_node, sem::Block &block) {
         analyzeLabelDeclarations(block_node, block);
 
@@ -303,6 +385,7 @@ public:
         collectDefiningOccurrencesInBlock(defining_occurrences, block_node);
 
         analyzeConstantDefinitions(block_node, defining_occurrences, block);
+        analyzeTypeDefinitions(block_node, defining_occurrences, block);
     }
 
     sem::Program

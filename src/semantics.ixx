@@ -18,6 +18,32 @@ struct BuiltinBlockInitializer;
 namespace sem {
 
 export
+class Type {
+public:
+    virtual
+    ~Type() = default;
+
+    virtual std::string
+    str() const = 0;
+};
+
+export
+class TypeInteger : public Type {
+public:
+    std::string
+    str() const { return "integer"s; }
+
+    static const TypeInteger &
+    instance() {
+        static const TypeInteger t;
+        return t;
+    }
+
+private:
+    TypeInteger() = default;
+};
+
+export
 class ConstantValue {
 public:
     virtual
@@ -98,6 +124,7 @@ class Block {
     Block *parent_{};
     std::unordered_map<pascal_integer_t, const char *> labels_;
     std::unordered_map<std::string, Constant> constants_;
+    std::unordered_map<std::string, std::shared_ptr<const Type>> types_;
 
     friend class ProgramBuilder;
     friend struct BuiltinBlockInitializer;
