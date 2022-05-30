@@ -13,34 +13,31 @@ const
     { various variations on use-before-definition }
     ubdSelf = ubdSelf;
    {^ note}  {^ error:use-before-definition }
-    ubdConst = id1;
+    ubdConst = laterConst;
               {^ error:use-before-definition }
-    id1 = 0;
+    laterConst = 0;
    {^ note }
-    ubdType = id2;
+    ubdType = laterType;
              {^ error:use-before-definition }
-    ubdEnum = id3;
+    ubdEnum = laterEnum;
              {^ error:use-before-definition }
-    ubdVar = id4;
+    ubdVar = laterVar;
             {^ error:use-before-definition }
-    ubdEnumVar = id5;
+    ubdEnumVar = laterEnumVar;
                 {^ error:use-before-definition }
-    ubdProcedure = id6;
+    ubdProcedure = laterProcedure;
                   {^ error:use-before-definition }
-    ubdFunction = id7;
+    ubdFunction = laterFunction;
                  {^ error:use-before-definition }
 type
-    id2 = integer;
-   {^ note }
-    enum = (id3);
-           {^ note }
-var id4: integer;
-   {^ note }
-    enumVar: (id5);
-             {^ note }
-procedure id6; begin end;
+    laterType = (laterEnum);
+   {^ note }    {^ note }
+var
+    laterVar: (laterEnumVar);
+   {^ note }  {^ note }
+procedure laterProcedure; begin end;
          {^ note }
-function id7: integer; begin id7 := 0 end;
+function laterFunction: integer; begin laterFunction := 0 end;
         {^ note }
 begin
 end.
