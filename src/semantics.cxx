@@ -300,6 +300,52 @@ public:
             &sem::Block::types_, "type");
     }
 
+    std::shared_ptr<const sem::Constant>
+    resolveConstant(sem::Block &block, nodes::Constant &constant_node) {
+        auto constant_location = constant_node.view.data();
+        std::shared_ptr<const sem::Constant> constant;
+
+        visit(constant_node, overloaded{
+            [&, this](nodes::SignedConstant &sc_node) {
+                visit(*sc_node.unsigned_value, overloaded{
+                    [&](nodes::UnsignedIntegerConstant &uic_node) {
+                        constant = std::make_shared<sem::ConstantInteger>(
+                            uic_node.value);
+                    },
+                    [&](nodes::UnsignedRealConstant &urc_node) {
+                        constant = std::make_shared<sem::ConstantReal>(
+                            urc_node.value);
+                    },
+                    [&](nodes::Identifier &id_node) {
+                        auto *ref_constant = lookupConstant(block, id_node);
+                        if (!ref_constant) return;
+
+                        if (!*ref_constant) {
+                            reporter_.err(id_node.view.data(), "circular-definition",
+                                "constant \"{}\" used in its own definition", id_node.spelling);
+                            return;
+                        }
+
+                        constant = *ref_constant;
+                    }
+                });
+
+                if (constant)
+                    applySignToConstant(constant, sc_node.sign, constant_location);
+            },
+            [&](nodes::CharacterString &cs_node) {
+                if (cs_node.value.size() == 1)
+                    constant = std::make_shared<sem::ConstantChar>(
+                        cs_node.value[0]);
+                else
+                    constant = std::make_shared<sem::ConstantString>(
+                        cs_node.value);
+            }
+        });
+
+        return constant;
+    }
+
     void
     analyzeConstantDefinitions(
         const nodes::Block &block_node,
@@ -309,48 +355,10 @@ public:
             if (checkDuplicateIdentifier(block, constant_def_node.name))
                 continue;
 
-            auto &constant_value_node = *constant_def_node.value;
-            auto constant_value_location = constant_value_node.view.data();
-
+            // For circular definition detection to work, we must first add
+            // the new constant to block.constants_, and _then_ resolve the value.
             auto &constant = block.constants_[constant_def_node.name.spelling];
-
-            visit(constant_value_node, overloaded{
-                [&, this](nodes::SignedConstant &sc_node) {
-                    visit(*sc_node.unsigned_value, overloaded{
-                        [&](nodes::UnsignedIntegerConstant &uic_node) {
-                            constant = std::make_shared<sem::ConstantInteger>(
-                                uic_node.value);
-                        },
-                        [&](nodes::UnsignedRealConstant &urc_node) {
-                            constant = std::make_shared<sem::ConstantReal>(
-                                urc_node.value);
-                        },
-                        [&](nodes::Identifier &id_node) {
-                            auto *ref_constant = lookupConstant(block, id_node);
-                            if (!ref_constant) return;
-
-                            if (!*ref_constant) {
-                                reporter_.err(id_node.view.data(), "circular-definition",
-                                    "constant \"{}\" used in its own definition", id_node.spelling);
-                                return;
-                            }
-
-                            constant = *ref_constant;
-                        }
-                    });
-
-                    if (constant)
-                        applySignToConstant(constant, sc_node.sign, constant_value_location);
-                },
-                [&](nodes::CharacterString &cs_node) {
-                    if (cs_node.value.size() == 1)
-                        constant = std::make_shared<sem::ConstantChar>(
-                            cs_node.value[0]);
-                    else
-                        constant = std::make_shared<sem::ConstantString>(
-                            cs_node.value);
-                }
-            });
+            constant = resolveConstant(block, *constant_def_node.value);
 
             if (!constant) {
                 // use a fallback value so that we can continue with the analysis
@@ -398,9 +406,16 @@ public:
                     reporter_.err(type_denoter_location, "unsupported-feature",
                         "structured types are not yet supported");
                 },
-                [&](nodes::SubrangeType &) {
-                    reporter_.err(type_denoter_location, "unsupported-feature",
-                        "subrange types are not yet supported");
+                [&](nodes::SubrangeType &subrange_type_node) {
+                    auto smallest = resolveConstant(block, *subrange_type_node.smallest);
+                    auto largest = resolveConstant(block, *subrange_type_node.largest);
+
+                    if (!smallest || !largest) return;
+
+                    // TODO: check that the constants are of the same ordinal type
+                    // TODO: check that smallest <= largest
+
+                    type = std::make_shared<sem::TypeSubrange>(smallest, largest);
                 },
             });
 

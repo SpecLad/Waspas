@@ -89,11 +89,29 @@ private:
 export
 class TypeText : public TypeBuiltin<TypeText> {
 public:
-    static inline const std::string_view NAME = "text"sv;
+    static inline constexpr std::string_view NAME = "text"sv;
 
 private:
     TypeText() = default;
     friend class TypeBuiltin<TypeText>;
+};
+
+class Constant;
+
+export
+class TypeSubrange : public Type {
+public:
+    TypeSubrange(
+        std::shared_ptr<const Constant> smallest_value,
+        std::shared_ptr<const Constant> largest_value
+    ) : smallest_value_(smallest_value), largest_value_(largest_value) {}
+
+    std::string
+    str() const override { return "<subrange>"s; } // TODO: stringify the constants
+
+private:
+    std::shared_ptr<const Constant> smallest_value_;
+    std::shared_ptr<const Constant> largest_value_;
 };
 
 export
