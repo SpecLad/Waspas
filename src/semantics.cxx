@@ -18,9 +18,9 @@ sem::Block builtin_block;
 
 struct BuiltinBlockInitializer {
     BuiltinBlockInitializer() {
-        auto &c_maxint = builtin_block.constants_["maxint"];
-        c_maxint.reset(new sem::ConstantInteger(
-            std::numeric_limits<pascal_integer_t>::max()));
+        builtin_block.constants_.emplace("maxint",
+            std::make_shared<sem::ConstantInteger>(
+                std::numeric_limits<pascal_integer_t>::max()));
 
         builtin_block.types_.emplace("integer", getBuiltinTypePtr<sem::TypeInteger>());
         // TODO:
@@ -77,12 +77,12 @@ public:
                         "can't negate the lowest possible integer");
                 }
 
-                v.reset(new sem::ConstantInteger(-p_integer_value->value()));
+                v = std::make_shared<sem::ConstantInteger>(-p_integer_value->value());
             }
         }
         else if (auto *p_real_value = dynamic_cast<const sem::ConstantReal *>(v.get())) {
             if (sign == nodes::Sign::MINUS)
-                v.reset(new sem::ConstantReal(-p_real_value->value()));
+                v = std::make_shared<sem::ConstantReal>(-p_real_value->value());
         }
         else {
             reporter_.err(location, "type-mismatch",
@@ -285,12 +285,12 @@ public:
                 [&, this](nodes::SignedConstant &sc_node) {
                     visit(*sc_node.unsigned_value, overloaded{
                         [&](nodes::UnsignedIntegerConstant &uic_node) {
-                            constant.reset(new sem::ConstantInteger(
-                                uic_node.value));
+                            constant = std::make_shared<sem::ConstantInteger>(
+                                uic_node.value);
                         },
                         [&](nodes::UnsignedRealConstant &urc_node) {
-                            constant.reset(new sem::ConstantReal(
-                                urc_node.value));
+                            constant = std::make_shared<sem::ConstantReal>(
+                                urc_node.value);
                         },
                         [&](nodes::Identifier &id_node) {
                             constant = lookupConstant(block, id_node);
@@ -302,11 +302,11 @@ public:
                 },
                 [&](nodes::CharacterString &cs_node) {
                     if (cs_node.value.size() == 1)
-                        constant.reset(new sem::ConstantChar(
-                            cs_node.value[0]));
+                        constant = std::make_shared<sem::ConstantChar>(
+                            cs_node.value[0]);
                     else
-                        constant.reset(new sem::ConstantString(
-                            cs_node.value));
+                        constant = std::make_shared<sem::ConstantString>(
+                            cs_node.value);
                 }
             });
 
