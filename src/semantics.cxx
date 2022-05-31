@@ -90,26 +90,20 @@ public:
         }
     }
 
-    struct DefiningOccurrence {
-        const char *location;
-        enum Kind { NOT_TYPE, TYPE } kind;
-    };
-
-    using defining_occurrences_t = std::unordered_map<std::string, DefiningOccurrence>;
-
     static void
     collectDefiningOccurrence(
-        defining_occurrences_t &dos,
+        sem::defining_occurrences_t &dos,
         const nodes::Identifier &id_node,
-        DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
+        sem::DefiningOccurrence::Kind kind = sem::DefiningOccurrence::NOT_TYPE
     ) {
         // ignore duplicate IDs
-        dos.try_emplace(id_node.spelling, DefiningOccurrence{id_node.view.data(), kind});
+        dos.try_emplace(id_node.spelling,
+            sem::DefiningOccurrence{id_node.view.data(), kind});
     }
 
     static void
     collectDefiningOccurrencesInFieldList(
-        defining_occurrences_t &dos,
+        sem::defining_occurrences_t &dos,
         nodes::FieldList &field_list_node
     ) {
         for (const auto &fixed_section : field_list_node.fixed_sections)
@@ -122,7 +116,7 @@ public:
 
     static void
     collectDefiningOccurrencesInTypeDenoter(
-        defining_occurrences_t &dos,
+        sem::defining_occurrences_t &dos,
         nodes::TypeDenoter &denoter_node
     ) {
         visit(denoter_node, overloaded{
@@ -164,14 +158,14 @@ public:
 
     static void
     collectDefiningOccurrencesInBlock(
-        defining_occurrences_t &dos,
+        sem::defining_occurrences_t &dos,
         const nodes::Block &block_node
     ) {
         for (auto &constant_def_node : block_node.constant_definitions)
             collectDefiningOccurrence(dos, constant_def_node.name);
 
         for (auto &type_def_node : block_node.type_definitions) {
-            collectDefiningOccurrence(dos, type_def_node.name, DefiningOccurrence::TYPE);
+            collectDefiningOccurrence(dos, type_def_node.name, sem::DefiningOccurrence::TYPE);
             collectDefiningOccurrencesInTypeDenoter(dos, *type_def_node.denoter);
         }
 
@@ -196,9 +190,9 @@ public:
 
     bool
     checkDuplicateIdentifier(
-        const defining_occurrences_t &dos, const nodes::Identifier &id_node
+        const sem::Block &block, const nodes::Identifier &id_node
     ) {
-        const auto &occurrence = dos.at(id_node.spelling);
+        const auto &occurrence = block.defining_occurrences_.at(id_node.spelling);
 
         if (occurrence.location != id_node.view.data()) {
             reporter_.err(id_node.view.data(), "duplicate-identifier",
@@ -215,7 +209,6 @@ public:
     T *
     lookupIdentifier(
         sem::Block &block,
-        const defining_occurrences_t &dos,
         const nodes::Identifier &applied_occurrence_node,
         std::unordered_map<std::string, T> sem::Block::*map_member,
         std::string_view identifier_type_str
@@ -229,6 +222,7 @@ public:
         }
 
         auto applied_occurrence_location = applied_occurrence_node.view.data();
+        auto &dos = block.defining_occurrences_;
 
         if (auto it = dos.find(spelling); it != dos.end()) {
             reporter_.err(applied_occurrence_location, "use-before-definition",
@@ -256,20 +250,18 @@ public:
     sem::Constant *
     lookupConstant(
         sem::Block &block,
-        const defining_occurrences_t &dos,
         const nodes::Identifier &applied_occurrence_node
     ) {
-        return lookupIdentifier(block, dos, applied_occurrence_node,
+        return lookupIdentifier(block, applied_occurrence_node,
             &sem::Block::constants_, "constant");
     }
 
     std::shared_ptr<const sem::Type>
     lookupType(
         sem::Block &block,
-        const defining_occurrences_t &dos,
         const nodes::Identifier &applied_occurrence_node
     ) {
-        auto *ptr = lookupIdentifier(block, dos, applied_occurrence_node,
+        auto *ptr = lookupIdentifier(block, applied_occurrence_node,
             &sem::Block::types_, "type");
         return ptr ? *ptr : nullptr;
     }
@@ -277,11 +269,10 @@ public:
     void
     analyzeConstantDefinitions(
         const nodes::Block &block_node,
-        const defining_occurrences_t &dos,
         sem::Block &block
     ) {
         for (auto &constant_def_node : block_node.constant_definitions) {
-            if (checkDuplicateIdentifier(dos, constant_def_node.name))
+            if (checkDuplicateIdentifier(block, constant_def_node.name))
                 continue;
 
             sem::Constant constant;
@@ -302,7 +293,7 @@ public:
                                 urc_node.value));
                         },
                         [&](nodes::Identifier &id_node) {
-                            if (auto *ref_constant = lookupConstant(block, dos, id_node))
+                            if (auto *ref_constant = lookupConstant(block, id_node))
                                 constant.value_ = ref_constant->value_;
                         }
                     });
@@ -332,11 +323,10 @@ public:
     void
     analyzeTypeDefinitions(
         const nodes::Block &block_node,
-        const defining_occurrences_t &dos,
         sem::Block &block
     ) {
         for (auto &type_def_node : block_node.type_definitions) {
-            if (checkDuplicateIdentifier(dos, type_def_node.name))
+            if (checkDuplicateIdentifier(block, type_def_node.name))
                 continue;
 
             std::shared_ptr<const sem::Type> type;
@@ -360,7 +350,7 @@ public:
                                 "enumerated types are not yet supported");
                         },
                         [&](nodes::Identifier &id_node) {
-                            type = lookupType(block, dos, id_node);
+                            type = lookupType(block, id_node);
                         },
                         [&](nodes::SubrangeType &) {
                             reporter_.err(type_denoter_location, "unsupported-feature",
@@ -381,11 +371,10 @@ public:
     buildBlock(const nodes::Block &block_node, sem::Block &block) {
         analyzeLabelDeclarations(block_node, block);
 
-        defining_occurrences_t defining_occurrences;
-        collectDefiningOccurrencesInBlock(defining_occurrences, block_node);
+        collectDefiningOccurrencesInBlock(block.defining_occurrences_, block_node);
 
-        analyzeConstantDefinitions(block_node, defining_occurrences, block);
-        analyzeTypeDefinitions(block_node, defining_occurrences, block);
+        analyzeConstantDefinitions(block_node, block);
+        analyzeTypeDefinitions(block_node, block);
     }
 
     sem::Program

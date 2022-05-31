@@ -119,9 +119,19 @@ class Constant {
     friend struct BuiltinBlockInitializer;
 };
 
+struct DefiningOccurrence {
+    const char *location;
+    enum Kind { NOT_TYPE, TYPE } kind;
+};
+
+using defining_occurrences_t = std::unordered_map<std::string, DefiningOccurrence>;
+
 export
 class Block {
     Block *parent_{};
+
+    defining_occurrences_t defining_occurrences_;
+
     std::unordered_map<pascal_integer_t, const char *> labels_;
     std::unordered_map<std::string, Constant> constants_;
     std::unordered_map<std::string, std::shared_ptr<const Type>> types_;
