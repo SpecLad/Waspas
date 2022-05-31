@@ -1,11 +1,20 @@
 program badtype;
+const
+    notType = 1;
+   {^ note }
 type
     a = unknown;
        {^ error:undefined-identifier }
 
+    wrongIdTypeBuiltin = maxint;
+                        {^ error:wrong-identifier-type }
+    wrongIdType = notType;
+                 {^ error:wrong-identifier-type }
+
+    selfRef = selfRef;
+             {^ error:circular-definition }
+
     { various variations on use-before-definition }
-    ubdSelf = ubdSelf;
-   {^ note}  {^ error:use-before-definition }
     ubdType = laterType;
              {^ error:use-before-definition }
     ubdEnum = laterEnum;

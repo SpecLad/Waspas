@@ -22,7 +22,14 @@ struct BuiltinBlockInitializer {
             std::make_shared<sem::ConstantInteger>(
                 std::numeric_limits<pascal_integer_t>::max()));
 
+        for (const auto &c : builtin_block.constants_)
+            builtin_block.defining_occurrences_.emplace(c.first, nullptr);
+
         builtin_block.types_.emplace("integer", getBuiltinTypePtr<sem::TypeInteger>());
+
+        for (const auto &t : builtin_block.types_)
+            builtin_block.defining_occurrences_.emplace(t.first, nullptr);
+
         // TODO:
         // constants: false, true
         // types: real, boolean, char, text
@@ -214,22 +221,30 @@ public:
         std::string_view identifier_type_str
     ) {
         const auto &spelling = applied_occurrence_node.spelling;
+        auto applied_occurrence_location = applied_occurrence_node.view.data();
 
         {
             auto &map = block.*map_member;
-            auto it = map.find(spelling);
-            if (it != map.end()) return &it->second;
-        }
 
-        auto applied_occurrence_location = applied_occurrence_node.view.data();
-        auto &dos = block.defining_occurrences_;
+            if (auto it = map.find(spelling); it != map.end())
+                return &it->second;
 
-        if (auto it = dos.find(spelling); it != dos.end()) {
-            reporter_.err(applied_occurrence_location, "use-before-definition",
-                "identifier \"{}\" used before it was defined", spelling);
-            reporter_.note(it->second.location,
-                "defining point of \"{}\"", spelling);
-            return nullptr;
+            auto &dos = block.defining_occurrences_;
+
+            if (auto it = dos.find(spelling); it != dos.end()) {
+                if (it->second.location > applied_occurrence_location) {
+                    reporter_.err(applied_occurrence_location, "use-before-definition",
+                        "identifier \"{}\" used before it was defined", spelling);
+                }
+                else {
+                    reporter_.err(applied_occurrence_location, "wrong-identifier-type",
+                        "identifier \"{}\" is not a {} identifier",
+                        spelling, identifier_type_str);
+                }
+                reporter_.note(it->second.location,
+                    "defining point of \"{}\"", spelling);
+                return nullptr;
+            }
         }
 
         for (
@@ -238,8 +253,24 @@ public:
             parent_block = parent_block->parent_
         ) {
             auto &map = parent_block->*map_member;
-            auto it = map.find(spelling);
-            if (it != map.end()) return &it->second;
+
+            if (auto it = map.find(spelling); it != map.end())
+                return &it->second;
+
+            auto &dos = parent_block->defining_occurrences_;
+
+            if (auto it = dos.find(spelling); it != dos.end()) {
+                reporter_.err(applied_occurrence_location, "wrong-identifier-type",
+                    "identifier \"{}\" is not a {} identifier",
+                    spelling, identifier_type_str);
+
+                // the location might be null if parent_block is the builtin block
+                if (it->second.location)
+                    reporter_.note(it->second.location,
+                        "defining point of \"{}\"", spelling);
+
+                return nullptr;
+            }
         }
 
         reporter_.err(applied_occurrence_location, "undefined-identifier",
@@ -247,24 +278,22 @@ public:
         return nullptr;
     }
 
-    std::shared_ptr<const sem::Constant>
+    std::shared_ptr<const sem::Constant> *
     lookupConstant(
         sem::Block &block,
         const nodes::Identifier &applied_occurrence_node
     ) {
-        auto *ptr = lookupIdentifier(block, applied_occurrence_node,
+        return lookupIdentifier(block, applied_occurrence_node,
             &sem::Block::constants_, "constant");
-        return ptr ? *ptr : nullptr;
     }
 
-    std::shared_ptr<const sem::Type>
+    std::shared_ptr<const sem::Type> *
     lookupType(
         sem::Block &block,
         const nodes::Identifier &applied_occurrence_node
     ) {
-        auto *ptr = lookupIdentifier(block, applied_occurrence_node,
+        return lookupIdentifier(block, applied_occurrence_node,
             &sem::Block::types_, "type");
-        return ptr ? *ptr : nullptr;
     }
 
     void
@@ -276,10 +305,10 @@ public:
             if (checkDuplicateIdentifier(block, constant_def_node.name))
                 continue;
 
-            std::shared_ptr<const sem::Constant> constant;
-
             auto &constant_value_node = *constant_def_node.value;
             auto constant_value_location = constant_value_node.view.data();
+
+            auto &constant = block.constants_[constant_def_node.name.spelling];
 
             visit(constant_value_node, overloaded{
                 [&, this](nodes::SignedConstant &sc_node) {
@@ -293,7 +322,16 @@ public:
                                 urc_node.value);
                         },
                         [&](nodes::Identifier &id_node) {
-                            constant = lookupConstant(block, id_node);
+                            auto *ref_constant = lookupConstant(block, id_node);
+                            if (!ref_constant) return;
+
+                            if (!*ref_constant) {
+                                reporter_.err(id_node.view.data(), "circular-definition",
+                                    "constant \"{}\" used in its own definition", id_node.spelling);
+                                return;
+                            }
+
+                            constant = *ref_constant;
                         }
                     });
 
@@ -314,8 +352,6 @@ public:
                 // use a fallback value so that we can continue with the analysis
                 constant = std::make_shared<sem::ConstantInteger>(0);
             }
-
-            block.constants_.emplace(constant_def_node.name.spelling, std::move(constant));
         }
     }
 
@@ -328,7 +364,7 @@ public:
             if (checkDuplicateIdentifier(block, type_def_node.name))
                 continue;
 
-            std::shared_ptr<const sem::Type> type;
+            auto &type = block.types_[type_def_node.name.spelling];
 
             auto &type_denoter_node = *type_def_node.denoter;
             auto type_denoter_location = type_denoter_node.view.data();
@@ -349,7 +385,16 @@ public:
                                 "enumerated types are not yet supported");
                         },
                         [&](nodes::Identifier &id_node) {
-                            type = lookupType(block, id_node);
+                            auto *ref_type = lookupType(block, id_node);
+                            if (!ref_type) return;
+
+                            if (!*ref_type) {
+                                reporter_.err(id_node.view.data(), "circular-definition",
+                                    "type \"{}\" used in its own definition", id_node.spelling);
+                                return;
+                            }
+
+                            type = *ref_type;
                         },
                         [&](nodes::SubrangeType &) {
                             reporter_.err(type_denoter_location, "unsupported-feature",

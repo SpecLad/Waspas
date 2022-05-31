@@ -10,9 +10,15 @@ const
     f = -d;
        {^ error:type-mismatch }
 
+    wrongIdTypeBuiltin = integer;
+                        {^ error:wrong-identifier-type }
+    { TODO: add a test where a constant references input/output,
+      to make sure that the note is added to the correct location }
+
+    selfRef = selfRef;
+             {^ error:circular-definition }
+
     { various variations on use-before-definition }
-    ubdSelf = ubdSelf;
-   {^ note}  {^ error:use-before-definition }
     ubdConst = laterConst;
               {^ error:use-before-definition }
     laterConst = 0;
