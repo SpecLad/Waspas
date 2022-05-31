@@ -44,10 +44,10 @@ private:
 };
 
 export
-class ConstantValue {
+class Constant {
 public:
     virtual
-    ~ConstantValue() = default;
+    ~Constant() = default;
 
     virtual std::string
     typeStr() const = 0;
@@ -55,10 +55,10 @@ public:
 
 export
 template <typename T, typename Value>
-class ConstantValueImpl : public ConstantValue {
+class ConstantImpl : public Constant {
 public:
     explicit
-    ConstantValueImpl(const Value &value) : value_(value)
+    ConstantImpl(const Value &value) : value_(value)
     {}
 
     Value
@@ -69,54 +69,45 @@ protected:
 };
 
 export
-class ConstantValueInteger final
-    : public ConstantValueImpl<ConstantValueInteger, pascal_integer_t>
+class ConstantInteger final
+    : public ConstantImpl<ConstantInteger, pascal_integer_t>
 {
-    using ConstantValueImpl::ConstantValueImpl;
+    using ConstantImpl::ConstantImpl;
 
     std::string
     typeStr() const override { return "integer"s; }
 };
 
 export
-class ConstantValueReal final
-    : public ConstantValueImpl<ConstantValueReal, pascal_real_t>
+class ConstantReal final
+    : public ConstantImpl<ConstantReal, pascal_real_t>
 {
-    using ConstantValueImpl::ConstantValueImpl;
+    using ConstantImpl::ConstantImpl;
 
     std::string
     typeStr() const override { return "real"s; }
 };
 
 export
-class ConstantValueChar final
-    : public ConstantValueImpl<ConstantValueChar, char>
+class ConstantChar final
+    : public ConstantImpl<ConstantChar, char>
 {
-    using ConstantValueImpl::ConstantValueImpl;
+    using ConstantImpl::ConstantImpl;
 
     std::string
     typeStr() const override { return "char"s; }
 };
 
 export
-class ConstantValueString final
-    : public ConstantValueImpl<ConstantValueString, std::string>
+class ConstantString final
+    : public ConstantImpl<ConstantString, std::string>
 {
-    using ConstantValueImpl::ConstantValueImpl;
+    using ConstantImpl::ConstantImpl;
 
     std::string
     typeStr() const override {
         return std::format("packed array(1..{}) of char", value_.size());
     }
-};
-
-export
-class Constant {
-    const char *location_{};
-    std::shared_ptr<const ConstantValue> value_;
-
-    friend class ProgramBuilder;
-    friend struct BuiltinBlockInitializer;
 };
 
 struct DefiningOccurrence {
@@ -133,7 +124,7 @@ class Block {
     defining_occurrences_t defining_occurrences_;
 
     std::unordered_map<pascal_integer_t, const char *> labels_;
-    std::unordered_map<std::string, Constant> constants_;
+    std::unordered_map<std::string, std::shared_ptr<const Constant>> constants_;
     std::unordered_map<std::string, std::shared_ptr<const Type>> types_;
 
     friend class ProgramBuilder;

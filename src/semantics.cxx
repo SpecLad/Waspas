@@ -19,7 +19,7 @@ sem::Block builtin_block;
 struct BuiltinBlockInitializer {
     BuiltinBlockInitializer() {
         auto &c_maxint = builtin_block.constants_["maxint"];
-        c_maxint.value_.reset(new sem::ConstantValueInteger(
+        c_maxint.reset(new sem::ConstantInteger(
             std::numeric_limits<pascal_integer_t>::max()));
 
         builtin_block.types_.emplace("integer", getBuiltinTypePtr<sem::TypeInteger>());
@@ -64,10 +64,10 @@ public:
     }
 
     void
-    applySignToConstantValue(std::shared_ptr<const sem::ConstantValue> &v, nodes::Sign sign, const char *location) {
+    applySignToConstant(std::shared_ptr<const sem::Constant> &v, nodes::Sign sign, const char *location) {
         if (sign == nodes::Sign::NONE) return;
 
-        if (auto *p_integer_value = dynamic_cast<const sem::ConstantValueInteger *>(v.get())) {
+        if (auto *p_integer_value = dynamic_cast<const sem::ConstantInteger *>(v.get())) {
             if (sign == nodes::Sign::MINUS) {
                 if (p_integer_value->value() == std::numeric_limits<pascal_integer_t>::min()) {
                     // It should be impossible to reach this, since integer constants can only
@@ -77,12 +77,12 @@ public:
                         "can't negate the lowest possible integer");
                 }
 
-                v.reset(new sem::ConstantValueInteger(-p_integer_value->value()));
+                v.reset(new sem::ConstantInteger(-p_integer_value->value()));
             }
         }
-        else if (auto *p_real_value = dynamic_cast<const sem::ConstantValueReal *>(v.get())) {
+        else if (auto *p_real_value = dynamic_cast<const sem::ConstantReal *>(v.get())) {
             if (sign == nodes::Sign::MINUS)
-                v.reset(new sem::ConstantValueReal(-p_real_value->value()));
+                v.reset(new sem::ConstantReal(-p_real_value->value()));
         }
         else {
             reporter_.err(location, "type-mismatch",
@@ -247,13 +247,14 @@ public:
         return nullptr;
     }
 
-    sem::Constant *
+    std::shared_ptr<const sem::Constant>
     lookupConstant(
         sem::Block &block,
         const nodes::Identifier &applied_occurrence_node
     ) {
-        return lookupIdentifier(block, applied_occurrence_node,
+        auto *ptr = lookupIdentifier(block, applied_occurrence_node,
             &sem::Block::constants_, "constant");
+        return ptr ? *ptr : nullptr;
     }
 
     std::shared_ptr<const sem::Type>
@@ -275,8 +276,7 @@ public:
             if (checkDuplicateIdentifier(block, constant_def_node.name))
                 continue;
 
-            sem::Constant constant;
-            constant.location_ = constant_def_node.view.data();
+            std::shared_ptr<const sem::Constant> constant;
 
             auto &constant_value_node = *constant_def_node.value;
             auto constant_value_location = constant_value_node.view.data();
@@ -285,35 +285,34 @@ public:
                 [&, this](nodes::SignedConstant &sc_node) {
                     visit(*sc_node.unsigned_value, overloaded{
                         [&](nodes::UnsignedIntegerConstant &uic_node) {
-                            constant.value_.reset(new sem::ConstantValueInteger(
+                            constant.reset(new sem::ConstantInteger(
                                 uic_node.value));
                         },
                         [&](nodes::UnsignedRealConstant &urc_node) {
-                            constant.value_.reset(new sem::ConstantValueReal(
+                            constant.reset(new sem::ConstantReal(
                                 urc_node.value));
                         },
                         [&](nodes::Identifier &id_node) {
-                            if (auto *ref_constant = lookupConstant(block, id_node))
-                                constant.value_ = ref_constant->value_;
+                            constant = lookupConstant(block, id_node);
                         }
                     });
 
-                    if (constant.value_)
-                        applySignToConstantValue(constant.value_, sc_node.sign, constant_value_location);
+                    if (constant)
+                        applySignToConstant(constant, sc_node.sign, constant_value_location);
                 },
                 [&](nodes::CharacterString &cs_node) {
                     if (cs_node.value.size() == 1)
-                        constant.value_.reset(new sem::ConstantValueChar(
+                        constant.reset(new sem::ConstantChar(
                             cs_node.value[0]));
                     else
-                        constant.value_.reset(new sem::ConstantValueString(
+                        constant.reset(new sem::ConstantString(
                             cs_node.value));
                 }
             });
 
-            if (!constant.value_) {
+            if (!constant) {
                 // use a fallback value so that we can continue with the analysis
-                constant.value_ = std::make_unique<sem::ConstantValueInteger>(0);
+                constant = std::make_shared<sem::ConstantInteger>(0);
             }
 
             block.constants_.emplace(constant_def_node.name.spelling, std::move(constant));
