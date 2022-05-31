@@ -27,20 +27,73 @@ public:
     str() const = 0;
 };
 
-export
-class TypeInteger : public Type {
+template <typename T>
+class TypeBuiltin : public Type {
 public:
-    std::string
-    str() const { return "integer"s; }
+    TypeBuiltin(const TypeBuiltin &) = delete;
+    TypeBuiltin &operator =(const TypeBuiltin &) = delete;
 
-    static const TypeInteger &
-    instance() {
-        static const TypeInteger t;
+    static const T &
+        instance() {
+        static const T t;
         return t;
     }
 
+    std::string
+    str() const override { return std::string(T::NAME); }
+
+protected:
+    TypeBuiltin() = default;
+};
+
+export
+class TypeBoolean : public TypeBuiltin<TypeBoolean> {
+public:
+    static inline constexpr std::string_view NAME = "boolean"sv;
+
+private:
+    TypeBoolean() = default;
+    friend class TypeBuiltin<TypeBoolean>;
+};
+
+export
+class TypeChar : public TypeBuiltin<TypeChar> {
+public:
+    static inline constexpr std::string_view NAME = "char"sv;
+
+private:
+    TypeChar() = default;
+    friend class TypeBuiltin<TypeChar>;
+};
+
+export
+class TypeInteger : public TypeBuiltin<TypeInteger> {
+public:
+    static inline constexpr std::string_view NAME = "integer"sv;
+
 private:
     TypeInteger() = default;
+    friend class TypeBuiltin<TypeInteger>;
+};
+
+export
+class TypeReal : public TypeBuiltin<TypeReal> {
+public:
+    static inline constexpr std::string_view NAME = "real"sv;
+
+private:
+    TypeReal() = default;
+    friend class TypeBuiltin<TypeReal>;
+};
+
+export
+class TypeText : public TypeBuiltin<TypeText> {
+public:
+    static inline const std::string_view NAME = "text"sv;
+
+private:
+    TypeText() = default;
+    friend class TypeBuiltin<TypeText>;
 };
 
 export

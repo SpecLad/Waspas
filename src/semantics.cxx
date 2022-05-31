@@ -25,17 +25,25 @@ struct BuiltinBlockInitializer {
         for (const auto &c : builtin_block.constants_)
             builtin_block.defining_occurrences_.emplace(c.first, nullptr);
 
-        builtin_block.types_.emplace("integer", getBuiltinTypePtr<sem::TypeInteger>());
+        addBuiltinTypes<
+            sem::TypeBoolean, sem::TypeChar, sem::TypeInteger, sem::TypeReal,
+            sem::TypeText
+        >();
 
         for (const auto &t : builtin_block.types_)
             builtin_block.defining_occurrences_.emplace(t.first, nullptr);
 
         // TODO:
         // constants: false, true
-        // types: real, boolean, char, text
         // procedures: rewrite, put, reset, get, read, write, new, dispose, pack, unpack, page
         // functions: abs, sqr, sin, cos, exp, ln, sqrt, arctan, trunc, round, ord, chr,
         //   succ, pred, odd, eof, eoln
+    }
+
+    template <typename ...Ts>
+    static void
+    addBuiltinTypes() {
+        (builtin_block.types_.emplace(Ts::NAME, getBuiltinTypePtr<Ts>()), ...);
     }
 
     template <typename T>
