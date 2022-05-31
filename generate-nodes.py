@@ -214,7 +214,14 @@ class NodeType:
             print('void')
             print(f'visit({self.name} &node, const T &visitor) {{')
 
-            for derived_node_type in derived_node_types[self.name]:
+            def derived_leaf_types(node_type_name):
+                if node_type_name not in derived_node_types:
+                    yield node_type_name
+                else:
+                    for derived_type_name in derived_node_types[node_type_name]:
+                        yield from derived_leaf_types(derived_type_name)
+
+            for derived_node_type in sorted(derived_leaf_types(self.name)):
                 print(f'    if (auto *derived_node = dynamic_cast<{derived_node_type} *>(&node)) {{')
                 print('        visitor(*derived_node);')
                 print('        return;')

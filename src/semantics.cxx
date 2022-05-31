@@ -127,6 +127,11 @@ public:
         nodes::TypeDenoter &denoter_node
     ) {
         visit(denoter_node, overloaded{
+            [&dos](nodes::EnumeratedType &enum_node) {
+                for (auto &identifier_node : enum_node.constants)
+                    collectDefiningOccurrence(dos, identifier_node);
+            },
+            [](nodes::Identifier &) {},
             [](nodes::NewPointerType &) {},
             [&dos](nodes::NewStructuredType &structured_node) {
                 visit(*structured_node.unpacked, overloaded{
@@ -150,16 +155,7 @@ public:
                     },
                 });
             },
-            [&dos](nodes::OrdinalType &ordinal_node) {
-                visit(ordinal_node, overloaded{
-                    [&dos](nodes::EnumeratedType &enum_node) {
-                        for (auto &identifier_node : enum_node.constants)
-                            collectDefiningOccurrence(dos, identifier_node);
-                    },
-                    [](nodes::Identifier &) {},
-                    [](nodes::SubrangeType &) {},
-                });
-            },
+            [](nodes::SubrangeType &) {},
         });
     }
 
@@ -370,6 +366,22 @@ public:
             auto type_denoter_location = type_denoter_node.view.data();
 
             visit(type_denoter_node, overloaded{
+                [&](nodes::EnumeratedType &) {
+                    reporter_.err(type_denoter_location, "unsupported-feature",
+                        "enumerated types are not yet supported");
+                },
+                [&](nodes::Identifier &id_node) {
+                    auto *ref_type = lookupType(block, id_node);
+                    if (!ref_type) return;
+
+                    if (!*ref_type) {
+                        reporter_.err(id_node.view.data(), "circular-definition",
+                            "type \"{}\" used in its own definition", id_node.spelling);
+                        return;
+                    }
+
+                    type = *ref_type;
+                },
                 [&](nodes::NewPointerType &) {
                     reporter_.err(type_denoter_location, "unsupported-feature",
                         "pointer types are not yet supported");
@@ -378,29 +390,9 @@ public:
                     reporter_.err(type_denoter_location, "unsupported-feature",
                         "structured types are not yet supported");
                 },
-                [&](nodes::OrdinalType &ordinal_type_node) {
-                    visit(ordinal_type_node, overloaded{
-                        [&](nodes::EnumeratedType &) {
-                            reporter_.err(type_denoter_location, "unsupported-feature",
-                                "enumerated types are not yet supported");
-                        },
-                        [&](nodes::Identifier &id_node) {
-                            auto *ref_type = lookupType(block, id_node);
-                            if (!ref_type) return;
-
-                            if (!*ref_type) {
-                                reporter_.err(id_node.view.data(), "circular-definition",
-                                    "type \"{}\" used in its own definition", id_node.spelling);
-                                return;
-                            }
-
-                            type = *ref_type;
-                        },
-                        [&](nodes::SubrangeType &) {
-                            reporter_.err(type_denoter_location, "unsupported-feature",
-                                "subrange types are not yet supported");
-                        },
-                    });
+                [&](nodes::SubrangeType &) {
+                    reporter_.err(type_denoter_location, "unsupported-feature",
+                        "subrange types are not yet supported");
                 },
             });
 
