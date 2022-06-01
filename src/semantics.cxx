@@ -449,9 +449,18 @@ public:
                         reporter_.err(type_denoter_location, "unsupported-feature",
                             "record types are not yet supported");
                     },
-                    [&](nodes::SetType &) {
-                        reporter_.err(type_denoter_location, "unsupported-feature",
-                            "set types are not yet supported");
+                    [&](nodes::SetType &set_type_node) {
+                        auto base_type = resolveType(block, *set_type_node.base_type);
+                        if (!base_type) return;
+
+                        if (!base_type->isOrdinal()) {
+                            reporter_.err(set_type_node.base_type->view.data(),
+                                "non-ordinal-type", "set base type is non-ordinal");
+                            return;
+                        }
+
+                        type = std::make_shared<sem::TypeSet>(
+                            base_type, structured_type_node.is_packed);
                     },
                 });
             },

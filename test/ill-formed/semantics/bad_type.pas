@@ -46,6 +46,9 @@ type
                         {^ error:disallowed-file-component }
     fileOfFileArray = file of array[1..10] of file of integer;
                              {^ error:disallowed-file-component }
+
+    setOfNonOrdinal = set of real;
+                            {^ error:non-ordinal-type }
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }

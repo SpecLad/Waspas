@@ -177,6 +177,27 @@ private:
 };
 
 export
+class TypeSet final : public Type {
+public:
+    TypeSet(
+        std::shared_ptr<const Type> base_type,
+        bool is_packed
+    ) : base_type_(base_type), is_packed_(is_packed) {
+        assert(base_type->isOrdinal());
+    }
+
+    std::string
+    str() const override {
+        return (is_packed_ ? "packed "s : ""s)
+            + "set of "s + base_type_->str();
+    }
+
+private:
+    std::shared_ptr<const Type> base_type_;
+    bool is_packed_;
+};
+
+export
 class TypeText final : public TypeBuiltin<TypeText, TypeFile> {
 public:
     static inline constexpr std::string_view NAME = "text"sv;
