@@ -20,8 +20,13 @@ namespace sem {
 export
 class Type {
 public:
+    Type() = default;
+
     virtual
     ~Type() = default;
+
+    Type(const Type &) = delete;
+    Type &operator =(const Type &) = delete;
 
     virtual std::string
     str() const = 0;
@@ -30,9 +35,6 @@ public:
 template <typename T>
 class TypeBuiltin : public Type {
 public:
-    TypeBuiltin(const TypeBuiltin &) = delete;
-    TypeBuiltin &operator =(const TypeBuiltin &) = delete;
-
     static const T &
         instance() {
         static const T t;
