@@ -96,22 +96,22 @@ private:
     friend class TypeBuiltin<TypeText>;
 };
 
-class Constant;
+class ConstantOrdinal;
 
 export
 class TypeSubrange : public Type {
 public:
     TypeSubrange(
-        std::shared_ptr<const Constant> smallest_value,
-        std::shared_ptr<const Constant> largest_value
+        std::shared_ptr<const ConstantOrdinal> smallest_value,
+        std::shared_ptr<const ConstantOrdinal> largest_value
     ) : smallest_value_(smallest_value), largest_value_(largest_value) {}
 
     std::string
-    str() const override { return "<subrange>"s; } // TODO: stringify the constants
+    str() const override;
 
 private:
-    std::shared_ptr<const Constant> smallest_value_;
-    std::shared_ptr<const Constant> largest_value_;
+    std::shared_ptr<const ConstantOrdinal> smallest_value_;
+    std::shared_ptr<const ConstantOrdinal> largest_value_;
 };
 
 export
@@ -125,8 +125,15 @@ public:
 };
 
 export
-template <typename T, typename Value>
-class ConstantImpl : public Constant {
+class ConstantOrdinal : public Constant {
+public:
+    virtual std::string
+    str() const = 0;
+};
+
+export
+template <typename T, typename Value, typename Base = Constant>
+class ConstantImpl : public Base {
 public:
     explicit
     ConstantImpl(const Value &value) : value_(value)
@@ -141,12 +148,15 @@ protected:
 
 export
 class ConstantInteger final
-    : public ConstantImpl<ConstantInteger, pascal_integer_t>
+    : public ConstantImpl<ConstantInteger, pascal_integer_t, ConstantOrdinal>
 {
     using ConstantImpl::ConstantImpl;
 
     std::string
     typeStr() const override { return "integer"s; }
+
+    std::string
+    str() const override { return std::to_string(value_); }
 };
 
 export
@@ -161,12 +171,20 @@ class ConstantReal final
 
 export
 class ConstantChar final
-    : public ConstantImpl<ConstantChar, char>
+    : public ConstantImpl<ConstantChar, char, ConstantOrdinal>
 {
     using ConstantImpl::ConstantImpl;
 
     std::string
     typeStr() const override { return "char"s; }
+
+    std::string
+    str() const override {
+        if (value_ == '\'')
+            return "''''"s;
+        else
+            return "'"s + value_ + "'";
+    }
 };
 
 export

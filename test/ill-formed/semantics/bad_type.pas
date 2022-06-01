@@ -29,6 +29,9 @@ type
                   {^ error:use-before-definition }
     ubdFunction = laterFunction;
                  {^ error:use-before-definition }
+
+    subrangeNonOrdinal = 'abc'..'def';
+                        {^ error:non-ordinal-constant }
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }

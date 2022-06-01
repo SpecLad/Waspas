@@ -1,11 +1,19 @@
 module;
 
+#include <cassert>
 #include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
 
 module semantics;
+
+using namespace std::literals;
+
+std::string
+sem::TypeSubrange::str() const {
+    return smallest_value_->str() + ".."s + largest_value_->str();
+}
 
 template<class... Ts>
 struct overloaded : Ts... {
@@ -412,10 +420,27 @@ public:
 
                     if (!smallest || !largest) return;
 
-                    // TODO: check that the constants are of the same ordinal type
+                    // TODO: check that the constants are of the same type
                     // TODO: check that smallest <= largest
+                    auto smallest_ordinal =
+                        std::dynamic_pointer_cast<const sem::ConstantOrdinal>(smallest);
 
-                    type = std::make_shared<sem::TypeSubrange>(smallest, largest);
+                    if (!smallest_ordinal) {
+                        reporter_.err(subrange_type_node.smallest->view.data(),
+                            "non-ordinal-constant",
+                            "subrange bound has non-ordinal type \"{}\"", smallest->typeStr());
+                        return;
+                    }
+
+                    auto largest_ordinal =
+                        std::dynamic_pointer_cast<const sem::ConstantOrdinal>(largest);
+
+                    // We'll later have a check that both constants have the same type,
+                    // so it should be impossible for largest_ordinal to be null.
+                    assert(largest_ordinal);
+
+                    type = std::make_shared<sem::TypeSubrange>(
+                        smallest_ordinal, largest_ordinal);
                 },
             });
 
