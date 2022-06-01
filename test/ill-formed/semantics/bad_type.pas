@@ -32,7 +32,8 @@ type
 
     subrangeNonOrdinal = 'abc'..'def';
                         {^ error:non-ordinal-constant }
-
+    subrangeMismatch = 11..true;
+                          {^ error:type-mismatch }
     subrangeInverted = 11..10;
                       {^ error:inverted-subrange-bounds }
 var

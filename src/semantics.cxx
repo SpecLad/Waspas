@@ -447,8 +447,6 @@ public:
 
                 if (!smallest || !largest) return;
 
-                // TODO: check that the constants are of the same type
-                // TODO: check that smallest <= largest
                 auto smallest_ordinal =
                     std::dynamic_pointer_cast<const sem::ConstantOrdinal>(smallest);
 
@@ -459,11 +457,19 @@ public:
                     return;
                 }
 
+                if (&largest->type() != &smallest->type()) {
+                    reporter_.err(subrange_type_node.largest->view.data(),
+                        "type-mismatch",
+                        "subrange bounds have different types (\"{}\" and \"{}\")",
+                        smallest->type().str(), largest->type().str());
+                    return;
+                }
+
                 auto largest_ordinal =
                     std::dynamic_pointer_cast<const sem::ConstantOrdinal>(largest);
 
-                // We'll later have a check that both constants have the same type,
-                // so it should be impossible for largest_ordinal to be null.
+                // Since both constants have the same type,
+                // it should be impossible for largest_ordinal to be null.
                 assert(largest_ordinal);
 
                 if (smallest_ordinal->ordinalNumber() > largest_ordinal->ordinalNumber()) {
