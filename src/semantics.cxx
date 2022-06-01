@@ -30,6 +30,12 @@ struct BuiltinBlockInitializer {
         builtin_block.constants_.emplace("maxint",
             std::make_shared<sem::ConstantInteger>(PASCAL_INTEGER_MAX));
 
+        builtin_block.constants_.emplace("false",
+            getBuiltinPtr(sem::ConstantBoolean::instanceFalse));
+
+        builtin_block.constants_.emplace("true",
+            getBuiltinPtr(sem::ConstantBoolean::instanceTrue));
+
         for (const auto &c : builtin_block.constants_)
             builtin_block.defining_occurrences_.emplace(c.first, nullptr);
 
@@ -42,7 +48,6 @@ struct BuiltinBlockInitializer {
             builtin_block.defining_occurrences_.emplace(t.first, nullptr);
 
         // TODO:
-        // constants: false, true
         // procedures: rewrite, put, reset, get, read, write, new, dispose, pack, unpack, page
         // functions: abs, sqr, sin, cos, exp, ln, sqrt, arctan, trunc, round, ord, chr,
         //   succ, pred, odd, eof, eoln
@@ -51,13 +56,13 @@ struct BuiltinBlockInitializer {
     template <typename ...Ts>
     static void
     addBuiltinTypes() {
-        (builtin_block.types_.emplace(Ts::NAME, getBuiltinTypePtr<Ts>()), ...);
+        (builtin_block.types_.emplace(Ts::NAME, getBuiltinPtr(Ts::instance)), ...);
     }
 
     template <typename T>
-    static std::shared_ptr<const sem::Type>
-    getBuiltinTypePtr() {
-        return std::shared_ptr<const sem::Type>(std::shared_ptr<void>(), &T::instance());
+    static std::shared_ptr<T>
+    getBuiltinPtr(T &(*fun)()) {
+        return std::shared_ptr<T>(std::shared_ptr<void>(), &fun());
     }
 } builtin_block_init;
 
@@ -490,7 +495,7 @@ public:
 
             if (!type) {
                 // use a fallback type so that we can continue with the analysis
-                type = BuiltinBlockInitializer::getBuiltinTypePtr<sem::TypeInteger>();
+                type = BuiltinBlockInitializer::getBuiltinPtr(sem::TypeInteger::instance);
             }
         }
     }

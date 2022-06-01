@@ -174,6 +174,36 @@ protected:
 };
 
 export
+class ConstantBoolean final
+    : public ConstantImpl<ConstantBoolean, bool, ConstantOrdinal>
+{
+public:
+    const TypeBoolean &
+    type() const override { return TypeBoolean::instance(); }
+
+    std::string
+    str() const override { return value_ ? "true"s : "false"s; }
+
+    pascal_integer_t
+    ordinalNumber() const override { return value_ ? 1 : 0; }
+
+    static const ConstantBoolean &
+    instanceFalse() {
+        static const ConstantBoolean c(false);
+        return c;
+    }
+
+    static const ConstantBoolean &
+    instanceTrue() {
+        static const ConstantBoolean c(true);
+        return c;
+    }
+
+private:
+    explicit ConstantBoolean(bool value) : ConstantImpl(value) {}
+};
+
+export
 class ConstantInteger final
     : public ConstantImpl<ConstantInteger, pascal_integer_t, ConstantOrdinal>
 {
