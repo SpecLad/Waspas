@@ -1,5 +1,6 @@
 module;
 
+#include <cassert>
 #include <format>
 #include <memory>
 #include <string>
@@ -143,8 +144,8 @@ public:
     virtual
     ~Constant() = default;
 
-    virtual std::string
-    typeStr() const = 0;
+    virtual const Type &
+    type() const = 0;
 };
 
 export
@@ -178,8 +179,8 @@ class ConstantInteger final
 {
     using ConstantImpl::ConstantImpl;
 
-    std::string
-    typeStr() const override { return "integer"s; }
+    const TypeInteger &
+    type() const override { return TypeInteger::instance(); }
 
     std::string
     str() const override { return std::to_string(value_); }
@@ -194,8 +195,8 @@ class ConstantReal final
 {
     using ConstantImpl::ConstantImpl;
 
-    std::string
-    typeStr() const override { return "real"s; }
+    const TypeReal &
+    type() const override { return TypeReal::instance(); }
 };
 
 export
@@ -204,8 +205,8 @@ class ConstantChar final
 {
     using ConstantImpl::ConstantImpl;
 
-    std::string
-    typeStr() const override { return "char"s; }
+    const TypeChar &
+    type() const override { return TypeChar::instance(); }
 
     std::string
     str() const override {
@@ -223,12 +224,29 @@ export
 class ConstantString final
     : public ConstantImpl<ConstantString, std::string>
 {
-    using ConstantImpl::ConstantImpl;
-
-    std::string
-    typeStr() const override {
-        return std::format("packed array(1..{}) of char", value_.size());
+public:
+    explicit
+    ConstantString(const std::string &value)
+        : ConstantImpl(value)
+        , type_(
+            std::make_shared<TypeSubrange>(
+                std::make_shared<ConstantInteger>(1),
+                std::make_shared<ConstantInteger>(pascal_integer_t(value.size()))
+            ),
+            std::shared_ptr<const Type>(std::shared_ptr<void>(), &TypeChar::instance()),
+            true
+        )
+    {
+        assert(value.size() <= std::size_t(PASCAL_INTEGER_MAX));
     }
+
+    const TypeArray &
+    type() const override {
+        return type_;
+    }
+
+private:
+    TypeArray type_;
 };
 
 struct DefiningOccurrence {

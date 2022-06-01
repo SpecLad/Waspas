@@ -109,7 +109,7 @@ public:
         }
         else {
             reporter_.err(location, "type-mismatch",
-                "a sign cannot be applied to a constant of type \"{}\"", v->typeStr());
+                "a sign cannot be applied to a constant of type \"{}\"", v->type().str());
         }
     }
 
@@ -450,7 +450,7 @@ public:
                 if (!smallest_ordinal) {
                     reporter_.err(subrange_type_node.smallest->view.data(),
                         "non-ordinal-constant",
-                        "subrange bound has non-ordinal type \"{}\"", smallest->typeStr());
+                        "subrange bound has non-ordinal type \"{}\"", smallest->type().str());
                     return;
                 }
 
