@@ -34,11 +34,16 @@ public:
 
     virtual bool
     isOrdinal() const { return false; }
+
+    virtual bool
+    canBeFileComponent() const { return true; }
 };
 
-template <typename T>
-class TypeBuiltin : public Type {
+template <typename T, typename Base = Type>
+class TypeBuiltin : public Base {
 public:
+    using Base::Base;
+
     static const T &
     instance() {
         static const T t;
@@ -47,9 +52,6 @@ public:
 
     std::string
     str() const override { return std::string(T::NAME); }
-
-protected:
-    TypeBuiltin() = default;
 };
 
 export
@@ -101,16 +103,6 @@ private:
     friend class TypeBuiltin;
 };
 
-export
-class TypeText final : public TypeBuiltin<TypeText> {
-public:
-    static inline constexpr std::string_view NAME = "text"sv;
-
-private:
-    TypeText() = default;
-    friend class TypeBuiltin;
-};
-
 class ConstantOrdinal;
 
 export
@@ -147,10 +139,57 @@ public:
             + "array ["s + index_type_->str() + "] of " + component_type_->str();
     }
 
+    bool
+    canBeFileComponent() const override {
+        return component_type_->canBeFileComponent();
+    }
+
 private:
     std::shared_ptr<const Type> index_type_;
     std::shared_ptr<const Type> component_type_;
     bool is_packed_;
+};
+
+export
+class TypeFile : public Type {
+public:
+    TypeFile(
+        std::shared_ptr<const Type> component_type,
+        bool is_packed
+    ) : component_type_(component_type), is_packed_(is_packed) {
+        assert(component_type_->canBeFileComponent());
+    }
+
+    std::string
+    str() const override {
+        return (is_packed_ ? "packed "s : ""s)
+            + "file of "s + component_type_->str();
+    }
+
+    bool
+    canBeFileComponent() const override {
+        return false;
+    }
+
+private:
+    std::shared_ptr<const Type> component_type_;
+    bool is_packed_;
+};
+
+export
+class TypeText final : public TypeBuiltin<TypeText, TypeFile> {
+public:
+    static inline constexpr std::string_view NAME = "text"sv;
+
+private:
+    TypeText()
+        : TypeBuiltin(
+            std::shared_ptr<const Type>(std::shared_ptr<void>(), &TypeChar::instance()),
+            true
+        )
+    {}
+
+    friend class TypeBuiltin;
 };
 
 export

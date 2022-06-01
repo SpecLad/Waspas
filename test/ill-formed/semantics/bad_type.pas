@@ -39,6 +39,13 @@ type
 
     arrayNonOrdinalIndex = array[real] of integer;
                                 {^ error:non-ordinal-type }
+
+    fileOfFile = file of file of integer;
+                        {^ error:disallowed-file-component }
+    fileOfText = file of text;
+                        {^ error:disallowed-file-component }
+    fileOfFileArray = file of array[1..10] of file of integer;
+                             {^ error:disallowed-file-component }
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }

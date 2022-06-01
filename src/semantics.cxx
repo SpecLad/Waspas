@@ -431,9 +431,19 @@ public:
 
                         type = array_type;
                     },
-                    [&](nodes::FileType &) {
-                        reporter_.err(type_denoter_location, "unsupported-feature",
-                            "file types are not yet supported");
+                    [&](nodes::FileType &file_type_node) {
+                        auto component_type = resolveType(block, *file_type_node.component_type);
+                        if (!component_type) return;
+
+                        if (!component_type->canBeFileComponent()) {
+                            reporter_.err(file_type_node.component_type->view.data(),
+                                "disallowed-file-component",
+                                "disallowed type used as file component");
+                            return;
+                        }
+
+                        type = std::make_shared<sem::TypeFile>(
+                            component_type, structured_type_node.is_packed);
                     },
                     [&](nodes::RecordType &) {
                         reporter_.err(type_denoter_location, "unsupported-feature",
