@@ -31,6 +31,9 @@ public:
 
     virtual std::string
     str() const = 0;
+
+    virtual bool
+    isOrdinal() const { return false; }
 };
 
 template <typename T>
@@ -54,6 +57,9 @@ class TypeBoolean final : public TypeBuiltin<TypeBoolean> {
 public:
     static inline constexpr std::string_view NAME = "boolean"sv;
 
+    virtual bool
+    isOrdinal() const { return true; }
+
 private:
     TypeBoolean() = default;
     friend class TypeBuiltin<TypeBoolean>;
@@ -64,6 +70,9 @@ class TypeChar final : public TypeBuiltin<TypeChar> {
 public:
     static inline constexpr std::string_view NAME = "char"sv;
 
+    virtual bool
+    isOrdinal() const { return true; }
+
 private:
     TypeChar() = default;
     friend class TypeBuiltin<TypeChar>;
@@ -73,6 +82,9 @@ export
 class TypeInteger final : public TypeBuiltin<TypeInteger> {
 public:
     static inline constexpr std::string_view NAME = "integer"sv;
+
+    virtual bool
+    isOrdinal() const { return true; }
 
 private:
     TypeInteger() = default;
@@ -111,6 +123,9 @@ public:
 
     std::string
     str() const override;
+
+    virtual bool
+    isOrdinal() const { return true; }
 
 private:
     std::shared_ptr<const ConstantOrdinal> smallest_value_;

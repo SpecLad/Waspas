@@ -420,7 +420,11 @@ public:
                         for (auto &index_type_node : std::ranges::reverse_view(array_type_node.index_types)) {
                             auto index_type = resolveType(block, *index_type_node);
                             if (!index_type) return;
-                            // TODO: verify that index_type is an ordinal type
+
+                            if (!index_type->isOrdinal()) {
+                                reporter_.err(index_type_node->view.data(), "non-ordinal-type",
+                                    "array index type is non-ordinal");
+                            }
 
                             array_type = std::make_shared<sem::TypeArray>(index_type, array_type, packed);
                         }
@@ -452,7 +456,7 @@ public:
 
                 if (!smallest_ordinal) {
                     reporter_.err(subrange_type_node.smallest->view.data(),
-                        "non-ordinal-constant",
+                        "non-ordinal-type",
                         "subrange bound has non-ordinal type \"{}\"", smallest->type().str());
                     return;
                 }
