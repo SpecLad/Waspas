@@ -50,7 +50,7 @@ protected:
 };
 
 export
-class TypeBoolean : public TypeBuiltin<TypeBoolean> {
+class TypeBoolean final : public TypeBuiltin<TypeBoolean> {
 public:
     static inline constexpr std::string_view NAME = "boolean"sv;
 
@@ -60,7 +60,7 @@ private:
 };
 
 export
-class TypeChar : public TypeBuiltin<TypeChar> {
+class TypeChar final : public TypeBuiltin<TypeChar> {
 public:
     static inline constexpr std::string_view NAME = "char"sv;
 
@@ -70,7 +70,7 @@ private:
 };
 
 export
-class TypeInteger : public TypeBuiltin<TypeInteger> {
+class TypeInteger final : public TypeBuiltin<TypeInteger> {
 public:
     static inline constexpr std::string_view NAME = "integer"sv;
 
@@ -80,7 +80,7 @@ private:
 };
 
 export
-class TypeReal : public TypeBuiltin<TypeReal> {
+class TypeReal final : public TypeBuiltin<TypeReal> {
 public:
     static inline constexpr std::string_view NAME = "real"sv;
 
@@ -90,7 +90,7 @@ private:
 };
 
 export
-class TypeText : public TypeBuiltin<TypeText> {
+class TypeText final : public TypeBuiltin<TypeText> {
 public:
     static inline constexpr std::string_view NAME = "text"sv;
 
@@ -102,7 +102,7 @@ private:
 class ConstantOrdinal;
 
 export
-class TypeSubrange : public Type {
+class TypeSubrange final : public Type {
 public:
     TypeSubrange(
         std::shared_ptr<const ConstantOrdinal> smallest_value,
@@ -118,7 +118,7 @@ private:
 };
 
 export
-class TypeArray : public Type {
+class TypeArray final : public Type {
 public:
     TypeArray(
         std::shared_ptr<const Type> index_type,
