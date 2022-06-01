@@ -129,6 +129,9 @@ class ConstantOrdinal : public Constant {
 public:
     virtual std::string
     str() const = 0;
+
+    virtual pascal_integer_t
+    ordinalNumber() const = 0;
 };
 
 export
@@ -157,6 +160,9 @@ class ConstantInteger final
 
     std::string
     str() const override { return std::to_string(value_); }
+
+    pascal_integer_t
+    ordinalNumber() const override { return value_; }
 };
 
 export
@@ -185,6 +191,9 @@ class ConstantChar final
         else
             return "'"s + value_ + "'";
     }
+
+    pascal_integer_t
+    ordinalNumber() const override { return pascal_integer_t(value_); }
 };
 
 export

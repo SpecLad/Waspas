@@ -32,6 +32,9 @@ type
 
     subrangeNonOrdinal = 'abc'..'def';
                         {^ error:non-ordinal-constant }
+
+    subrangeInverted = 11..10;
+                      {^ error:inverted-subrange-bounds }
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }

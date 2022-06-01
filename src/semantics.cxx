@@ -439,6 +439,13 @@ public:
                     // so it should be impossible for largest_ordinal to be null.
                     assert(largest_ordinal);
 
+                    if (smallest_ordinal->ordinalNumber() > largest_ordinal->ordinalNumber()) {
+                        reporter_.err(subrange_type_node.view.data(),
+                            "inverted-subrange-bounds",
+                            "smallest subrange value is greater than largest value");
+                        return;
+                    }
+
                     type = std::make_shared<sem::TypeSubrange>(
                         smallest_ordinal, largest_ordinal);
                 },
