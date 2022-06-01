@@ -28,8 +28,7 @@ sem::Block builtin_block;
 struct BuiltinBlockInitializer {
     BuiltinBlockInitializer() {
         builtin_block.constants_.emplace("maxint",
-            std::make_shared<sem::ConstantInteger>(
-                std::numeric_limits<pascal_integer_t>::max()));
+            std::make_shared<sem::ConstantInteger>(PASCAL_INTEGER_MAX));
 
         for (const auto &c : builtin_block.constants_)
             builtin_block.defining_occurrences_.emplace(c.first, nullptr);
@@ -346,9 +345,13 @@ public:
                 if (cs_node.value.size() == 1)
                     constant = std::make_shared<sem::ConstantChar>(
                         cs_node.value[0]);
-                else
+                else if (cs_node.value.size() <= std::size_t(PASCAL_INTEGER_MAX))
                     constant = std::make_shared<sem::ConstantString>(
                         cs_node.value);
+                else
+                    reporter_.err(cs_node.view.data(), "overlong-string",
+                        "character string length ({}) greater than maxint ({})",
+                        cs_node.value.size(), PASCAL_INTEGER_MAX);
             }
         });
 

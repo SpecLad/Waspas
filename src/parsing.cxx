@@ -93,7 +93,7 @@ public:
 
             reporter.err(p_token->view().data(), "invalid-integer",
                 "integer value {} is too large; maximum is {}",
-                p_token->view(), std::numeric_limits<pascal_integer_t>::max());
+                p_token->view(), PASCAL_INTEGER_MAX);
         }
     };
 
