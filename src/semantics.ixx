@@ -115,6 +115,27 @@ private:
 };
 
 export
+class TypeArray : public Type {
+public:
+    TypeArray(
+        std::shared_ptr<const Type> index_type,
+        std::shared_ptr<const Type> component_type,
+        bool is_packed
+    ) : index_type_(index_type), component_type_(component_type), is_packed_(is_packed) {}
+
+    std::string
+    str() const override {
+        return (is_packed_ ? "packed "s : ""s)
+            + "array ["s + index_type_->str() + "] of " + component_type_->str();
+    }
+
+private:
+    std::shared_ptr<const Type> index_type_;
+    std::shared_ptr<const Type> component_type_;
+    bool is_packed_;
+};
+
+export
 class Constant {
 public:
     virtual

@@ -3,6 +3,7 @@ module;
 #include <cassert>
 #include <limits>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 
@@ -375,6 +376,103 @@ public:
         }
     }
 
+    std::shared_ptr<const sem::Type>
+    resolveType(sem::Block &block, nodes::TypeDenoter &type_denoter_node) {
+        auto type_denoter_location = type_denoter_node.view.data();
+        std::shared_ptr<const sem::Type> type;
+
+        visit(type_denoter_node, overloaded{
+            [&](nodes::EnumeratedType &) {
+                reporter_.err(type_denoter_location, "unsupported-feature",
+                    "enumerated types are not yet supported");
+            },
+            [&](nodes::Identifier &id_node) {
+                auto *ref_type = lookupType(block, id_node);
+                if (!ref_type) return;
+
+                if (!*ref_type) {
+                    reporter_.err(id_node.view.data(), "circular-definition",
+                        "type \"{}\" used in its own definition", id_node.spelling);
+                    return;
+                }
+
+                type = *ref_type;
+            },
+            [&](nodes::NewPointerType &) {
+                reporter_.err(type_denoter_location, "unsupported-feature",
+                    "pointer types are not yet supported");
+            },
+            [&](nodes::NewStructuredType &structured_type_node) {
+                visit(*structured_type_node.unpacked, overloaded{
+                    [&](nodes::ArrayType &array_type_node) {
+                        bool packed = structured_type_node.is_packed;
+                        auto array_type = resolveType(block, *array_type_node.component_type);
+                        if (!array_type) return;
+
+                        for (auto &index_type_node : std::ranges::reverse_view(array_type_node.index_types)) {
+                            auto index_type = resolveType(block, *index_type_node);
+                            if (!index_type) return;
+                            // TODO: verify that index_type is an ordinal type
+
+                            array_type = std::make_shared<sem::TypeArray>(index_type, array_type, packed);
+                        }
+
+                        type = array_type;
+                    },
+                    [&](nodes::FileType &) {
+                        reporter_.err(type_denoter_location, "unsupported-feature",
+                            "file types are not yet supported");
+                    },
+                    [&](nodes::RecordType &) {
+                        reporter_.err(type_denoter_location, "unsupported-feature",
+                            "record types are not yet supported");
+                    },
+                    [&](nodes::SetType &) {
+                        reporter_.err(type_denoter_location, "unsupported-feature",
+                            "set types are not yet supported");
+                    },
+                });
+            },
+            [&](nodes::SubrangeType &subrange_type_node) {
+                auto smallest = resolveConstant(block, *subrange_type_node.smallest);
+                auto largest = resolveConstant(block, *subrange_type_node.largest);
+
+                if (!smallest || !largest) return;
+
+                // TODO: check that the constants are of the same type
+                // TODO: check that smallest <= largest
+                auto smallest_ordinal =
+                    std::dynamic_pointer_cast<const sem::ConstantOrdinal>(smallest);
+
+                if (!smallest_ordinal) {
+                    reporter_.err(subrange_type_node.smallest->view.data(),
+                        "non-ordinal-constant",
+                        "subrange bound has non-ordinal type \"{}\"", smallest->typeStr());
+                    return;
+                }
+
+                auto largest_ordinal =
+                    std::dynamic_pointer_cast<const sem::ConstantOrdinal>(largest);
+
+                // We'll later have a check that both constants have the same type,
+                // so it should be impossible for largest_ordinal to be null.
+                assert(largest_ordinal);
+
+                if (smallest_ordinal->ordinalNumber() > largest_ordinal->ordinalNumber()) {
+                    reporter_.err(subrange_type_node.view.data(),
+                        "inverted-subrange-bounds",
+                        "smallest subrange value is greater than largest value");
+                    return;
+                }
+
+                type = std::make_shared<sem::TypeSubrange>(
+                    smallest_ordinal, largest_ordinal);
+            },
+        });
+
+        return type;
+    }
+
     void
     analyzeTypeDefinitions(
         const nodes::Block &block_node,
@@ -385,71 +483,7 @@ public:
                 continue;
 
             auto &type = block.types_[type_def_node.name.spelling];
-
-            auto &type_denoter_node = *type_def_node.denoter;
-            auto type_denoter_location = type_denoter_node.view.data();
-
-            visit(type_denoter_node, overloaded{
-                [&](nodes::EnumeratedType &) {
-                    reporter_.err(type_denoter_location, "unsupported-feature",
-                        "enumerated types are not yet supported");
-                },
-                [&](nodes::Identifier &id_node) {
-                    auto *ref_type = lookupType(block, id_node);
-                    if (!ref_type) return;
-
-                    if (!*ref_type) {
-                        reporter_.err(id_node.view.data(), "circular-definition",
-                            "type \"{}\" used in its own definition", id_node.spelling);
-                        return;
-                    }
-
-                    type = *ref_type;
-                },
-                [&](nodes::NewPointerType &) {
-                    reporter_.err(type_denoter_location, "unsupported-feature",
-                        "pointer types are not yet supported");
-                },
-                [&](nodes::NewStructuredType &) {
-                    reporter_.err(type_denoter_location, "unsupported-feature",
-                        "structured types are not yet supported");
-                },
-                [&](nodes::SubrangeType &subrange_type_node) {
-                    auto smallest = resolveConstant(block, *subrange_type_node.smallest);
-                    auto largest = resolveConstant(block, *subrange_type_node.largest);
-
-                    if (!smallest || !largest) return;
-
-                    // TODO: check that the constants are of the same type
-                    // TODO: check that smallest <= largest
-                    auto smallest_ordinal =
-                        std::dynamic_pointer_cast<const sem::ConstantOrdinal>(smallest);
-
-                    if (!smallest_ordinal) {
-                        reporter_.err(subrange_type_node.smallest->view.data(),
-                            "non-ordinal-constant",
-                            "subrange bound has non-ordinal type \"{}\"", smallest->typeStr());
-                        return;
-                    }
-
-                    auto largest_ordinal =
-                        std::dynamic_pointer_cast<const sem::ConstantOrdinal>(largest);
-
-                    // We'll later have a check that both constants have the same type,
-                    // so it should be impossible for largest_ordinal to be null.
-                    assert(largest_ordinal);
-
-                    if (smallest_ordinal->ordinalNumber() > largest_ordinal->ordinalNumber()) {
-                        reporter_.err(subrange_type_node.view.data(),
-                            "inverted-subrange-bounds",
-                            "smallest subrange value is greater than largest value");
-                        return;
-                    }
-
-                    type = std::make_shared<sem::TypeSubrange>(
-                        smallest_ordinal, largest_ordinal);
-                },
-            });
+            type = resolveType(block, *type_def_node.denoter);
 
             if (!type) {
                 // use a fallback type so that we can continue with the analysis
