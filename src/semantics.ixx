@@ -40,7 +40,7 @@ template <typename T>
 class TypeBuiltin : public Type {
 public:
     static const T &
-        instance() {
+    instance() {
         static const T t;
         return t;
     }
@@ -62,7 +62,7 @@ public:
 
 private:
     TypeBoolean() = default;
-    friend class TypeBuiltin<TypeBoolean>;
+    friend class TypeBuiltin;
 };
 
 export
@@ -75,7 +75,7 @@ public:
 
 private:
     TypeChar() = default;
-    friend class TypeBuiltin<TypeChar>;
+    friend class TypeBuiltin;
 };
 
 export
@@ -88,7 +88,7 @@ public:
 
 private:
     TypeInteger() = default;
-    friend class TypeBuiltin<TypeInteger>;
+    friend class TypeBuiltin;
 };
 
 export
@@ -98,7 +98,7 @@ public:
 
 private:
     TypeReal() = default;
-    friend class TypeBuiltin<TypeReal>;
+    friend class TypeBuiltin;
 };
 
 export
@@ -108,7 +108,7 @@ public:
 
 private:
     TypeText() = default;
-    friend class TypeBuiltin<TypeText>;
+    friend class TypeBuiltin;
 };
 
 class ConstantOrdinal;
