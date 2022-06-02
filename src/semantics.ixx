@@ -3,6 +3,8 @@ module;
 #include <cassert>
 #include <format>
 #include <memory>
+#include <ranges>
+#include <span>
 #include <string>
 #include <unordered_map>
 
@@ -104,6 +106,26 @@ private:
 };
 
 class ConstantOrdinal;
+class ConstantEnumerated;
+
+export
+class TypeEnumerated final : public Type {
+public:
+    explicit
+    TypeEnumerated(std::span<const std::string> constant_names);
+
+    std::span<const std::shared_ptr<const ConstantEnumerated>>
+    constants() const { return constants_; }
+
+    std::string
+    str() const override;
+
+    bool
+    isOrdinal() const override { return true; }
+
+private:
+    std::vector<std::shared_ptr<const ConstantEnumerated>> constants_;
+};
 
 export
 class TypeSubrange final : public Type {
@@ -353,6 +375,56 @@ public:
 private:
     TypeArray type_;
 };
+
+export
+class ConstantEnumerated final : public ConstantOrdinal
+{
+public:
+    const TypeEnumerated &
+    type() const override { return type_; }
+
+    std::string
+    str() const override { return name_; }
+
+    pascal_integer_t
+    ordinalNumber() const override { return ordinal_number_; }
+
+private:
+    explicit
+    ConstantEnumerated(
+        const TypeEnumerated &type,
+        pascal_integer_t ordinal_number,
+        const std::string &name
+    )
+        : type_(type), ordinal_number_(ordinal_number), name_(name)
+    {}
+
+    const TypeEnumerated &type_;
+    pascal_integer_t ordinal_number_;
+    std::string name_;
+
+    friend class TypeEnumerated;
+};
+
+TypeEnumerated::TypeEnumerated(std::span<const std::string> constant_names) {
+    assert(!constant_names.empty());
+    assert(constant_names.size() - 1 <= std::size_t(PASCAL_INTEGER_MAX));
+
+    for (auto i : std::views::iota(std::size_t(0), constant_names.size()))
+        constants_.push_back(std::shared_ptr<ConstantEnumerated>(
+            new ConstantEnumerated(*this, i, constant_names[i])));
+}
+
+std::string
+TypeEnumerated::str() const {
+    std::string s = "("s + constants_[0]->str();
+
+    for (const auto &c : std::views::drop(constants_, 1))
+        s += ", "s + c->str();
+
+    s += ")"s;
+    return s;
+}
 
 struct DefiningOccurrence {
     const char *location;

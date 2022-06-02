@@ -354,7 +354,7 @@ public:
                     constant = std::make_shared<sem::ConstantString>(
                         cs_node.value);
                 else
-                    reporter_.err(cs_node.view.data(), "overlong-string",
+                    reporter_.err(cs_node.view.data(), "too-many-elements",
                         "character string length ({}) greater than maxint ({})",
                         cs_node.value.size(), PASCAL_INTEGER_MAX);
             }
@@ -390,9 +390,36 @@ public:
         std::shared_ptr<const sem::Type> type;
 
         visit(type_denoter_node, overloaded{
-            [&](nodes::EnumeratedType &) {
-                reporter_.err(type_denoter_location, "unsupported-feature",
-                    "enumerated types are not yet supported");
+            [&](nodes::EnumeratedType &enumerated_type_node) {
+                if (enumerated_type_node.constants.size()
+                    > std::size_t(PASCAL_INTEGER_MAX) + 1
+                ) {
+                    reporter_.err(enumerated_type_node.view.data(), "too-many-elements",
+                        "number of constants ({}) greater than maximum allowed ({})",
+                        enumerated_type_node.constants.size(),
+                        std::size_t(PASCAL_INTEGER_MAX) + 1);
+                    return;
+                }
+
+                std::vector<std::string> constant_names;
+
+                for (auto &id_node : enumerated_type_node.constants) {
+                    if (checkDuplicateIdentifier(block, id_node))
+                        continue;
+
+                    constant_names.push_back(id_node.spelling);
+                }
+
+                if (constant_names.empty())
+                    return;
+
+                auto enumerated_type
+                    = std::make_shared<sem::TypeEnumerated>(constant_names);
+
+                for (const auto &constant : enumerated_type->constants())
+                    block.constants_.emplace(constant->str(), constant);
+
+                type = enumerated_type;
             },
             [&](nodes::Identifier &id_node) {
                 auto *ref_type = lookupType(block, id_node);

@@ -4,5 +4,12 @@ const
    {^ note }
     a = 1;
    {^ error:duplicate-identifier }
+type
+    b = integer;
+   {^ note }
+    b = real;
+   {^ error:duplicate-identifier }
+    enumType = (c,        c);
+               {^ note } {^ error:duplicate-identifier }
 begin
 end.
