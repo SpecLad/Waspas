@@ -444,7 +444,7 @@ public:
                         auto array_type = resolveType(block, *array_type_node.component_type);
                         if (!array_type) return;
 
-                        for (auto &index_type_node : std::ranges::reverse_view(array_type_node.index_types)) {
+                        for (auto &index_type_node : std::views::reverse(array_type_node.index_types)) {
                             auto index_type = resolveType(block, *index_type_node);
                             if (!index_type) return;
 
