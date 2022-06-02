@@ -510,8 +510,9 @@ public:
                 if (&largest->type() != &smallest->type()) {
                     reporter_.err(subrange_type_node.largest->view.data(),
                         "type-mismatch",
-                        "subrange bounds have different types (\"{}\" and \"{}\")",
-                        smallest->type().str(), largest->type().str());
+                        "largest subrange value has different type (\"{}\") "
+                            "from smallest value type (\"{}\")",
+                        largest->type().str(), smallest->type().str());
                     return;
                 }
 
@@ -522,10 +523,10 @@ public:
                 // it should be impossible for largest_ordinal to be null.
                 assert(largest_ordinal);
 
-                if (smallest_ordinal->ordinalNumber() > largest_ordinal->ordinalNumber()) {
-                    reporter_.err(subrange_type_node.view.data(),
+                if (largest_ordinal->ordinalNumber() < smallest_ordinal->ordinalNumber()) {
+                    reporter_.err(subrange_type_node.largest->view.data(),
                         "inverted-subrange-bounds",
-                        "smallest subrange value is greater than largest value");
+                        "largest subrange value is less than smallest value");
                     return;
                 }
 

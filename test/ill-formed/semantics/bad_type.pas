@@ -35,7 +35,7 @@ type
     subrangeMismatch = 11..true;
                           {^ error:type-mismatch }
     subrangeInverted = 11..10;
-                      {^ error:inverted-subrange-bounds }
+                          {^ error:inverted-subrange-bounds }
 
     arrayNonOrdinalIndex = array[real] of integer;
                                 {^ error:non-ordinal-type }
