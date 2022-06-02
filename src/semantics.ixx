@@ -235,6 +235,28 @@ private:
     friend class TypeBuiltin;
 };
 
+class Block;
+
+export
+class TypePointer final : public Type {
+public:
+    TypePointer(
+        const Block &domain_type_block, const std::string &domain_type_name
+    ) : domain_type_block_(domain_type_block), domain_type_name_(domain_type_name)
+    {}
+
+    std::string
+    str() const override {
+        // We must not resolve the domain type and call `str` on it, since we
+        // might get into a recursive loop.
+        return '^' + domain_type_name_;
+    }
+
+private:
+    const Block &domain_type_block_;
+    std::string domain_type_name_;
+};
+
 export
 class Constant {
 public:

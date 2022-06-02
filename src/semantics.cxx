@@ -433,9 +433,48 @@ public:
 
                 type = *ref_type;
             },
-            [&](nodes::NewPointerType &) {
-                reporter_.err(type_denoter_location, "unsupported-feature",
-                    "pointer types are not yet supported");
+            [&](nodes::NewPointerType &pointer_type_node) {
+                const std::string &domain_type_name
+                    = pointer_type_node.domain_type.spelling;
+
+                // Pointer types can refer to types that haven't been defined
+                // yet, so we can't resolve the domain type the normal way.
+                // Instead, we'll just find the block that contains the domain
+                // type and store the reference to that block in the pointer type.
+                // This will allow the domain type to be resolved after the block
+                // is fully analyzed.
+                for (const sem::Block *domain_type_block = &block;
+                    domain_type_block;
+                    domain_type_block = domain_type_block->parent_
+                ) {
+                    auto it = domain_type_block->defining_occurrences_.find(domain_type_name);
+
+                    if (it == domain_type_block->defining_occurrences_.end())
+                        continue;
+
+                    if (it->second.kind != sem::DefiningOccurrence::TYPE) {
+                        reporter_.err(pointer_type_node.domain_type.view.data(),
+                            "wrong-identifier-kind",
+                            "identifier \"{}\" is not a type identifier",
+                            domain_type_name);
+
+                        // the location might be null
+                        // if domain_type_block is the builtin block
+                        if (it->second.location)
+                            reporter_.note(it->second.location,
+                                "defining point of \"{}\"", domain_type_name);
+
+                        return;
+                    }
+
+                    type = std::make_shared<sem::TypePointer>(
+                        *domain_type_block, domain_type_name);
+                    return;
+                }
+
+                reporter_.err(pointer_type_node.domain_type.view.data(),
+                    "undefined-identifier",
+                    "undefined type identifier \"{}\"", domain_type_name);
             },
             [&](nodes::NewStructuredType &structured_type_node) {
                 visit(*structured_type_node.unpacked, overloaded{

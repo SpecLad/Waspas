@@ -2,6 +2,8 @@ program badtype;
 const
     notType = 1;
    {^ note }
+    notType2 = 2;
+   {^ note }
 type
     a = unknown;
        {^ error:undefined-identifier }
@@ -49,6 +51,13 @@ type
 
     setOfNonOrdinal = set of real;
                             {^ error:non-ordinal-type }
+
+    pointerToUndefined = ^undefined;
+                         {^ error:undefined-identifier }
+    pointerToNonTypeBuiltin = ^maxint;
+                              {^ error:wrong-identifier-kind }
+    pointerToNonType = ^notType2;
+                       {^ error:wrong-identifier-kind }
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }
