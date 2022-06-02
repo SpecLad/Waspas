@@ -10,8 +10,8 @@ const
     f = -d;
        {^ error:type-mismatch }
 
-    wrongIdTypeBuiltin = integer;
-                        {^ error:wrong-identifier-type }
+    wrongIdKindBuiltin = integer;
+                        {^ error:wrong-identifier-kind }
     { TODO: add a test where a constant references input/output,
       to make sure that the note is added to the correct location }
 

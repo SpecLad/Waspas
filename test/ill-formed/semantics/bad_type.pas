@@ -6,10 +6,10 @@ type
     a = unknown;
        {^ error:undefined-identifier }
 
-    wrongIdTypeBuiltin = maxint;
-                        {^ error:wrong-identifier-type }
-    wrongIdType = notType;
-                 {^ error:wrong-identifier-type }
+    wrongIdKindBuiltin = maxint;
+                        {^ error:wrong-identifier-kind }
+    wrongIdKind = notType;
+                 {^ error:wrong-identifier-kind }
 
     selfRef = selfRef;
              {^ error:circular-definition }

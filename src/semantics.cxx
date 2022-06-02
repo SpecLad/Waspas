@@ -235,7 +235,7 @@ public:
         sem::Block &block,
         const nodes::Identifier &applied_occurrence_node,
         std::unordered_map<std::string, T> sem::Block::*map_member,
-        std::string_view identifier_type_str
+        std::string_view identifier_kind_str
     ) {
         const auto &spelling = applied_occurrence_node.spelling;
         auto applied_occurrence_location = applied_occurrence_node.view.data();
@@ -254,9 +254,9 @@ public:
                         "identifier \"{}\" used before it was defined", spelling);
                 }
                 else {
-                    reporter_.err(applied_occurrence_location, "wrong-identifier-type",
+                    reporter_.err(applied_occurrence_location, "wrong-identifier-kind",
                         "identifier \"{}\" is not a {} identifier",
-                        spelling, identifier_type_str);
+                        spelling, identifier_kind_str);
                 }
                 reporter_.note(it->second.location,
                     "defining point of \"{}\"", spelling);
@@ -277,9 +277,9 @@ public:
             auto &dos = parent_block->defining_occurrences_;
 
             if (auto it = dos.find(spelling); it != dos.end()) {
-                reporter_.err(applied_occurrence_location, "wrong-identifier-type",
+                reporter_.err(applied_occurrence_location, "wrong-identifier-kind",
                     "identifier \"{}\" is not a {} identifier",
-                    spelling, identifier_type_str);
+                    spelling, identifier_kind_str);
 
                 // the location might be null if parent_block is the builtin block
                 if (it->second.location)
@@ -291,7 +291,7 @@ public:
         }
 
         reporter_.err(applied_occurrence_location, "undefined-identifier",
-            "undefined {} identifier \"{}\"", identifier_type_str, spelling);
+            "undefined {} identifier \"{}\"", identifier_kind_str, spelling);
         return nullptr;
     }
 
