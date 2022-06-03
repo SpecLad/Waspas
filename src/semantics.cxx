@@ -384,6 +384,78 @@ public:
         }
     }
 
+    std::shared_ptr<const sem::TypeArray>
+    resolveStructuredType(
+        sem::Block &block, nodes::ArrayType &array_type_node, bool is_packed
+    ) {
+        auto component_type = resolveType(block, *array_type_node.component_type);
+        if (!component_type) return nullptr;
+
+        std::shared_ptr<const sem::TypeArray> array_type;
+
+        for (auto &index_type_node : std::views::reverse(array_type_node.index_types)) {
+            auto index_type = resolveType(block, *index_type_node);
+            if (!index_type) return nullptr;
+
+            if (!index_type->isOrdinal()) {
+                reporter_.err(index_type_node->view.data(), "non-ordinal-type",
+                    "array index type is non-ordinal");
+            }
+
+            array_type = std::make_shared<sem::TypeArray>(
+                index_type, component_type, is_packed);
+            component_type = array_type;
+        }
+
+        // The grammar requires at least one index type, so the loop should
+        // execute at least once.
+        assert(array_type);
+
+        return array_type;
+    }
+
+    std::shared_ptr<const sem::TypeFile>
+    resolveStructuredType(
+        sem::Block &block, nodes::FileType &file_type_node, bool is_packed
+    ) {
+        auto component_type = resolveType(block, *file_type_node.component_type);
+        if (!component_type) return nullptr;
+
+        if (!component_type->canBeFileComponent()) {
+            reporter_.err(file_type_node.component_type->view.data(),
+                "disallowed-file-component",
+                "disallowed type used as file component");
+            return nullptr;
+        }
+
+        return std::make_shared<sem::TypeFile>(component_type, is_packed);
+    }
+
+    std::shared_ptr<const sem::Type>
+    resolveStructuredType(
+        sem::Block &block, nodes::RecordType &record_type_node, bool is_packed
+    ) {
+        reporter_.err(record_type_node.view.data(), "unsupported-feature",
+            "record types are not yet supported");
+        return nullptr;
+    }
+
+    std::shared_ptr<const sem::TypeSet>
+    resolveStructuredType(
+        sem::Block &block, nodes::SetType &set_type_node, bool is_packed
+    ) {
+        auto base_type = resolveType(block, *set_type_node.base_type);
+        if (!base_type) return nullptr;
+
+        if (!base_type->isOrdinal()) {
+            reporter_.err(set_type_node.base_type->view.data(),
+                "non-ordinal-type", "set base type is non-ordinal");
+            return nullptr;
+        }
+
+        return std::make_shared<sem::TypeSet>(base_type, is_packed);
+    }
+
     std::shared_ptr<const sem::Type>
     resolveType(sem::Block &block, nodes::TypeDenoter &type_denoter_node) {
         auto type_denoter_location = type_denoter_node.view.data();
@@ -477,57 +549,8 @@ public:
                     "undefined type identifier \"{}\"", domain_type_name);
             },
             [&](nodes::NewStructuredType &structured_type_node) {
-                visit(*structured_type_node.unpacked, overloaded{
-                    [&](nodes::ArrayType &array_type_node) {
-                        bool packed = structured_type_node.is_packed;
-                        auto array_type = resolveType(block, *array_type_node.component_type);
-                        if (!array_type) return;
-
-                        for (auto &index_type_node : std::views::reverse(array_type_node.index_types)) {
-                            auto index_type = resolveType(block, *index_type_node);
-                            if (!index_type) return;
-
-                            if (!index_type->isOrdinal()) {
-                                reporter_.err(index_type_node->view.data(), "non-ordinal-type",
-                                    "array index type is non-ordinal");
-                            }
-
-                            array_type = std::make_shared<sem::TypeArray>(index_type, array_type, packed);
-                        }
-
-                        type = array_type;
-                    },
-                    [&](nodes::FileType &file_type_node) {
-                        auto component_type = resolveType(block, *file_type_node.component_type);
-                        if (!component_type) return;
-
-                        if (!component_type->canBeFileComponent()) {
-                            reporter_.err(file_type_node.component_type->view.data(),
-                                "disallowed-file-component",
-                                "disallowed type used as file component");
-                            return;
-                        }
-
-                        type = std::make_shared<sem::TypeFile>(
-                            component_type, structured_type_node.is_packed);
-                    },
-                    [&](nodes::RecordType &) {
-                        reporter_.err(type_denoter_location, "unsupported-feature",
-                            "record types are not yet supported");
-                    },
-                    [&](nodes::SetType &set_type_node) {
-                        auto base_type = resolveType(block, *set_type_node.base_type);
-                        if (!base_type) return;
-
-                        if (!base_type->isOrdinal()) {
-                            reporter_.err(set_type_node.base_type->view.data(),
-                                "non-ordinal-type", "set base type is non-ordinal");
-                            return;
-                        }
-
-                        type = std::make_shared<sem::TypeSet>(
-                            base_type, structured_type_node.is_packed);
-                    },
+                visit(*structured_type_node.unpacked, [&](auto &node) {
+                    type = resolveStructuredType(block, node, structured_type_node.is_packed);
                 });
             },
             [&](nodes::SubrangeType &subrange_type_node) {
