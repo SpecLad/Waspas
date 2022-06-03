@@ -25,7 +25,7 @@ class Type {
 public:
     Type() = default;
 
-    virtual
+    virtual constexpr
     ~Type() = default;
 
     Type(const Type &) = delete;
@@ -48,7 +48,7 @@ public:
 
     static const T &
     instance() {
-        static const T t;
+        static constexpr T t;
         return t;
     }
 
@@ -173,7 +173,15 @@ private:
 };
 
 export
-class TypeFile : public Type {
+class TypeFileLike : public Type {
+    bool
+    canBeFileComponent() const override {
+        return false;
+    }
+};
+
+export
+class TypeFile final : public TypeFileLike {
 public:
     TypeFile(
         std::shared_ptr<const Type> component_type,
@@ -199,6 +207,16 @@ private:
 };
 
 export
+class TypeText final : public TypeBuiltin<TypeText, TypeFileLike> {
+public:
+    static inline constexpr std::string_view NAME = "text"sv;
+
+private:
+    TypeText() = default;
+    friend class TypeBuiltin;
+};
+
+export
 class TypeSet final : public Type {
 public:
     TypeSet(
@@ -217,22 +235,6 @@ public:
 private:
     std::shared_ptr<const Type> base_type_;
     bool is_packed_;
-};
-
-export
-class TypeText final : public TypeBuiltin<TypeText, TypeFile> {
-public:
-    static inline constexpr std::string_view NAME = "text"sv;
-
-private:
-    TypeText()
-        : TypeBuiltin(
-            std::shared_ptr<const Type>(std::shared_ptr<void>(), &TypeChar::instance()),
-            true
-        )
-    {}
-
-    friend class TypeBuiltin;
 };
 
 class Block;
@@ -260,7 +262,7 @@ private:
 export
 class Constant {
 public:
-    virtual
+    virtual constexpr
     ~Constant() = default;
 
     virtual const Type &
@@ -281,7 +283,7 @@ export
 template <typename T, typename Value, typename Base = Constant>
 class ConstantImpl : public Base {
 public:
-    explicit
+    explicit constexpr
     ConstantImpl(const Value &value) : value_(value)
     {}
 
@@ -296,6 +298,10 @@ export
 class ConstantBoolean final
     : public ConstantImpl<ConstantBoolean, bool, ConstantOrdinal>
 {
+private:
+    explicit constexpr
+    ConstantBoolean(bool value) : ConstantImpl(value) {}
+
 public:
     const TypeBoolean &
     type() const override { return TypeBoolean::instance(); }
@@ -308,18 +314,15 @@ public:
 
     static const ConstantBoolean &
     instanceFalse() {
-        static const ConstantBoolean c(false);
+        static constexpr ConstantBoolean c(false);
         return c;
     }
 
     static const ConstantBoolean &
     instanceTrue() {
-        static const ConstantBoolean c(true);
+        static constexpr ConstantBoolean c(true);
         return c;
     }
-
-private:
-    explicit ConstantBoolean(bool value) : ConstantImpl(value) {}
 };
 
 export
