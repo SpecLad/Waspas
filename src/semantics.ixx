@@ -217,6 +217,31 @@ private:
 };
 
 export
+struct FieldList {
+
+};
+
+export
+class TypeRecord final : public Type {
+public:
+    TypeRecord(
+        const FieldList &field_list,
+        bool is_packed
+    ) : field_list_(field_list), is_packed_(is_packed) {}
+
+    std::string
+    str() const override {
+        // A full string representation would be annoying to build and possibly
+        // quite long. For simplicity, just show that it's a record.
+        return "<record>"s;
+    }
+
+private:
+    FieldList field_list_;
+    bool is_packed_;
+};
+
+export
 class TypeSet final : public Type {
 public:
     TypeSet(

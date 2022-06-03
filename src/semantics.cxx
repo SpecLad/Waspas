@@ -431,13 +431,51 @@ public:
         return std::make_shared<sem::TypeFile>(component_type, is_packed);
     }
 
-    std::shared_ptr<const sem::Type>
+    static void
+    collectFieldDefiningOccurrences(
+        sem::defining_occurrences_t &dos,
+        nodes::FieldList &field_list_node
+    ) {
+        // Not to be confused with collectOccurrencesInFieldList -
+        // that collects identifiers scoped to the block, this collects
+        // field names.
+
+        for (const auto &fixed_section : field_list_node.fixed_sections)
+            for (const auto &field_name : fixed_section.field_names)
+                collectDefiningOccurrence(dos, field_name);
+
+        if (auto &variant_part = field_list_node.variant_part) {
+            if (variant_part->tag_field)
+                collectDefiningOccurrence(dos, *variant_part->tag_field);
+
+            for (auto &variant : variant_part->variants)
+                collectFieldDefiningOccurrences(dos, variant.fields);
+        }
+    }
+
+    sem::FieldList
+    resolveFieldList(
+        sem::Block &block, const sem::defining_occurrences_t &field_dos,
+        nodes::FieldList &field_list_node
+    ) {
+        sem::FieldList field_list;
+
+        reporter_.err(field_list_node.view.data(), "unsupported-feature",
+            "record types are not yet supported");
+
+        return field_list;
+    }
+
+    std::shared_ptr<const sem::TypeRecord>
     resolveStructuredType(
         sem::Block &block, nodes::RecordType &record_type_node, bool is_packed
     ) {
-        reporter_.err(record_type_node.view.data(), "unsupported-feature",
-            "record types are not yet supported");
-        return nullptr;
+        sem::defining_occurrences_t field_dos;
+        collectFieldDefiningOccurrences(field_dos, record_type_node.fields);
+
+        return std::make_shared<sem::TypeRecord>(
+            resolveFieldList(block, field_dos, record_type_node.fields),
+        is_packed);
     }
 
     std::shared_ptr<const sem::TypeSet>
