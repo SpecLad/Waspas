@@ -456,145 +456,169 @@ public:
         return std::make_shared<sem::TypeSet>(base_type, is_packed);
     }
 
+    std::shared_ptr<const sem::TypeEnumerated>
+    resolveTypeDenoter(
+        sem::Block &block, nodes::EnumeratedType &enumerated_type_node
+    ) {
+        if (enumerated_type_node.constants.size()
+            > std::size_t(PASCAL_INTEGER_MAX) + 1
+        ) {
+            reporter_.err(enumerated_type_node.view.data(), "too-many-elements",
+                "number of constants ({}) greater than maximum allowed ({})",
+                enumerated_type_node.constants.size(),
+                std::size_t(PASCAL_INTEGER_MAX) + 1);
+            return nullptr;
+        }
+
+        std::vector<std::string> constant_names;
+
+        for (auto &id_node : enumerated_type_node.constants) {
+            if (checkDuplicateIdentifier(block, id_node))
+                continue;
+
+            constant_names.push_back(id_node.spelling);
+        }
+
+        if (constant_names.empty())
+            return nullptr;
+
+        auto enumerated_type
+            = std::make_shared<sem::TypeEnumerated>(constant_names);
+
+        for (const auto &constant : enumerated_type->constants())
+            block.constants_.emplace(constant->str(), constant);
+
+        return enumerated_type;
+    }
+
+    std::shared_ptr<const sem::Type>
+    resolveTypeDenoter(
+        sem::Block &block, nodes::Identifier &id_node
+    ) {
+        auto *ref_type = lookupType(block, id_node);
+        if (!ref_type) return nullptr;
+
+        if (!*ref_type) {
+            reporter_.err(id_node.view.data(), "circular-definition",
+                "type \"{}\" used in its own definition", id_node.spelling);
+            return nullptr;
+        }
+
+        return *ref_type;
+    }
+
+    std::shared_ptr<const sem::TypePointer>
+    resolveTypeDenoter(
+        sem::Block &block, nodes::NewPointerType &pointer_type_node
+    ) {
+        const std::string &domain_type_name
+            = pointer_type_node.domain_type.spelling;
+
+        // Pointer types can refer to types that haven't been defined
+        // yet, so we can't resolve the domain type the normal way.
+        // Instead, we'll just find the block that contains the domain
+        // type and store the reference to that block in the pointer type.
+        // This will allow the domain type to be resolved after the block
+        // is fully analyzed.
+        for (const sem::Block *domain_type_block = &block;
+            domain_type_block;
+            domain_type_block = domain_type_block->parent_
+        ) {
+            auto it = domain_type_block->defining_occurrences_.find(domain_type_name);
+
+            if (it == domain_type_block->defining_occurrences_.end())
+                continue;
+
+            if (it->second.kind != sem::DefiningOccurrence::TYPE) {
+                reporter_.err(pointer_type_node.domain_type.view.data(),
+                    "wrong-identifier-kind",
+                    "identifier \"{}\" is not a type identifier",
+                    domain_type_name);
+
+                // the location might be null
+                // if domain_type_block is the builtin block
+                if (it->second.location)
+                    reporter_.note(it->second.location,
+                        "defining point of \"{}\"", domain_type_name);
+
+                return nullptr;
+            }
+
+            return std::make_shared<sem::TypePointer>(
+                *domain_type_block, domain_type_name);
+        }
+
+        reporter_.err(pointer_type_node.domain_type.view.data(),
+            "undefined-identifier",
+            "undefined type identifier \"{}\"", domain_type_name);
+        return nullptr;
+    }
+
+    std::shared_ptr<const sem::Type>
+    resolveTypeDenoter(
+        sem::Block &block, nodes::NewStructuredType &structured_type_node
+    ) {
+        std::shared_ptr<const sem::Type> type;
+
+        visit(*structured_type_node.unpacked, [&](auto &node) {
+            type = resolveStructuredType(block, node, structured_type_node.is_packed);
+        });
+
+        return type;
+    }
+
+    std::shared_ptr<const sem::TypeSubrange>
+    resolveTypeDenoter(
+        sem::Block &block, nodes::SubrangeType &subrange_type_node
+    ) {
+        auto smallest = resolveConstant(block, *subrange_type_node.smallest);
+        auto largest = resolveConstant(block, *subrange_type_node.largest);
+
+        if (!smallest || !largest) return nullptr;
+
+        auto smallest_ordinal =
+            std::dynamic_pointer_cast<const sem::ConstantOrdinal>(smallest);
+
+        if (!smallest_ordinal) {
+            reporter_.err(subrange_type_node.smallest->view.data(),
+                "non-ordinal-type",
+                "subrange bound has non-ordinal type \"{}\"", smallest->type().str());
+            return nullptr;
+        }
+
+        if (&largest->type() != &smallest->type()) {
+            reporter_.err(subrange_type_node.largest->view.data(),
+                "type-mismatch",
+                "largest subrange value has different type (\"{}\") "
+                    "from smallest value type (\"{}\")",
+                largest->type().str(), smallest->type().str());
+            return nullptr;
+        }
+
+        auto largest_ordinal =
+            std::dynamic_pointer_cast<const sem::ConstantOrdinal>(largest);
+
+        // Since both constants have the same type,
+        // it should be impossible for largest_ordinal to be null.
+        assert(largest_ordinal);
+
+        if (largest_ordinal->ordinalNumber() < smallest_ordinal->ordinalNumber()) {
+            reporter_.err(subrange_type_node.largest->view.data(),
+                "inverted-subrange-bounds",
+                "largest subrange value is less than smallest value");
+            return nullptr;
+        }
+
+        return std::make_shared<sem::TypeSubrange>(smallest_ordinal, largest_ordinal);
+    }
+
     std::shared_ptr<const sem::Type>
     resolveType(sem::Block &block, nodes::TypeDenoter &type_denoter_node) {
         auto type_denoter_location = type_denoter_node.view.data();
         std::shared_ptr<const sem::Type> type;
 
-        visit(type_denoter_node, overloaded{
-            [&](nodes::EnumeratedType &enumerated_type_node) {
-                if (enumerated_type_node.constants.size()
-                    > std::size_t(PASCAL_INTEGER_MAX) + 1
-                ) {
-                    reporter_.err(enumerated_type_node.view.data(), "too-many-elements",
-                        "number of constants ({}) greater than maximum allowed ({})",
-                        enumerated_type_node.constants.size(),
-                        std::size_t(PASCAL_INTEGER_MAX) + 1);
-                    return;
-                }
-
-                std::vector<std::string> constant_names;
-
-                for (auto &id_node : enumerated_type_node.constants) {
-                    if (checkDuplicateIdentifier(block, id_node))
-                        continue;
-
-                    constant_names.push_back(id_node.spelling);
-                }
-
-                if (constant_names.empty())
-                    return;
-
-                auto enumerated_type
-                    = std::make_shared<sem::TypeEnumerated>(constant_names);
-
-                for (const auto &constant : enumerated_type->constants())
-                    block.constants_.emplace(constant->str(), constant);
-
-                type = enumerated_type;
-            },
-            [&](nodes::Identifier &id_node) {
-                auto *ref_type = lookupType(block, id_node);
-                if (!ref_type) return;
-
-                if (!*ref_type) {
-                    reporter_.err(id_node.view.data(), "circular-definition",
-                        "type \"{}\" used in its own definition", id_node.spelling);
-                    return;
-                }
-
-                type = *ref_type;
-            },
-            [&](nodes::NewPointerType &pointer_type_node) {
-                const std::string &domain_type_name
-                    = pointer_type_node.domain_type.spelling;
-
-                // Pointer types can refer to types that haven't been defined
-                // yet, so we can't resolve the domain type the normal way.
-                // Instead, we'll just find the block that contains the domain
-                // type and store the reference to that block in the pointer type.
-                // This will allow the domain type to be resolved after the block
-                // is fully analyzed.
-                for (const sem::Block *domain_type_block = &block;
-                    domain_type_block;
-                    domain_type_block = domain_type_block->parent_
-                ) {
-                    auto it = domain_type_block->defining_occurrences_.find(domain_type_name);
-
-                    if (it == domain_type_block->defining_occurrences_.end())
-                        continue;
-
-                    if (it->second.kind != sem::DefiningOccurrence::TYPE) {
-                        reporter_.err(pointer_type_node.domain_type.view.data(),
-                            "wrong-identifier-kind",
-                            "identifier \"{}\" is not a type identifier",
-                            domain_type_name);
-
-                        // the location might be null
-                        // if domain_type_block is the builtin block
-                        if (it->second.location)
-                            reporter_.note(it->second.location,
-                                "defining point of \"{}\"", domain_type_name);
-
-                        return;
-                    }
-
-                    type = std::make_shared<sem::TypePointer>(
-                        *domain_type_block, domain_type_name);
-                    return;
-                }
-
-                reporter_.err(pointer_type_node.domain_type.view.data(),
-                    "undefined-identifier",
-                    "undefined type identifier \"{}\"", domain_type_name);
-            },
-            [&](nodes::NewStructuredType &structured_type_node) {
-                visit(*structured_type_node.unpacked, [&](auto &node) {
-                    type = resolveStructuredType(block, node, structured_type_node.is_packed);
-                });
-            },
-            [&](nodes::SubrangeType &subrange_type_node) {
-                auto smallest = resolveConstant(block, *subrange_type_node.smallest);
-                auto largest = resolveConstant(block, *subrange_type_node.largest);
-
-                if (!smallest || !largest) return;
-
-                auto smallest_ordinal =
-                    std::dynamic_pointer_cast<const sem::ConstantOrdinal>(smallest);
-
-                if (!smallest_ordinal) {
-                    reporter_.err(subrange_type_node.smallest->view.data(),
-                        "non-ordinal-type",
-                        "subrange bound has non-ordinal type \"{}\"", smallest->type().str());
-                    return;
-                }
-
-                if (&largest->type() != &smallest->type()) {
-                    reporter_.err(subrange_type_node.largest->view.data(),
-                        "type-mismatch",
-                        "largest subrange value has different type (\"{}\") "
-                            "from smallest value type (\"{}\")",
-                        largest->type().str(), smallest->type().str());
-                    return;
-                }
-
-                auto largest_ordinal =
-                    std::dynamic_pointer_cast<const sem::ConstantOrdinal>(largest);
-
-                // Since both constants have the same type,
-                // it should be impossible for largest_ordinal to be null.
-                assert(largest_ordinal);
-
-                if (largest_ordinal->ordinalNumber() < smallest_ordinal->ordinalNumber()) {
-                    reporter_.err(subrange_type_node.largest->view.data(),
-                        "inverted-subrange-bounds",
-                        "largest subrange value is less than smallest value");
-                    return;
-                }
-
-                type = std::make_shared<sem::TypeSubrange>(
-                    smallest_ordinal, largest_ordinal);
-            },
+        visit(type_denoter_node, [&](auto &node) {
+            type = resolveTypeDenoter(block, node);
         });
 
         return type;
