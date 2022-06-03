@@ -28,7 +28,7 @@ sem::Block builtin_block;
 struct BuiltinBlockInitializer {
     BuiltinBlockInitializer() {
         builtin_block.constants_.emplace("maxint",
-            std::make_shared<sem::ConstantInteger>(PASCAL_INTEGER_MAX));
+            getBuiltinPtr(sem::ConstantInteger::instanceMax));
 
         builtin_block.constants_.emplace("false",
             getBuiltinPtr(sem::ConstantBoolean::instanceFalse));

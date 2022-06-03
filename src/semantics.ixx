@@ -329,6 +329,7 @@ export
 class ConstantInteger final
     : public ConstantImpl<ConstantInteger, pascal_integer_t, ConstantOrdinal>
 {
+public:
     using ConstantImpl::ConstantImpl;
 
     const TypeInteger &
@@ -339,6 +340,12 @@ class ConstantInteger final
 
     pascal_integer_t
     ordinalNumber() const override { return value_; }
+
+    static const ConstantInteger &
+    instanceMax() {
+        static constexpr ConstantInteger c(PASCAL_INTEGER_MAX);
+        return c;
+    }
 };
 
 export
