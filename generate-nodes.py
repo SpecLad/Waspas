@@ -211,7 +211,7 @@ class NodeType:
             print('')
             print('export')
             print('template <typename T>')
-            print('void')
+            print('auto')
             print(f'visit({self.name} &node, const T &visitor) {{')
 
             def derived_leaf_types(node_type_name):
@@ -223,8 +223,7 @@ class NodeType:
 
             for derived_node_type in sorted(derived_leaf_types(self.name)):
                 print(f'    if (auto *derived_node = dynamic_cast<{derived_node_type} *>(&node)) {{')
-                print('        visitor(*derived_node);')
-                print('        return;')
+                print('        return visitor(*derived_node);')
                 print('    }')
 
             print('    std::abort();')

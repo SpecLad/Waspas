@@ -558,13 +558,11 @@ public:
     resolveTypeDenoter(
         sem::Block &block, nodes::NewStructuredType &structured_type_node
     ) {
-        std::shared_ptr<const sem::Type> type;
-
-        visit(*structured_type_node.unpacked, [&](auto &node) {
-            type = resolveStructuredType(block, node, structured_type_node.is_packed);
-        });
-
-        return type;
+        return visit(*structured_type_node.unpacked,
+            [&](auto &node) -> std::shared_ptr<const sem::Type> {
+                return resolveStructuredType(block, node, structured_type_node.is_packed);
+            }
+        );
     }
 
     std::shared_ptr<const sem::TypeSubrange>
@@ -614,14 +612,11 @@ public:
 
     std::shared_ptr<const sem::Type>
     resolveType(sem::Block &block, nodes::TypeDenoter &type_denoter_node) {
-        auto type_denoter_location = type_denoter_node.view.data();
-        std::shared_ptr<const sem::Type> type;
-
-        visit(type_denoter_node, [&](auto &node) {
-            type = resolveTypeDenoter(block, node);
-        });
-
-        return type;
+        return visit(type_denoter_node,
+            [&](auto &node) -> std::shared_ptr<const sem::Type> {
+                return resolveTypeDenoter(block, node);
+            }
+        );
     }
 
     void
