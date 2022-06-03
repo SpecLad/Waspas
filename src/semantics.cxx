@@ -214,9 +214,9 @@ public:
 
     bool
     checkDuplicateIdentifier(
-        const sem::Block &block, const nodes::Identifier &id_node
+        const sem::defining_occurrences_t &dos, const nodes::Identifier &id_node
     ) {
-        const auto &occurrence = block.defining_occurrences_.at(id_node.spelling);
+        const auto &occurrence = dos.at(id_node.spelling);
 
         if (occurrence.location != id_node.view.data()) {
             reporter_.err(id_node.view.data(), "duplicate-identifier",
@@ -369,7 +369,7 @@ public:
         sem::Block &block
     ) {
         for (auto &constant_def_node : block_node.constant_definitions) {
-            if (checkDuplicateIdentifier(block, constant_def_node.name))
+            if (checkDuplicateIdentifier(block.defining_occurrences_, constant_def_node.name))
                 continue;
 
             // For circular definition detection to work, we must first add
@@ -460,8 +460,23 @@ public:
     ) {
         sem::FieldList field_list;
 
-        reporter_.err(field_list_node.view.data(), "unsupported-feature",
-            "record types are not yet supported");
+        for (const auto &fixed_section : field_list_node.fixed_sections) {
+            // TODO: account for field names taking priority over other IDs
+            // during identifier lookup
+            auto type = resolveType(block, *fixed_section.field_type);
+            if (!type) continue;
+
+            for (const auto &field_name : fixed_section.field_names) {
+                if (checkDuplicateIdentifier(field_dos, field_name))
+                    continue;
+
+                field_list.addField(field_name.spelling, type);
+            }
+        }
+
+        if (field_list_node.variant_part)
+            reporter_.err(field_list_node.variant_part->view.data(), "unsupported-feature",
+                "variant parts are not yet supported");
 
         return field_list;
     }
@@ -511,7 +526,7 @@ public:
         std::vector<std::string> constant_names;
 
         for (auto &id_node : enumerated_type_node.constants) {
-            if (checkDuplicateIdentifier(block, id_node))
+            if (checkDuplicateIdentifier(block.defining_occurrences_, id_node))
                 continue;
 
             constant_names.push_back(id_node.spelling);
@@ -663,7 +678,7 @@ public:
         sem::Block &block
     ) {
         for (auto &type_def_node : block_node.type_definitions) {
-            if (checkDuplicateIdentifier(block, type_def_node.name))
+            if (checkDuplicateIdentifier(block.defining_occurrences_, type_def_node.name))
                 continue;
 
             auto &type = block.types_[type_def_node.name.spelling];

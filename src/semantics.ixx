@@ -217,8 +217,19 @@ private:
 };
 
 export
-struct FieldList {
+class FieldList {
+public:
+    FieldList() = default;
 
+    void
+    addField(const std::string &name, std::shared_ptr<const Type> type) {
+        fields_.push_back(name);
+        field_types_.emplace(name, type);
+    }
+
+private:
+    std::vector<std::string> fields_;
+    std::unordered_map<std::string, std::shared_ptr<const Type>> field_types_;
 };
 
 export
