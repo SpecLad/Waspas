@@ -316,6 +316,8 @@ lex(std::string_view source, Reporter &reporter) {
                     "invalid token with character code {:#x}", (unsigned char)*it);
 
             ++it;
+
+            previous_required_separation = false;
         }
     }
 
