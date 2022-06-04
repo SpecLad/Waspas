@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import functools
 import re
 import os
 import subprocess
@@ -76,20 +77,25 @@ class TestErrorMessages(unittest.TestCase):
         expected_diagnostics = []
 
         with open(source_path) as f:
-            for i, line in enumerate(f):
-                for match in re.finditer(r'\{\^(.*?)\}', line):
-                    directive_text = match.group(1).strip()
-                    locus_args = {'line_num': i, 'column_num': match.start() + 2}
+            for line_num, line in enumerate(f):
+                for match in re.finditer(r'\{(\^+)(.*?)\}', line):
+                    num_diagnostics = len(match.group(1))
+                    directive_text = match.group(2).strip()
 
                     if directive_text.startswith('error:'):
-                        expected_diagnostics.append(ErrorMessage(
-                            **locus_args,
+                        diag_constructor = functools.partial(
+                            ErrorMessage,
                             error_code=directive_text.removeprefix('error:'),
-                        ))
+                        )
                     elif directive_text == 'note':
-                        expected_diagnostics.append(NoteMessage(**locus_args))
+                        diag_constructor = NoteMessage
                     else:
                         raise RuntimeError(f'unrecognized directive: {match.group()}')
+
+                    for diag_num in range(num_diagnostics):
+                        expected_diagnostics.append(diag_constructor(
+                            line_num=line_num, column_num=match.start() + 2 + diag_num,
+                        ))
 
         return expected_diagnostics
 
@@ -99,8 +105,13 @@ class TestErrorMessages(unittest.TestCase):
                 expected_diagnostics = self.get_expected_diagnostics_from_source(source_path)
                 actual_diagnostics = self.try_compile_ill_formed_source(source_path)
 
-                for d in expected_diagnostics:
-                    self.assertIn(d, actual_diagnostics)
+                actual_diagnostics.sort(
+                    key=lambda diag: (diag.line_num, diag.column_num),
+                )
+                # expected_diagnostics is already ordered by locus, since we get them
+                # by scanning the source from beginning to end.
+
+                self.assertEqual(actual_diagnostics, expected_diagnostics)
 
     def test_unexpected_eof(self):
         messages = self.try_compile_ill_formed_source('empty.pas')

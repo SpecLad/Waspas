@@ -14,4 +14,4 @@
   { ASCII SOH character }
 {^ error:invalid-token}
  '' { empty string }
-{^ error:invalid-token}
+{^^ error:invalid-token}
