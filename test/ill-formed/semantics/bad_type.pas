@@ -58,6 +58,16 @@ type
                               {^ error:wrong-identifier-kind }
     pointerToNonType = ^notType2;
                        {^ error:wrong-identifier-kind }
+
+    recordWithNonOrdinalTag = record
+        case real of 1: ();
+            {^ error:non-ordinal-type }
+    end;
+
+    recordWithNonOrdinalCaseConstant = record
+        case boolean of 1.1: ();
+                       {^ error:non-ordinal-type }
+    end;
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }

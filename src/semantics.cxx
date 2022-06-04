@@ -474,9 +474,55 @@ public:
             }
         }
 
-        if (field_list_node.variant_part)
-            reporter_.err(field_list_node.variant_part->view.data(), "unsupported-feature",
-                "variant parts are not yet supported");
+        if (auto &variant_part_node = field_list_node.variant_part) {
+            auto tag_type_node = variant_part_node->tag_type;
+            auto tag_type = resolveTypeDenoter(block, tag_type_node);
+
+            if (!tag_type) return field_list;
+            if (!tag_type->isOrdinal()) {
+                reporter_.err(tag_type_node.view.data(), "non-ordinal-type",
+                    "variant part tag type is not ordinal");
+                return field_list;
+            }
+
+            sem::VariantPart variant_part(tag_type);
+
+            if (auto &tag_field_node = variant_part_node->tag_field) {
+                if (checkDuplicateIdentifier(field_dos, *tag_field_node))
+                    return field_list;
+
+                variant_part.setTagField(tag_field_node->spelling);
+            }
+
+            for (auto &variant : variant_part_node->variants) {
+                std::vector<std::shared_ptr<const sem::ConstantOrdinal>> case_constants;
+
+                for (auto &constant_node : variant.case_constants) {
+                    auto constant = resolveConstant(block, *constant_node);
+                    if (!constant) return field_list;
+
+                    auto ordinal_constant
+                        = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
+                    if (!ordinal_constant) {
+                        reporter_.err(constant_node->view.data(), "non-ordinal-type",
+                            "case constant has non-ordinal type \"{}\"", constant->type().str());
+                        return field_list;
+                    }
+
+                    // TODO: check that the type is compatible with tag_type
+                    // TODO: check that the constant is different from all previous constants
+
+                    case_constants.push_back(ordinal_constant);
+                }
+
+                auto variant_fields = resolveFieldList(block, field_dos, variant.fields);
+
+                variant_part.addVariant(case_constants, variant_fields);
+            }
+
+            // TODO: check that case constants cover all values of tag_type
+            field_list.setVariantPart(variant_part);
+        }
 
         return field_list;
     }

@@ -4,6 +4,7 @@ module;
 #include <format>
 #include <memory>
 #include <ranges>
+#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -216,6 +217,33 @@ private:
     friend class TypeBuiltin;
 };
 
+class FieldList;
+struct Variant; // TODO: try to make this internal to VariantPart
+
+export
+class VariantPart {
+public:
+    explicit VariantPart(std::shared_ptr<const Type> tag_type)
+        : tag_type_(tag_type)
+    {}
+
+    void
+    setTagField(const std::string &tag_field) {
+        tag_field_ = tag_field;
+    }
+
+    void
+    addVariant(
+        std::span<std::shared_ptr<const ConstantOrdinal>> case_constants,
+        const FieldList &fields
+    );
+
+private:
+    std::shared_ptr<const Type> tag_type_;
+    std::optional<std::string> tag_field_;
+    std::vector<Variant> variants_;
+};
+
 export
 class FieldList {
 public:
@@ -227,10 +255,33 @@ public:
         field_types_.emplace(name, type);
     }
 
+    void
+    setVariantPart(const VariantPart &variant_part) {
+        variant_part_ = variant_part;
+    }
+
 private:
     std::vector<std::string> fields_;
     std::unordered_map<std::string, std::shared_ptr<const Type>> field_types_;
+    std::optional<VariantPart> variant_part_;
 };
+
+struct Variant {
+    std::vector<std::shared_ptr<const ConstantOrdinal>> case_constants;
+    FieldList fields;
+};
+
+void
+VariantPart::addVariant(
+    std::span<std::shared_ptr<const ConstantOrdinal>> case_constants,
+    const FieldList &fields
+) {
+    variants_.push_back(Variant{
+        std::vector<std::shared_ptr<const ConstantOrdinal>>(
+            case_constants.begin(), case_constants.end()),
+        fields,
+    });
+}
 
 export
 class TypeRecord final : public Type {
