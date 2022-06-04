@@ -48,6 +48,12 @@ type
                         {^ error:disallowed-file-component }
     fileOfFileArray = file of array[1..10] of file of integer;
                              {^ error:disallowed-file-component }
+    fileOfFileRecord = file of record f: file of integer; end;
+                              {^ error:disallowed-file-component }
+    fileOfFileRecordVariant = file of record
+                                     {^ error:disallowed-file-component }
+        case boolean of false: (t: text); true: ();
+    end;
 
     setOfNonOrdinal = set of real;
                             {^ error:non-ordinal-type }

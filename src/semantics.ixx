@@ -213,7 +213,7 @@ private:
 };
 
 class FieldList;
-struct Variant; // TODO: try to make this internal to VariantPart
+struct Variant;
 
 export
 class VariantPart {
@@ -226,6 +226,9 @@ public:
     setTagField(const std::string &tag_field) {
         tag_field_ = tag_field;
     }
+
+    std::span<const Variant>
+    variants() const { return variants_; }
 
     void
     addVariant(
@@ -244,11 +247,24 @@ class FieldList {
 public:
     FieldList() = default;
 
+    auto
+    fields() const {
+        // returns all fields in definition order
+        return std::views::transform(fields_,
+            [this](const std::string &name) -> decltype(auto) {
+                return *field_types_.find(name);
+            }
+        );
+    }
+
     void
     addField(const std::string &name, std::shared_ptr<const Type> type) {
         fields_.push_back(name);
         field_types_.emplace(name, type);
     }
+
+    const std::optional<VariantPart> &
+    variantPart() const { return variant_part_; }
 
     void
     setVariantPart(const VariantPart &variant_part) {
@@ -293,7 +309,26 @@ public:
         return "<record>"s;
     }
 
+    bool
+    canBeFileComponent() const override {
+        return fieldListCanBeInFileComponent(field_list_);
+    }
+
 private:
+    static bool
+    fieldListCanBeInFileComponent(const FieldList &field_list) {
+        for (const auto &field : field_list.fields())
+            if (!field.second->canBeFileComponent())
+                return false;
+
+        if (const auto &variant_part = field_list.variantPart())
+            for (const auto &variant : variant_part->variants())
+                if (!fieldListCanBeInFileComponent(variant.fields))
+                    return false;
+
+        return true;
+    }
+
     FieldList field_list_;
     bool is_packed_;
 };
