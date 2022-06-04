@@ -197,11 +197,6 @@ public:
             + "file of "s + component_type_->str();
     }
 
-    bool
-    canBeFileComponent() const override {
-        return false;
-    }
-
 private:
     std::shared_ptr<const Type> component_type_;
     bool is_packed_;
