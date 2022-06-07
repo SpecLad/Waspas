@@ -91,6 +91,16 @@ type
         case tagType of 1: (); 1: ();
                        {^note}{^ error:duplicate-case }
     end;
+
+    recordWithMissingCase = record
+        case tagType of 1: ();
+       {^ error:missing-case }
+    end;
+
+    recordWithMissingCaseAndSillyTagType = record
+        case integer of 1: ();
+       {^ error:missing-case }
+    end;
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }

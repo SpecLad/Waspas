@@ -503,6 +503,9 @@ public:
             pascal_integer_t tag_smallest_ordinal = tag_type_ordinal->smallestOrdinal();
             pascal_integer_t tag_largest_ordinal = tag_type_ordinal->largestOrdinal();
 
+            pascal_integer_t counter = tag_smallest_ordinal;
+            bool counter_overflowed = false;
+
             std::unordered_map<pascal_integer_t, const char *> used_ordinals;
 
             for (auto &variant : variant_part_node->variants) {
@@ -543,6 +546,20 @@ public:
                     used_ordinals.insert_or_assign(ordinal, constant_node->view.data());
 
                     case_constants.push_back(ordinal_constant);
+
+                    if (counter == PASCAL_INTEGER_MAX) {
+                        // Note that we can only reach this branch once, because
+                        // if the counter reached PASCAL_INTEGER_MAX, then every
+                        // constant between tag_smallest_ordinal and tag_largest_ordinal
+                        // has already been used, so if there are any constants left,
+                        // they are either invalid or duplicates, so we'll error
+                        // out before reaching here again.
+                        assert(!counter_overflowed);
+                        counter_overflowed = true;
+                    }
+                    else {
+                        ++counter;
+                    }
                 }
 
                 auto variant_fields = resolveFieldList(block, field_dos, variant.fields);
@@ -550,7 +567,12 @@ public:
                 variant_part.addVariant(case_constants, variant_fields);
             }
 
-            // TODO: check that case constants cover all values of tag_type
+            if (tag_largest_ordinal != (counter_overflowed ? counter : counter - 1)) {
+                reporter_.err(variant_part_node->view.data(), "missing-case",
+                    "at least one value of the tag type is not covered by a case constant");
+                return field_list;
+            }
+
             field_list.setVariantPart(variant_part);
         }
 
