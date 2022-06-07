@@ -136,10 +136,9 @@ public:
 
 export
 template<typename T>
-class TokenWordSymbol : public TokenWithQuotedHR<T>, public TokenPatternBased<T> {
+class TokenWordSymbol : public TokenWithQuotedHR<T> {
 public:
     using TokenWithQuotedHR<T>::TokenWithQuotedHR;
-    static const std::regex PATTERN;
 
     bool
     requiresSeparation() override { return true; }

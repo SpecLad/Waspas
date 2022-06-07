@@ -6,6 +6,7 @@ module;
 #include <regex>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 module lexing;
@@ -51,10 +52,6 @@ TokenPatternBased<T>::tryLex(std::string_view source_fragment) {
     return std::make_unique<T>(
         std::string_view(source_fragment.data(), match.length()));
 }
-
-template <typename T>
-const std::regex TokenWordSymbol<T>::PATTERN(T::REPRESENTATION + R"((?![a-z0-9]))"s,
-    std::regex_constants::ECMAScript | std::regex_constants::icase);
 
 const std::regex TokenIdentifier::PATTERN(R"([a-z][a-z0-9]*)",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
@@ -102,6 +99,92 @@ const std::string TokenUnsignedInteger::HUMAN_REPRESENTATION = "INT"s;
 const std::string TokenUnsignedReal::HUMAN_REPRESENTATION = "REAL"s;
 const std::string TokenCharacterString::HUMAN_REPRESENTATION = "STR"s;
 const std::string TokenEof::HUMAN_REPRESENTATION = "EOF"s;
+
+// Fake token class that produces either TokenIdentifier or TokenWordSymbol
+// instances.
+class TokenIdentifierOrWs {
+public:
+    static std::unique_ptr<Token>
+    tryLex(std::string_view source_fragment) {
+        // Since the regex for TokenIdentifier also matches word symbols,
+        // we can save time by only matching the identifier regex with
+        // the input stream and then checking if the spelling corresponds
+        // to one of the word symbols (instead of trying to lex each word
+        // symbol via its own regex).
+        auto token_identifier = TokenIdentifier::tryLex(source_fragment);
+        if (!token_identifier) return nullptr;
+
+        auto it = WS_FACTORIES.find(token_identifier->spelling());
+        if (it == WS_FACTORIES.end()) return token_identifier;
+
+        return it->second(token_identifier->view());
+    }
+
+private:
+    using token_factory_f = std::unique_ptr<Token>(*)(std::string_view view);
+    using token_factory_map_t = std::unordered_map<std::string, token_factory_f>;
+
+    static const token_factory_map_t WS_FACTORIES;
+
+    template <typename T>
+    static std::unique_ptr<Token>
+    makeToken(std::string_view view) {
+        return std::make_unique<T>(view);
+    }
+
+    static std::string
+    lowercase(std::string_view s) {
+        std::string result(s);
+        for (auto &c : result) c = std::tolower(c);
+        return result;
+    }
+
+    template<typename ...Ts>
+    static token_factory_map_t
+    makeTokenFactories() {
+        return token_factory_map_t{
+            {lowercase(Ts::REPRESENTATION), &makeToken<Ts>}...};
+    }
+};
+
+const TokenIdentifierOrWs::token_factory_map_t
+TokenIdentifierOrWs::WS_FACTORIES = makeTokenFactories<
+    TokenWsAnd,
+    TokenWsArray,
+    TokenWsBegin,
+    TokenWsCase,
+    TokenWsConst,
+    TokenWsDiv,
+    TokenWsDo,
+    TokenWsDownto,
+    TokenWsElse,
+    TokenWsEnd,
+    TokenWsFile,
+    TokenWsFor,
+    TokenWsFunction,
+    TokenWsGoto,
+    TokenWsIf,
+    TokenWsIn,
+    TokenWsLabel,
+    TokenWsMod,
+    TokenWsNil,
+    TokenWsNot,
+    TokenWsOf,
+    TokenWsOr,
+    TokenWsPacked,
+    TokenWsProcedure,
+    TokenWsProgram,
+    TokenWsRecord,
+    TokenWsRepeat,
+    TokenWsSet,
+    TokenWsThen,
+    TokenWsTo,
+    TokenWsType,
+    TokenWsUntil,
+    TokenWsVar,
+    TokenWsWhile,
+    TokenWsWith
+>();
 
 template <typename It>
 It
@@ -215,46 +298,8 @@ lex(std::string_view source, Reporter &reporter) {
         if (it == source.end()) break;
 
         std::unique_ptr<Token> token = lexOne<
-            // word symbols
-            // these have to precede TokenIdentifier, lest they are preempted by it
-            TokenWsAnd,
-            TokenWsArray,
-            TokenWsBegin,
-            TokenWsCase,
-            TokenWsConst,
-            TokenWsDiv,
-            TokenWsDo,
-            TokenWsDownto,
-            TokenWsElse,
-            TokenWsEnd,
-            TokenWsFile,
-            TokenWsFor,
-            TokenWsFunction,
-            TokenWsGoto,
-            TokenWsIf,
-            TokenWsIn,
-            TokenWsLabel,
-            TokenWsMod,
-            TokenWsNil,
-            TokenWsNot,
-            TokenWsOf,
-            TokenWsOr,
-            TokenWsPacked,
-            TokenWsProcedure,
-            TokenWsProgram,
-            TokenWsRecord,
-            TokenWsRepeat,
-            TokenWsSet,
-            TokenWsThen,
-            TokenWsTo,
-            TokenWsType,
-            TokenWsUntil,
-            TokenWsVar,
-            TokenWsWhile,
-            TokenWsWith,
-
-            // identifiers and literals
-            TokenIdentifier,
+            // word symbols, identifiers and literals
+            TokenIdentifierOrWs,
             // TokenUnsignedReal must precede TokenUnsignedInteger,
             // or TokenUnsignedInteger will eat the integer part of real literals
             TokenUnsignedReal,
