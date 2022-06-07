@@ -77,6 +77,11 @@ type
 
     tagType = 1..2;
 
+    recordWithIncompatibleCaseConstant = record
+        case tagType of true: ();
+                       {^ error:type-mismatch }
+    end;
+
     recordWithCaseConstantOutOfRange = record
         case tagType of 3: ();
                        {^ error:out-of-range }

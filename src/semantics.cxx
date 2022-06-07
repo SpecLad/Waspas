@@ -518,7 +518,12 @@ public:
                         return field_list;
                     }
 
-                    // TODO: check that the type is compatible with tag_type
+                    if (!ordinal_constant->type().isCompatibleWith(*tag_type_ordinal)) {
+                        reporter_.err(constant_node->view.data(), "type-mismatch",
+                            "case constant type (\"{}\") is incompatible with tag type (\"{}\")",
+                            ordinal_constant->type().str(), tag_type_ordinal->str());
+                        return field_list;
+                    }
 
                     auto ordinal = ordinal_constant->ordinalNumber();
                     if (!(tag_lowest_ordinal <= ordinal && ordinal <= tag_highest_ordinal)) {

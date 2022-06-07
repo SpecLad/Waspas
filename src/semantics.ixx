@@ -42,6 +42,14 @@ public:
 export
 class TypeOrdinal : public Type {
 public:
+    bool
+    isCompatibleWith(const TypeOrdinal &other) const {
+        return &fullRange() == &other.fullRange();
+    }
+
+    virtual const TypeOrdinal &
+    fullRange() const { return *this;}
+
     virtual pascal_integer_t
     smallestOrdinal() const = 0;
 
@@ -159,6 +167,9 @@ public:
 
     std::string
     str() const override;
+
+    const TypeOrdinal &
+    fullRange() const override;
 
     pascal_integer_t
     smallestOrdinal() const override;
@@ -420,6 +431,14 @@ public:
     virtual pascal_integer_t
     ordinalNumber() const = 0;
 };
+
+const TypeOrdinal &
+TypeSubrange::fullRange() const {
+    // It shouldn't be possible to form subranges of subranges,
+    // so `smallest_value_->type()` should be sufficient, but
+    // just in case, we also call `fullRange` on that.
+    return smallest_value_->type().fullRange();
+}
 
 pascal_integer_t
 TypeSubrange::smallestOrdinal() const { return smallest_value_->ordinalNumber(); }
