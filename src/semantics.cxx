@@ -567,6 +567,10 @@ public:
                 variant_part.addVariant(case_constants, variant_fields);
             }
 
+            // This could only be false if there were no case constants,
+            // which the grammar isn't supposed to allow.
+            assert(counter_overflowed || counter != tag_smallest_ordinal);
+
             if (tag_largest_ordinal != (counter_overflowed ? counter : counter - 1)) {
                 reporter_.err(variant_part_node->view.data(), "missing-case",
                     "at least one value of the tag type is not covered by a case constant");
