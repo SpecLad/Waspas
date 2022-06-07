@@ -41,6 +41,12 @@ public:
 
 export
 class TypeOrdinal : public Type {
+public:
+    virtual pascal_integer_t
+    smallestOrdinal() const = 0;
+
+    virtual pascal_integer_t
+    largestOrdinal() const = 0;
 };
 
 template <typename T, typename Base = Type>
@@ -63,6 +69,12 @@ class TypeBoolean final : public TypeBuiltin<TypeBoolean, TypeOrdinal> {
 public:
     static inline constexpr std::string_view NAME = "boolean"sv;
 
+    pascal_integer_t
+    smallestOrdinal() const override { return 0; }
+
+    pascal_integer_t
+    largestOrdinal() const override { return 1; }
+
 private:
     TypeBoolean() = default;
     friend class TypeBuiltin;
@@ -73,6 +85,14 @@ class TypeChar final : public TypeBuiltin<TypeChar, TypeOrdinal> {
 public:
     static inline constexpr std::string_view NAME = "char"sv;
 
+    pascal_integer_t
+    smallestOrdinal() const override { return 0; }
+
+    pascal_integer_t
+    largestOrdinal() const override {
+        return std::numeric_limits<unsigned char>::max();
+    }
+
 private:
     TypeChar() = default;
     friend class TypeBuiltin;
@@ -82,6 +102,12 @@ export
 class TypeInteger final : public TypeBuiltin<TypeInteger, TypeOrdinal> {
 public:
     static inline constexpr std::string_view NAME = "integer"sv;
+
+    pascal_integer_t
+    smallestOrdinal() const override { return PASCAL_INTEGER_MIN; }
+
+    pascal_integer_t
+    largestOrdinal() const override { return PASCAL_INTEGER_MAX; }
 
 private:
     TypeInteger() = default;
@@ -113,6 +139,12 @@ public:
     std::string
     str() const override;
 
+    pascal_integer_t
+    smallestOrdinal() const override { return 0; }
+
+    pascal_integer_t
+    largestOrdinal() const override { return constants_.size() - 1; }
+
 private:
     std::vector<std::shared_ptr<const ConstantEnumerated>> constants_;
 };
@@ -127,6 +159,12 @@ public:
 
     std::string
     str() const override;
+
+    pascal_integer_t
+    smallestOrdinal() const override;
+
+    pascal_integer_t
+    largestOrdinal() const override;
 
 private:
     std::shared_ptr<const ConstantOrdinal> smallest_value_;
@@ -382,6 +420,12 @@ public:
     virtual pascal_integer_t
     ordinalNumber() const = 0;
 };
+
+pascal_integer_t
+TypeSubrange::smallestOrdinal() const { return smallest_value_->ordinalNumber(); }
+
+pascal_integer_t
+TypeSubrange::largestOrdinal() const { return largest_value_->ordinalNumber(); }
 
 export
 template <typename T, typename Value, typename Base = Constant>

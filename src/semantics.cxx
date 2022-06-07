@@ -500,6 +500,9 @@ public:
                 variant_part.setTagField(tag_field_node->spelling);
             }
 
+            pascal_integer_t tag_lowest_ordinal = tag_type_ordinal->smallestOrdinal();
+            pascal_integer_t tag_highest_ordinal = tag_type_ordinal->largestOrdinal();
+
             for (auto &variant : variant_part_node->variants) {
                 std::vector<std::shared_ptr<const sem::ConstantOrdinal>> case_constants;
 
@@ -516,6 +519,14 @@ public:
                     }
 
                     // TODO: check that the type is compatible with tag_type
+
+                    auto ordinal = ordinal_constant->ordinalNumber();
+                    if (!(tag_lowest_ordinal <= ordinal && ordinal <= tag_highest_ordinal)) {
+                        reporter_.err(constant_node->view.data(), "out-of-range",
+                            "case constant is not within the range of values of the tag type");
+                        return field_list;
+                    }
+
                     // TODO: check that the constant is different from all previous constants
 
                     case_constants.push_back(ordinal_constant);

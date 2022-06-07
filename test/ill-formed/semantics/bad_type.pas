@@ -74,6 +74,13 @@ type
         case boolean of 1.1: ();
                        {^ error:non-ordinal-type }
     end;
+
+    tagType = 1..2;
+
+    recordWithCaseConstantOutOfRange = record
+        case tagType of 3: ();
+                       {^ error:out-of-range }
+    end;
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }

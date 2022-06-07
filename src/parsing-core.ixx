@@ -17,6 +17,8 @@ export
 using pascal_integer_t = std::int32_t;
 
 // TODO: inline should not be required here - investigate compiler bug?
+export extern inline constexpr pascal_integer_t PASCAL_INTEGER_MIN
+    = std::numeric_limits<pascal_integer_t>::min();
 export extern inline constexpr pascal_integer_t PASCAL_INTEGER_MAX
     = std::numeric_limits<pascal_integer_t>::max();
 
