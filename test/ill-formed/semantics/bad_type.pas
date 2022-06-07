@@ -86,6 +86,11 @@ type
         case tagType of 3: ();
                        {^ error:out-of-range }
     end;
+
+    recordWithDuplicateCaseConstant = record
+        case tagType of 1: (); 1: ();
+                       {^note}{^ error:duplicate-case }
+    end;
 var
     laterVar: (laterEnumVar);
    {^ note }  {^ note }

@@ -503,6 +503,8 @@ public:
             pascal_integer_t tag_lowest_ordinal = tag_type_ordinal->smallestOrdinal();
             pascal_integer_t tag_highest_ordinal = tag_type_ordinal->largestOrdinal();
 
+            std::unordered_map<pascal_integer_t, const char *> used_ordinals;
+
             for (auto &variant : variant_part_node->variants) {
                 std::vector<std::shared_ptr<const sem::ConstantOrdinal>> case_constants;
 
@@ -532,7 +534,13 @@ public:
                         return field_list;
                     }
 
-                    // TODO: check that the constant is different from all previous constants
+                    if (auto it = used_ordinals.find(ordinal); it != used_ordinals.end()) {
+                        reporter_.err(constant_node->view.data(), "duplicate-case",
+                            "case constant already used");
+                        reporter_.note(it->second, "previous occurrence of the case constant");
+                        return field_list;
+                    }
+                    used_ordinals.insert_or_assign(ordinal, constant_node->view.data());
 
                     case_constants.push_back(ordinal_constant);
                 }
