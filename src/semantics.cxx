@@ -500,8 +500,8 @@ public:
                 variant_part.setTagField(tag_field_node->spelling);
             }
 
-            pascal_integer_t tag_lowest_ordinal = tag_type_ordinal->smallestOrdinal();
-            pascal_integer_t tag_highest_ordinal = tag_type_ordinal->largestOrdinal();
+            pascal_integer_t tag_smallest_ordinal = tag_type_ordinal->smallestOrdinal();
+            pascal_integer_t tag_largest_ordinal = tag_type_ordinal->largestOrdinal();
 
             std::unordered_map<pascal_integer_t, const char *> used_ordinals;
 
@@ -528,7 +528,7 @@ public:
                     }
 
                     auto ordinal = ordinal_constant->ordinalNumber();
-                    if (!(tag_lowest_ordinal <= ordinal && ordinal <= tag_highest_ordinal)) {
+                    if (!(tag_smallest_ordinal <= ordinal && ordinal <= tag_largest_ordinal)) {
                         reporter_.err(constant_node->view.data(), "out-of-range",
                             "case constant is not within the range of values of the tag type");
                         return field_list;
