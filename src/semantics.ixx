@@ -36,10 +36,11 @@ public:
     str() const = 0;
 
     virtual bool
-    isOrdinal() const { return false; }
-
-    virtual bool
     canBeFileComponent() const { return true; }
+};
+
+export
+class TypeOrdinal : public Type {
 };
 
 template <typename T, typename Base = Type>
@@ -58,12 +59,9 @@ public:
 };
 
 export
-class TypeBoolean final : public TypeBuiltin<TypeBoolean> {
+class TypeBoolean final : public TypeBuiltin<TypeBoolean, TypeOrdinal> {
 public:
     static inline constexpr std::string_view NAME = "boolean"sv;
-
-    virtual bool
-    isOrdinal() const { return true; }
 
 private:
     TypeBoolean() = default;
@@ -71,12 +69,9 @@ private:
 };
 
 export
-class TypeChar final : public TypeBuiltin<TypeChar> {
+class TypeChar final : public TypeBuiltin<TypeChar, TypeOrdinal> {
 public:
     static inline constexpr std::string_view NAME = "char"sv;
-
-    virtual bool
-    isOrdinal() const { return true; }
 
 private:
     TypeChar() = default;
@@ -84,12 +79,9 @@ private:
 };
 
 export
-class TypeInteger final : public TypeBuiltin<TypeInteger> {
+class TypeInteger final : public TypeBuiltin<TypeInteger, TypeOrdinal> {
 public:
     static inline constexpr std::string_view NAME = "integer"sv;
-
-    virtual bool
-    isOrdinal() const { return true; }
 
 private:
     TypeInteger() = default;
@@ -110,7 +102,7 @@ class ConstantOrdinal;
 class ConstantEnumerated;
 
 export
-class TypeEnumerated final : public Type {
+class TypeEnumerated final : public TypeOrdinal {
 public:
     explicit
     TypeEnumerated(std::span<const std::string> constant_names);
@@ -121,15 +113,12 @@ public:
     std::string
     str() const override;
 
-    bool
-    isOrdinal() const override { return true; }
-
 private:
     std::vector<std::shared_ptr<const ConstantEnumerated>> constants_;
 };
 
 export
-class TypeSubrange final : public Type {
+class TypeSubrange final : public TypeOrdinal {
 public:
     TypeSubrange(
         std::shared_ptr<const ConstantOrdinal> smallest_value,
@@ -138,9 +127,6 @@ public:
 
     std::string
     str() const override;
-
-    virtual bool
-    isOrdinal() const { return true; }
 
 private:
     std::shared_ptr<const ConstantOrdinal> smallest_value_;
@@ -151,7 +137,7 @@ export
 class TypeArray final : public Type {
 public:
     TypeArray(
-        std::shared_ptr<const Type> index_type,
+        std::shared_ptr<const TypeOrdinal> index_type,
         std::shared_ptr<const Type> component_type,
         bool is_packed
     ) : index_type_(index_type), component_type_(component_type), is_packed_(is_packed) {}
@@ -168,7 +154,7 @@ public:
     }
 
 private:
-    std::shared_ptr<const Type> index_type_;
+    std::shared_ptr<const TypeOrdinal> index_type_;
     std::shared_ptr<const Type> component_type_;
     bool is_packed_;
 };
@@ -218,7 +204,7 @@ struct Variant;
 export
 class VariantPart {
 public:
-    explicit VariantPart(std::shared_ptr<const Type> tag_type)
+    explicit VariantPart(std::shared_ptr<const TypeOrdinal> tag_type)
         : tag_type_(tag_type)
     {}
 
@@ -237,7 +223,7 @@ public:
     );
 
 private:
-    std::shared_ptr<const Type> tag_type_;
+    std::shared_ptr<const TypeOrdinal> tag_type_;
     std::optional<std::string> tag_field_;
     std::vector<Variant> variants_;
 };
@@ -337,11 +323,9 @@ export
 class TypeSet final : public Type {
 public:
     TypeSet(
-        std::shared_ptr<const Type> base_type,
+        std::shared_ptr<const TypeOrdinal> base_type,
         bool is_packed
-    ) : base_type_(base_type), is_packed_(is_packed) {
-        assert(base_type->isOrdinal());
-    }
+    ) : base_type_(base_type), is_packed_(is_packed) {}
 
     std::string
     str() const override {
@@ -350,7 +334,7 @@ public:
     }
 
 private:
-    std::shared_ptr<const Type> base_type_;
+    std::shared_ptr<const TypeOrdinal> base_type_;
     bool is_packed_;
 };
 
@@ -389,6 +373,9 @@ public:
 export
 class ConstantOrdinal : public Constant {
 public:
+    const TypeOrdinal &
+    type() const override = 0;
+
     virtual std::string
     str() const = 0;
 

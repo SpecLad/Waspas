@@ -397,13 +397,17 @@ public:
             auto index_type = resolveType(block, *index_type_node);
             if (!index_type) return nullptr;
 
-            if (!index_type->isOrdinal()) {
+            auto index_type_ordinal
+                = std::dynamic_pointer_cast<const sem::TypeOrdinal>(index_type);
+
+            if (!index_type_ordinal) {
                 reporter_.err(index_type_node->view.data(), "non-ordinal-type",
                     "array index type is non-ordinal");
+                return nullptr;
             }
 
             array_type = std::make_shared<sem::TypeArray>(
-                index_type, component_type, is_packed);
+                index_type_ordinal, component_type, is_packed);
             component_type = array_type;
         }
 
@@ -477,15 +481,17 @@ public:
         if (auto &variant_part_node = field_list_node.variant_part) {
             auto tag_type_node = variant_part_node->tag_type;
             auto tag_type = resolveTypeDenoter(block, tag_type_node);
-
             if (!tag_type) return field_list;
-            if (!tag_type->isOrdinal()) {
+
+            auto tag_type_ordinal
+                = std::dynamic_pointer_cast<const sem::TypeOrdinal>(tag_type);
+            if (!tag_type_ordinal) {
                 reporter_.err(tag_type_node.view.data(), "non-ordinal-type",
                     "variant part tag type is not ordinal");
                 return field_list;
             }
 
-            sem::VariantPart variant_part(tag_type);
+            sem::VariantPart variant_part(tag_type_ordinal);
 
             if (auto &tag_field_node = variant_part_node->tag_field) {
                 if (checkDuplicateIdentifier(field_dos, *tag_field_node))
@@ -546,13 +552,15 @@ public:
         auto base_type = resolveType(block, *set_type_node.base_type);
         if (!base_type) return nullptr;
 
-        if (!base_type->isOrdinal()) {
+        auto base_type_ordinal
+            = std::dynamic_pointer_cast<const sem::TypeOrdinal>(base_type);
+        if (!base_type_ordinal) {
             reporter_.err(set_type_node.base_type->view.data(),
                 "non-ordinal-type", "set base type is non-ordinal");
             return nullptr;
         }
 
-        return std::make_shared<sem::TypeSet>(base_type, is_packed);
+        return std::make_shared<sem::TypeSet>(base_type_ordinal, is_packed);
     }
 
     std::shared_ptr<const sem::TypeEnumerated>
