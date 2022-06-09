@@ -7,6 +7,7 @@ module;
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 export module semantics;
