@@ -567,7 +567,7 @@ public:
 
         return std::make_shared<sem::TypeRecord>(
             resolveFieldList(record_scope, record_type_node.fields),
-        is_packed);
+            is_packed);
     }
 
     std::shared_ptr<const sem::TypeSet>
