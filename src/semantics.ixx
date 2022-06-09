@@ -318,18 +318,6 @@ struct Variant {
     FieldList fields;
 };
 
-void
-VariantPart::addVariant(
-    std::span<std::shared_ptr<const ConstantOrdinal>> case_constants,
-    const FieldList &fields
-) {
-    variants_.push_back(Variant{
-        std::vector<std::shared_ptr<const ConstantOrdinal>>(
-            case_constants.begin(), case_constants.end()),
-        fields,
-    });
-}
-
 export
 class TypeRecord final : public Type {
 public:
@@ -432,20 +420,6 @@ public:
     virtual pascal_integer_t
     ordinalNumber() const = 0;
 };
-
-const TypeOrdinal &
-TypeSubrange::fullRange() const {
-    // It shouldn't be possible to form subranges of subranges,
-    // so `smallest_value_->type()` should be sufficient, but
-    // just in case, we also call `fullRange` on that.
-    return smallest_value_->type().fullRange();
-}
-
-pascal_integer_t
-TypeSubrange::smallestOrdinal() const { return smallest_value_->ordinalNumber(); }
-
-pascal_integer_t
-TypeSubrange::largestOrdinal() const { return largest_value_->ordinalNumber(); }
 
 export
 template <typename T, typename Value, typename Base = Constant>
@@ -605,26 +579,6 @@ private:
 
     friend class TypeEnumerated;
 };
-
-TypeEnumerated::TypeEnumerated(std::span<const std::string> constant_names) {
-    assert(!constant_names.empty());
-    assert(constant_names.size() - 1 <= std::size_t(PASCAL_INTEGER_MAX));
-
-    for (auto i : std::views::iota(std::size_t(0), constant_names.size()))
-        constants_.push_back(std::shared_ptr<ConstantEnumerated>(
-            new ConstantEnumerated(*this, i, constant_names[i])));
-}
-
-std::string
-TypeEnumerated::str() const {
-    std::string s = "("s + constants_[0]->str();
-
-    for (const auto &c : std::views::drop(constants_, 1))
-        s += ", "s + c->str();
-
-    s += ")"s;
-    return s;
-}
 
 struct DefiningOccurrence {
     const char *location;

@@ -11,9 +11,61 @@ module semantics;
 
 using namespace std::literals;
 
+void
+sem::VariantPart::addVariant(
+    std::span<std::shared_ptr<const ConstantOrdinal>> case_constants,
+    const FieldList &fields
+) {
+    variants_.push_back(Variant{
+        std::vector<std::shared_ptr<const ConstantOrdinal>>(
+            case_constants.begin(), case_constants.end()),
+        fields,
+    });
+}
+
+sem::TypeEnumerated::TypeEnumerated(
+    std::span<const std::string> constant_names
+) {
+    assert(!constant_names.empty());
+    assert(constant_names.size() - 1 <= std::size_t(PASCAL_INTEGER_MAX));
+
+    for (auto i : std::views::iota(std::size_t(0), constant_names.size()))
+        constants_.push_back(std::shared_ptr<ConstantEnumerated>(
+            new ConstantEnumerated(*this, i, constant_names[i])));
+}
+
+std::string
+sem::TypeEnumerated::str() const {
+    std::string s = "("s + constants_[0]->str();
+
+    for (const auto &c : std::views::drop(constants_, 1))
+        s += ", "s + c->str();
+
+    s += ")"s;
+    return s;
+}
+
 std::string
 sem::TypeSubrange::str() const {
     return smallest_value_->str() + ".."s + largest_value_->str();
+}
+
+const sem::TypeOrdinal &
+sem::TypeSubrange::fullRange() const {
+    // It shouldn't be possible to form subranges of subranges,
+    // so `smallest_value_->type()` should be sufficient, but
+    // just in case, we also call `fullRange` on that.
+    return smallest_value_->type().fullRange();
+}
+
+pascal_integer_t
+sem::TypeSubrange::smallestOrdinal() const {
+    return smallest_value_->ordinalNumber();
+}
+
+pascal_integer_t
+sem::TypeSubrange::largestOrdinal() const {
+    return largest_value_->ordinalNumber();
 }
 
 template<class... Ts>
