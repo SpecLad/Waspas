@@ -23,7 +23,9 @@ struct overloaded : Ts... {
 template<class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
-sem::Block builtin_block;
+sem::Block builtin_block(nullptr);
+
+sem::Program::Program() : block_(&builtin_block) {}
 
 struct BuiltinBlockInitializer {
     BuiltinBlockInitializer() {
@@ -37,7 +39,7 @@ struct BuiltinBlockInitializer {
             getBuiltinPtr(sem::ConstantBoolean::instanceTrue));
 
         for (const auto &c : builtin_block.constants_)
-            builtin_block.defining_occurrences_.emplace(c.first, nullptr);
+            builtin_block.scope_.addBuiltin(c.first);
 
         addBuiltinTypes<
             sem::TypeBoolean, sem::TypeChar, sem::TypeInteger, sem::TypeReal,
@@ -45,8 +47,7 @@ struct BuiltinBlockInitializer {
         >();
 
         for (const auto &t : builtin_block.types_)
-            builtin_block.defining_occurrences_.emplace(t.first,
-                sem::DefiningOccurrence{nullptr, sem::DefiningOccurrence::TYPE});
+            builtin_block.scope_.addBuiltin(t.first, sem::DefiningOccurrence::TYPE);
 
         // TODO:
         // procedures: rewrite, put, reset, get, read, write, new, dispose, pack, unpack, page
@@ -120,60 +121,49 @@ public:
     }
 
     static void
-    collectDefiningOccurrence(
-        sem::defining_occurrences_t &dos,
-        const nodes::Identifier &id_node,
-        sem::DefiningOccurrence::Kind kind = sem::DefiningOccurrence::NOT_TYPE
-    ) {
-        // ignore duplicate IDs
-        dos.try_emplace(id_node.spelling,
-            sem::DefiningOccurrence{id_node.view.data(), kind});
-    }
-
-    static void
     collectDefiningOccurrencesInFieldList(
-        sem::defining_occurrences_t &dos,
+        sem::Scope &scope,
         nodes::FieldList &field_list_node
     ) {
         for (const auto &fixed_section : field_list_node.fixed_sections)
-            collectDefiningOccurrencesInTypeDenoter(dos, *fixed_section.field_type);
+            collectDefiningOccurrencesInTypeDenoter(scope, *fixed_section.field_type);
 
         if (field_list_node.variant_part)
             for (auto &variant : field_list_node.variant_part->variants)
-                collectDefiningOccurrencesInFieldList(dos, variant.fields);
+                collectDefiningOccurrencesInFieldList(scope, variant.fields);
     }
 
     static void
     collectDefiningOccurrencesInTypeDenoter(
-        sem::defining_occurrences_t &dos,
+        sem::Scope &scope,
         nodes::TypeDenoter &denoter_node
     ) {
         visit(denoter_node, overloaded{
-            [&dos](nodes::EnumeratedType &enum_node) {
+            [&scope](nodes::EnumeratedType &enum_node) {
                 for (auto &identifier_node : enum_node.constants)
-                    collectDefiningOccurrence(dos, identifier_node);
+                    scope.add(identifier_node);
             },
             [](nodes::Identifier &) {},
             [](nodes::NewPointerType &) {},
-            [&dos](nodes::NewStructuredType &structured_node) {
+            [&scope](nodes::NewStructuredType &structured_node) {
                 visit(*structured_node.unpacked, overloaded{
-                    [&dos](nodes::ArrayType &array_node) {
+                    [&scope](nodes::ArrayType &array_node) {
                         for (const auto &index_type : array_node.index_types)
-                            collectDefiningOccurrencesInTypeDenoter(dos, *index_type);
+                            collectDefiningOccurrencesInTypeDenoter(scope, *index_type);
 
                         collectDefiningOccurrencesInTypeDenoter(
-                            dos, *array_node.component_type);
+                            scope, *array_node.component_type);
                     },
-                    [&dos](nodes::FileType &file_node) {
+                    [&scope](nodes::FileType &file_node) {
                         collectDefiningOccurrencesInTypeDenoter(
-                            dos, *file_node.component_type);
+                            scope, *file_node.component_type);
                     },
-                    [&dos](nodes::RecordType &record_node) {
-                        collectDefiningOccurrencesInFieldList(dos, record_node.fields);
+                    [&scope](nodes::RecordType &record_node) {
+                        collectDefiningOccurrencesInFieldList(scope, record_node.fields);
                     },
-                    [&dos](nodes::SetType &set_node) {
+                    [&scope](nodes::SetType &set_node) {
                         collectDefiningOccurrencesInTypeDenoter(
-                            dos, *set_node.base_type);
+                            scope, *set_node.base_type);
                     },
                 });
             },
@@ -183,21 +173,21 @@ public:
 
     static void
     collectDefiningOccurrencesInBlock(
-        sem::defining_occurrences_t &dos,
+        sem::Scope &scope,
         const nodes::Block &block_node
     ) {
         for (auto &constant_def_node : block_node.constant_definitions)
-            collectDefiningOccurrence(dos, constant_def_node.name);
+            scope.add(constant_def_node.name);
 
         for (auto &type_def_node : block_node.type_definitions) {
-            collectDefiningOccurrence(dos, type_def_node.name, sem::DefiningOccurrence::TYPE);
-            collectDefiningOccurrencesInTypeDenoter(dos, *type_def_node.denoter);
+            scope.add(type_def_node.name, sem::DefiningOccurrence::TYPE);
+            collectDefiningOccurrencesInTypeDenoter(scope, *type_def_node.denoter);
         }
 
         for (auto &variable_decl_node : block_node.variable_declarations) {
             for (auto &identifier_node : variable_decl_node.var_names)
-                collectDefiningOccurrence(dos, identifier_node);
-            collectDefiningOccurrencesInTypeDenoter(dos, *variable_decl_node.var_type);
+                scope.add(identifier_node);
+            collectDefiningOccurrencesInTypeDenoter(scope, *variable_decl_node.var_type);
         }
 
         for (auto &subroutine_decl_node : block_node.subroutine_declarations) {
@@ -209,15 +199,15 @@ public:
             // We do the check anyway, just so that we can point at the real
             // defining occurrence of the function if we need to.
             if (!dynamic_cast<nodes::FunctionIdentification *>(subroutine_decl_node.heading.get()))
-                collectDefiningOccurrence(dos, subroutine_decl_node.heading->name);
+                scope.add(subroutine_decl_node.heading->name);
         }
     }
 
     bool
     checkDuplicateIdentifier(
-        const sem::defining_occurrences_t &dos, const nodes::Identifier &id_node
+        const sem::Scope &scope, const nodes::Identifier &id_node
     ) {
-        const auto &occurrence = dos.at(id_node.spelling);
+        const auto &occurrence = scope.lookupShallowUnsafe(id_node.spelling);
 
         if (occurrence.location != id_node.view.data()) {
             reporter_.err(id_node.view.data(), "duplicate-identifier",
@@ -233,7 +223,7 @@ public:
     template <typename T>
     T *
     lookupIdentifier(
-        sem::Block &block,
+        sem::Scope &scope,
         const nodes::Identifier &applied_occurrence_node,
         std::unordered_map<std::string, T> sem::Block::*map_member,
         std::string_view identifier_kind_str
@@ -241,81 +231,67 @@ public:
         const auto &spelling = applied_occurrence_node.spelling;
         auto applied_occurrence_location = applied_occurrence_node.view.data();
 
-        {
-            auto &map = block.*map_member;
+        auto generic_result = scope.lookup(spelling);
+        if (!generic_result) {
+            reporter_.err(applied_occurrence_location, "undefined-identifier",
+                "undefined {} identifier \"{}\"", identifier_kind_str, spelling);
+            return nullptr;
+        }
+
+        auto &[defining_scope, defining_occurrence] = *generic_result;
+
+        if (auto *block = defining_scope->block()) {
+            auto &map = block->*map_member;
 
             if (auto it = map.find(spelling); it != map.end())
                 return &it->second;
-
-            auto &dos = block.defining_occurrences_;
-
-            if (auto it = dos.find(spelling); it != dos.end()) {
-                if (it->second.location > applied_occurrence_location) {
-                    reporter_.err(applied_occurrence_location, "use-before-definition",
-                        "identifier \"{}\" used before it was defined", spelling);
-                }
-                else {
-                    reporter_.err(applied_occurrence_location, "wrong-identifier-kind",
-                        "identifier \"{}\" is not a {} identifier",
-                        spelling, identifier_kind_str);
-                }
-                reporter_.note(it->second.location,
-                    "defining point of \"{}\"", spelling);
-                return nullptr;
-            }
+        }
+        else {
+            // scopes not associated with blocks aren't supposed to define types
+            assert(defining_occurrence.kind == sem::DefiningOccurrence::NOT_TYPE);
         }
 
-        for (
-            sem::Block *parent_block = block.parent_;
-            parent_block;
-            parent_block = parent_block->parent_
+        if (
+            // the location might be null if defining_scope is of the builtin block
+            applied_occurrence_location
+            && defining_occurrence.location > applied_occurrence_location
         ) {
-            auto &map = parent_block->*map_member;
-
-            if (auto it = map.find(spelling); it != map.end())
-                return &it->second;
-
-            auto &dos = parent_block->defining_occurrences_;
-
-            if (auto it = dos.find(spelling); it != dos.end()) {
-                reporter_.err(applied_occurrence_location, "wrong-identifier-kind",
-                    "identifier \"{}\" is not a {} identifier",
-                    spelling, identifier_kind_str);
-
-                // the location might be null if parent_block is the builtin block
-                if (it->second.location)
-                    reporter_.note(it->second.location,
-                        "defining point of \"{}\"", spelling);
-
-                return nullptr;
-            }
+            reporter_.err(applied_occurrence_location, "use-before-definition",
+                "identifier \"{}\" used before it was defined", spelling);
+        }
+        else {
+            reporter_.err(applied_occurrence_location, "wrong-identifier-kind",
+                "identifier \"{}\" is not a {} identifier",
+                spelling, identifier_kind_str);
         }
 
-        reporter_.err(applied_occurrence_location, "undefined-identifier",
-            "undefined {} identifier \"{}\"", identifier_kind_str, spelling);
+        if (defining_occurrence.location)
+            reporter_.note(defining_occurrence.location,
+                "defining point of \"{}\"", spelling);
+
         return nullptr;
     }
 
     std::shared_ptr<const sem::Constant> *
     lookupConstant(
-        sem::Block &block,
+        sem::Scope &scope,
         const nodes::Identifier &applied_occurrence_node
     ) {
-        return lookupIdentifier(block, applied_occurrence_node,
+        return lookupIdentifier(scope, applied_occurrence_node,
             &sem::Block::constants_, "constant");
     }
 
     std::shared_ptr<const sem::Type> *
     lookupType(
-        sem::Block &block,
+        sem::Scope &scope,
         const nodes::Identifier &applied_occurrence_node
     ) {
-        return lookupIdentifier(block, applied_occurrence_node,
+        return lookupIdentifier(scope, applied_occurrence_node,
             &sem::Block::types_, "type");
     }
 
     std::shared_ptr<const sem::Constant>
-    resolveConstant(sem::Block &block, nodes::Constant &constant_node) {
+    resolveConstant(sem::Scope &scope, nodes::Constant &constant_node) {
         auto constant_location = constant_node.view.data();
         std::shared_ptr<const sem::Constant> constant;
 
@@ -331,7 +307,7 @@ public:
                             urc_node.value);
                     },
                     [&](nodes::Identifier &id_node) {
-                        auto *ref_constant = lookupConstant(block, id_node);
+                        auto *ref_constant = lookupConstant(scope, id_node);
                         if (!ref_constant) return;
 
                         if (!*ref_constant) {
@@ -370,13 +346,13 @@ public:
         sem::Block &block
     ) {
         for (auto &constant_def_node : block_node.constant_definitions) {
-            if (checkDuplicateIdentifier(block.defining_occurrences_, constant_def_node.name))
+            if (checkDuplicateIdentifier(block.scope_, constant_def_node.name))
                 continue;
 
             // For circular definition detection to work, we must first add
             // the new constant to block.constants_, and _then_ resolve the value.
             auto &constant = block.constants_[constant_def_node.name.spelling];
-            constant = resolveConstant(block, *constant_def_node.value);
+            constant = resolveConstant(block.scope_, *constant_def_node.value);
 
             if (!constant) {
                 // use a fallback value so that we can continue with the analysis
@@ -387,15 +363,15 @@ public:
 
     std::shared_ptr<const sem::TypeArray>
     resolveStructuredType(
-        sem::Block &block, nodes::ArrayType &array_type_node, bool is_packed
+        sem::Scope &scope, nodes::ArrayType &array_type_node, bool is_packed
     ) {
-        auto component_type = resolveType(block, *array_type_node.component_type);
+        auto component_type = resolveType(scope, *array_type_node.component_type);
         if (!component_type) return nullptr;
 
         std::shared_ptr<const sem::TypeArray> array_type;
 
         for (auto &index_type_node : std::views::reverse(array_type_node.index_types)) {
-            auto index_type = resolveType(block, *index_type_node);
+            auto index_type = resolveType(scope, *index_type_node);
             if (!index_type) return nullptr;
 
             auto index_type_ordinal
@@ -421,9 +397,9 @@ public:
 
     std::shared_ptr<const sem::TypeFile>
     resolveStructuredType(
-        sem::Block &block, nodes::FileType &file_type_node, bool is_packed
+        sem::Scope &scope, nodes::FileType &file_type_node, bool is_packed
     ) {
-        auto component_type = resolveType(block, *file_type_node.component_type);
+        auto component_type = resolveType(scope, *file_type_node.component_type);
         if (!component_type) return nullptr;
 
         if (!component_type->canBeFileComponent()) {
@@ -438,7 +414,7 @@ public:
 
     static void
     collectFieldDefiningOccurrences(
-        sem::defining_occurrences_t &dos,
+        sem::Scope &scope,
         nodes::FieldList &field_list_node
     ) {
         // Not to be confused with collectOccurrencesInFieldList -
@@ -447,32 +423,30 @@ public:
 
         for (const auto &fixed_section : field_list_node.fixed_sections)
             for (const auto &field_name : fixed_section.field_names)
-                collectDefiningOccurrence(dos, field_name);
+                scope.add(field_name);
 
         if (auto &variant_part = field_list_node.variant_part) {
             if (variant_part->tag_field)
-                collectDefiningOccurrence(dos, *variant_part->tag_field);
+                scope.add(*variant_part->tag_field);
 
             for (auto &variant : variant_part->variants)
-                collectFieldDefiningOccurrences(dos, variant.fields);
+                collectFieldDefiningOccurrences(scope, variant.fields);
         }
     }
 
     sem::FieldList
     resolveFieldList(
-        sem::Block &block, const sem::defining_occurrences_t &field_dos,
+        sem::Scope &scope,
         nodes::FieldList &field_list_node
     ) {
         sem::FieldList field_list;
 
         for (const auto &fixed_section : field_list_node.fixed_sections) {
-            // TODO: account for field names taking priority over other IDs
-            // during identifier lookup
-            auto type = resolveType(block, *fixed_section.field_type);
+            auto type = resolveType(scope, *fixed_section.field_type);
             if (!type) continue;
 
             for (const auto &field_name : fixed_section.field_names) {
-                if (checkDuplicateIdentifier(field_dos, field_name))
+                if (checkDuplicateIdentifier(scope, field_name))
                     continue;
 
                 field_list.addField(field_name.spelling, type);
@@ -481,7 +455,7 @@ public:
 
         if (auto &variant_part_node = field_list_node.variant_part) {
             auto tag_type_node = variant_part_node->tag_type;
-            auto tag_type = resolveTypeDenoter(block, tag_type_node);
+            auto tag_type = resolveTypeDenoter(scope, tag_type_node);
             if (!tag_type) return field_list;
 
             auto tag_type_ordinal
@@ -495,7 +469,7 @@ public:
             sem::VariantPart variant_part(tag_type_ordinal);
 
             if (auto &tag_field_node = variant_part_node->tag_field) {
-                if (checkDuplicateIdentifier(field_dos, *tag_field_node))
+                if (checkDuplicateIdentifier(scope, *tag_field_node))
                     return field_list;
 
                 variant_part.setTagField(tag_field_node->spelling);
@@ -513,7 +487,7 @@ public:
                 std::vector<std::shared_ptr<const sem::ConstantOrdinal>> case_constants;
 
                 for (auto &constant_node : variant.case_constants) {
-                    auto constant = resolveConstant(block, *constant_node);
+                    auto constant = resolveConstant(scope, *constant_node);
                     if (!constant) return field_list;
 
                     auto ordinal_constant
@@ -563,7 +537,7 @@ public:
                     }
                 }
 
-                auto variant_fields = resolveFieldList(block, field_dos, variant.fields);
+                auto variant_fields = resolveFieldList(scope, variant.fields);
 
                 variant_part.addVariant(case_constants, variant_fields);
             }
@@ -586,21 +560,21 @@ public:
 
     std::shared_ptr<const sem::TypeRecord>
     resolveStructuredType(
-        sem::Block &block, nodes::RecordType &record_type_node, bool is_packed
+        sem::Scope &scope, nodes::RecordType &record_type_node, bool is_packed
     ) {
-        sem::defining_occurrences_t field_dos;
-        collectFieldDefiningOccurrences(field_dos, record_type_node.fields);
+        sem::Scope record_scope(&scope, nullptr);
+        collectFieldDefiningOccurrences(record_scope, record_type_node.fields);
 
         return std::make_shared<sem::TypeRecord>(
-            resolveFieldList(block, field_dos, record_type_node.fields),
+            resolveFieldList(record_scope, record_type_node.fields),
         is_packed);
     }
 
     std::shared_ptr<const sem::TypeSet>
     resolveStructuredType(
-        sem::Block &block, nodes::SetType &set_type_node, bool is_packed
+        sem::Scope &scope, nodes::SetType &set_type_node, bool is_packed
     ) {
-        auto base_type = resolveType(block, *set_type_node.base_type);
+        auto base_type = resolveType(scope, *set_type_node.base_type);
         if (!base_type) return nullptr;
 
         auto base_type_ordinal
@@ -616,7 +590,7 @@ public:
 
     std::shared_ptr<const sem::TypeEnumerated>
     resolveTypeDenoter(
-        sem::Block &block, nodes::EnumeratedType &enumerated_type_node
+        sem::Scope &scope, nodes::EnumeratedType &enumerated_type_node
     ) {
         if (enumerated_type_node.constants.size()
             > std::size_t(PASCAL_INTEGER_MAX) + 1
@@ -631,7 +605,7 @@ public:
         std::vector<std::string> constant_names;
 
         for (auto &id_node : enumerated_type_node.constants) {
-            if (checkDuplicateIdentifier(block.defining_occurrences_, id_node))
+            if (checkDuplicateIdentifier(scope, id_node))
                 continue;
 
             constant_names.push_back(id_node.spelling);
@@ -644,16 +618,16 @@ public:
             = std::make_shared<sem::TypeEnumerated>(constant_names);
 
         for (const auto &constant : enumerated_type->constants())
-            block.constants_.emplace(constant->str(), constant);
+            scope.closestContainingBlock().constants_.emplace(constant->str(), constant);
 
         return enumerated_type;
     }
 
     std::shared_ptr<const sem::Type>
     resolveTypeDenoter(
-        sem::Block &block, nodes::Identifier &id_node
+        sem::Scope &scope, nodes::Identifier &id_node
     ) {
-        auto *ref_type = lookupType(block, id_node);
+        auto *ref_type = lookupType(scope, id_node);
         if (!ref_type) return nullptr;
 
         if (!*ref_type) {
@@ -667,7 +641,7 @@ public:
 
     std::shared_ptr<const sem::TypePointer>
     resolveTypeDenoter(
-        sem::Block &block, nodes::NewPointerType &pointer_type_node
+        sem::Scope &scope, nodes::NewPointerType &pointer_type_node
     ) {
         const std::string &domain_type_name
             = pointer_type_node.domain_type.spelling;
@@ -678,57 +652,55 @@ public:
         // type and store the reference to that block in the pointer type.
         // This will allow the domain type to be resolved after the block
         // is fully analyzed.
-        for (const sem::Block *domain_type_block = &block;
-            domain_type_block;
-            domain_type_block = domain_type_block->parent_
-        ) {
-            auto it = domain_type_block->defining_occurrences_.find(domain_type_name);
 
-            if (it == domain_type_block->defining_occurrences_.end())
-                continue;
-
-            if (it->second.kind != sem::DefiningOccurrence::TYPE) {
-                reporter_.err(pointer_type_node.domain_type.view.data(),
-                    "wrong-identifier-kind",
-                    "identifier \"{}\" is not a type identifier",
-                    domain_type_name);
-
-                // the location might be null
-                // if domain_type_block is the builtin block
-                if (it->second.location)
-                    reporter_.note(it->second.location,
-                        "defining point of \"{}\"", domain_type_name);
-
-                return nullptr;
-            }
-
-            return std::make_shared<sem::TypePointer>(
-                *domain_type_block, domain_type_name);
+        auto lookup_result = scope.lookup(domain_type_name);
+        if (!lookup_result) {
+            reporter_.err(pointer_type_node.domain_type.view.data(),
+                "undefined-identifier",
+                "undefined type identifier \"{}\"", domain_type_name);
+            return nullptr;
         }
 
-        reporter_.err(pointer_type_node.domain_type.view.data(),
-            "undefined-identifier",
-            "undefined type identifier \"{}\"", domain_type_name);
-        return nullptr;
+        auto &[defining_scope, defining_occurrence] = *lookup_result;
+
+        if (defining_occurrence.kind != sem::DefiningOccurrence::TYPE) {
+            reporter_.err(pointer_type_node.domain_type.view.data(),
+                "wrong-identifier-kind",
+                "identifier \"{}\" is not a type identifier",
+                domain_type_name);
+
+            // the location might be null
+            // if the scope is for the builtin block
+            if (defining_occurrence.location)
+                reporter_.note(defining_occurrence.location,
+                    "defining point of \"{}\"", domain_type_name);
+
+            return nullptr;
+        }
+
+        assert(defining_scope->block());
+
+        return std::make_shared<sem::TypePointer>(
+            defining_scope->block(), domain_type_name);
     }
 
     std::shared_ptr<const sem::Type>
     resolveTypeDenoter(
-        sem::Block &block, nodes::NewStructuredType &structured_type_node
+        sem::Scope &scope, nodes::NewStructuredType &structured_type_node
     ) {
         return visit(*structured_type_node.unpacked,
             [&](auto &node) -> std::shared_ptr<const sem::Type> {
-                return resolveStructuredType(block, node, structured_type_node.is_packed);
+                return resolveStructuredType(scope, node, structured_type_node.is_packed);
             }
         );
     }
 
     std::shared_ptr<const sem::TypeSubrange>
     resolveTypeDenoter(
-        sem::Block &block, nodes::SubrangeType &subrange_type_node
+        sem::Scope &scope, nodes::SubrangeType &subrange_type_node
     ) {
-        auto smallest = resolveConstant(block, *subrange_type_node.smallest);
-        auto largest = resolveConstant(block, *subrange_type_node.largest);
+        auto smallest = resolveConstant(scope, *subrange_type_node.smallest);
+        auto largest = resolveConstant(scope, *subrange_type_node.largest);
 
         if (!smallest || !largest) return nullptr;
 
@@ -769,10 +741,10 @@ public:
     }
 
     std::shared_ptr<const sem::Type>
-    resolveType(sem::Block &block, nodes::TypeDenoter &type_denoter_node) {
+    resolveType(sem::Scope &scope, nodes::TypeDenoter &type_denoter_node) {
         return visit(type_denoter_node,
             [&](auto &node) -> std::shared_ptr<const sem::Type> {
-                return resolveTypeDenoter(block, node);
+                return resolveTypeDenoter(scope, node);
             }
         );
     }
@@ -783,11 +755,11 @@ public:
         sem::Block &block
     ) {
         for (auto &type_def_node : block_node.type_definitions) {
-            if (checkDuplicateIdentifier(block.defining_occurrences_, type_def_node.name))
+            if (checkDuplicateIdentifier(block.scope_, type_def_node.name))
                 continue;
 
             auto &type = block.types_[type_def_node.name.spelling];
-            type = resolveType(block, *type_def_node.denoter);
+            type = resolveType(block.scope_, *type_def_node.denoter);
 
             if (!type) {
                 // use a fallback type so that we can continue with the analysis
@@ -800,7 +772,7 @@ public:
     buildBlock(const nodes::Block &block_node, sem::Block &block) {
         analyzeLabelDeclarations(block_node, block);
 
-        collectDefiningOccurrencesInBlock(block.defining_occurrences_, block_node);
+        collectDefiningOccurrencesInBlock(block.scope_, block_node);
 
         analyzeConstantDefinitions(block_node, block);
         analyzeTypeDefinitions(block_node, block);
@@ -826,7 +798,6 @@ public:
 
         // TODO: check that program parameters correspond to variables
 
-        program.block_.parent_ = &builtin_block;
         buildBlock(program_node.block, program.block_);
 
         return program;

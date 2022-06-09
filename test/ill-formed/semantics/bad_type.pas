@@ -65,6 +65,19 @@ type
     pointerToNonType = ^notType2;
                        {^ error:wrong-identifier-kind }
 
+    recordWithIdConflict = record
+        integer: integer;
+       {^ note }{^ error:wrong-identifier-kind }
+
+        r: real;
+          {^ error:use-before-definition }
+        real: char;
+       {^ note }
+
+        case boolean: boolean of false: (); true: ();
+            {^ note }{^ error:wrong-identifier-kind }
+    end;
+
     recordWithNonOrdinalTag = record
         case real of 1: ();
             {^ error:non-ordinal-type }

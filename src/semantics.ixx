@@ -630,13 +630,83 @@ struct DefiningOccurrence {
     enum Kind { NOT_TYPE, TYPE } kind;
 };
 
-using defining_occurrences_t = std::unordered_map<std::string, DefiningOccurrence>;
+class Scope {
+public:
+    struct LookupResult {
+        Scope *scope;
+        DefiningOccurrence defining_occurrence;
+    };
+
+    Scope(Scope *parent, Block *block)
+        : parent_(parent), block_(block) {}
+
+    void
+    add(
+        const nodes::Identifier &id_node,
+        DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
+    ) {
+        // Ignore duplicate identifiers; this is so that when the analysis
+        // logic reports the error, it can note the first defining occurrence.
+        dos_.try_emplace(id_node.spelling,
+            DefiningOccurrence{id_node.view.data(), kind});
+    }
+
+    void
+    addBuiltin(
+        const std::string &id,
+        DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
+    ) {
+        auto [it, success]
+            = dos_.try_emplace(id, DefiningOccurrence{nullptr, kind});
+        assert(success); // builtins should not be duplicated
+    }
+
+    Block *
+    block() { return block_; }
+
+    Block &
+    closestContainingBlock() {
+        if (block_) return *block_;
+
+        // at least one scope in the chain has to be associated with a block
+        assert(parent_);
+
+        return parent_->closestContainingBlock();
+    }
+
+    std::optional<LookupResult>
+    lookup(const std::string &id) {
+        auto it = dos_.find(id);
+        if (it != dos_.end())
+            return LookupResult{this, it->second};
+
+        if (parent_)
+            return parent_->lookup(id);
+
+        return std::nullopt;
+    }
+
+    DefiningOccurrence
+    lookupShallowUnsafe(const std::string &id) const {
+        return dos_.at(id);
+    }
+
+private:
+    Scope *parent_;
+    Block *block_;
+
+    std::unordered_map<std::string, DefiningOccurrence> dos_;
+};
 
 export
 class Block {
-    Block *parent_{};
+public:
+    Block(Block *parent_block)
+        : scope_(parent_block ? &parent_block->scope_ : nullptr, this)
+    {}
 
-    defining_occurrences_t defining_occurrences_;
+private:
+    Scope scope_;
 
     std::unordered_map<pascal_integer_t, const char *> labels_;
     std::unordered_map<std::string, std::shared_ptr<const Constant>> constants_;
@@ -648,6 +718,8 @@ class Block {
 
 export
 class Program {
+    Program();
+
     std::unordered_map<std::string, const char *> parameters_;
 
     Block block_;
