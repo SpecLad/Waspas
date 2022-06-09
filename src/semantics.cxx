@@ -45,7 +45,8 @@ struct BuiltinBlockInitializer {
         >();
 
         for (const auto &t : builtin_block.types_)
-            builtin_block.defining_occurrences_.emplace(t.first, nullptr);
+            builtin_block.defining_occurrences_.emplace(t.first,
+                sem::DefiningOccurrence{nullptr, sem::DefiningOccurrence::TYPE});
 
         // TODO:
         // procedures: rewrite, put, reset, get, read, write, new, dispose, pack, unpack, page
