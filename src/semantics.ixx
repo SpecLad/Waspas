@@ -666,6 +666,7 @@ private:
     std::unordered_map<pascal_integer_t, const char *> labels_;
     std::unordered_map<std::string, std::shared_ptr<const Constant>> constants_;
     std::unordered_map<std::string, std::shared_ptr<const Type>> types_;
+    std::unordered_map<std::string, std::shared_ptr<const Type>> variables_;
 
     friend class ProgramBuilder;
     friend struct BuiltinBlockInitializer;

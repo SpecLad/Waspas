@@ -821,6 +821,28 @@ public:
     }
 
     void
+    analyzeVariableDeclarations(
+        const nodes::Block &block_node,
+        sem::Block &block
+    ) {
+        for (auto &var_decl_node : block_node.variable_declarations) {
+            auto type = resolveType(block.scope_, *var_decl_node.var_type);
+
+            if (!type) {
+                // use a fallback type so that we can continue with the analysis
+                type = BuiltinBlockInitializer::getBuiltinPtr(sem::TypeInteger::instance);
+            }
+
+            for (auto &var_name_node : var_decl_node.var_names) {
+                if (checkDuplicateIdentifier(block.scope_, var_name_node))
+                    continue;
+
+                block.variables_.insert_or_assign(var_name_node.spelling, type);
+            }
+        }
+    }
+
+    void
     buildBlock(const nodes::Block &block_node, sem::Block &block) {
         analyzeLabelDeclarations(block_node, block);
 
@@ -828,6 +850,7 @@ public:
 
         analyzeConstantDefinitions(block_node, block);
         analyzeTypeDefinitions(block_node, block);
+        analyzeVariableDeclarations(block_node, block);
     }
 
     sem::Program

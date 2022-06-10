@@ -36,5 +36,10 @@ type
                {^ error:duplicate-identifier }
             );
     end;
+var
+    d: integer;
+   {^ note }
+    d: real;
+   {^ error:duplicate-identifier }
 begin
 end.
