@@ -1,4 +1,5 @@
-program badconst;
+program badconst(input);
+                {^ note }
 const
     a = -unknown;
         {^ error:undefined-identifier }
@@ -12,8 +13,8 @@ const
 
     wrongIdKindBuiltin = integer;
                         {^ error:wrong-identifier-kind }
-    { TODO: add a test where a constant references input/output,
-      to make sure that the note is added to the correct location }
+    wrongIdKind = input;
+                 {^ error:wrong-identifier-kind }
 
     selfRef = selfRef;
              {^ error:circular-definition }

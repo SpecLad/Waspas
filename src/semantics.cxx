@@ -859,21 +859,35 @@ public:
 
         for (auto &parameter_node : program_node.parameter_declarations) {
             auto parameter_location = parameter_node.view.data();
+            auto &parameter_name = parameter_node.spelling;
 
             auto [it, success] = program.parameters_.try_emplace(
-                parameter_node.spelling, parameter_location);
+                parameter_name, parameter_location);
 
             if (!success) {
                 reporter_.err(parameter_location, "duplicate-program-parameter",
-                    "program parameter \"{}\" already defined", parameter_node.spelling);
-                reporter_.note(it->second,
-                    "defining point of \"{}\"", parameter_node.spelling);
+                    "program parameter \"{}\" already defined", parameter_name);
+                reporter_.note(it->second, "defining point of \"{}\"", parameter_name);
+                continue;
+            }
+
+            if (parameter_name == "input"sv || parameter_name == "output"sv) {
+                program.block_.scope_.add(parameter_node);
+                program.block_.variables_.insert_or_assign(
+                    parameter_name,
+                    BuiltinBlockInitializer::getBuiltinPtr(sem::TypeText::instance));
             }
         }
 
-        // TODO: check that program parameters correspond to variables
-
         buildBlock(program_node.block, program.block_);
+
+        for (const auto &[parameter_name, parameter_location] : program.parameters_) {
+            auto it = program.block_.variables_.find(parameter_name);
+            if (it == program.block_.variables_.end())
+                reporter_.err(parameter_location, "missing-program-parameter-variable",
+                    "program parameter \"{}\" has no corresponding variable",
+                    parameter_name);
+        }
 
         return program;
     }
