@@ -654,6 +654,9 @@ private:
 };
 
 export
+class Subroutine {};
+
+export
 class Block {
 public:
     Block(Block *parent_block)
@@ -667,6 +670,7 @@ private:
     std::unordered_map<std::string, std::shared_ptr<const Constant>> constants_;
     std::unordered_map<std::string, std::shared_ptr<const Type>> types_;
     std::unordered_map<std::string, std::shared_ptr<const Type>> variables_;
+    std::unordered_map<std::string, Subroutine> subroutines_;
 
     friend class ProgramBuilder;
     friend struct BuiltinBlockInitializer;

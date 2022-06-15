@@ -1,11 +1,13 @@
 module;
 
+#include <algorithm>
 #include <cassert>
 #include <limits>
 #include <memory>
 #include <ranges>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 module semantics;
 
@@ -843,6 +845,97 @@ public:
     }
 
     void
+    analyzeSubroutineDeclarations(
+        const nodes::Block &block_node,
+        sem::Block &block
+    ) {
+        std::unordered_set<std::string> forward_declarations;
+
+        for (auto &subr_decl_node : block_node.subroutine_declarations) {
+            const auto &subr_name_node = subr_decl_node.heading->name;
+            const auto &subr_name = subr_name_node.spelling;
+
+            using parameters_t
+                = std::vector<std::unique_ptr<nodes::FormalParameterSection>>;
+
+            parameters_t *parameters = visit(
+                *subr_decl_node.heading, overloaded{
+                    [&](nodes::FunctionHeading &function_head_node) {
+                        return &function_head_node.parameters;
+                    },
+                    [&](nodes::FunctionIdentification &function_id_node) {
+                        return static_cast<parameters_t *>(nullptr);
+                    },
+                    [&](nodes::ProcedureHeading &procedure_head_node) {
+                        if (forward_declarations.contains(subr_name)
+                            && procedure_head_node.parameters.empty()
+                        )
+                            return static_cast<parameters_t *>(nullptr);
+
+                        return &procedure_head_node.parameters;
+                    },
+                }
+            );
+
+            if (parameters) {
+                // this is the first declaration of this subroutine
+
+                if (checkDuplicateIdentifier(block.scope_, subr_name_node))
+                    continue;
+
+                block.subroutines_.try_emplace(subr_name);
+
+                // TODO: analyze parameters
+
+                if (subr_decl_node.block) {
+                    // TODO: analyze block
+                }
+                else {
+                    forward_declarations.insert(subr_name);
+                }
+            }
+            else {
+                // this is a delayed declaration of this subroutine
+
+                if (!forward_declarations.contains(subr_name)) {
+                    auto it = block.subroutines_.find(subr_name);
+
+                    if (it == block.subroutines_.end()) {
+                        reporter_.err(subr_name_node.view.data(),
+                            "missing-forward-declaration",
+                            "delayed declaration with no preceding forward declaration");
+                    }
+                    else {
+                        reporter_.err(subr_name_node.view.data(),
+                            "duplicate-subroutine-declaration",
+                            "duplicate declaration for \"{}\"", subr_name);
+                        // TODO: note where the previous declaration was
+                    }
+
+                    continue;
+                }
+                // TODO: check that delayed function definitions match to functions and
+                // delayed procedure definitions match procedures
+
+                forward_declarations.erase(subr_name);
+
+                // TODO: analyze block
+            }
+        }
+
+        std::vector<const char *> missing_declaration_locations;
+        for (const auto &name : forward_declarations)
+            missing_declaration_locations.push_back(
+                block.scope_.lookupShallowUnsafe(name).location);
+
+        std::ranges::sort(missing_declaration_locations);
+
+        for (const char *error_location : missing_declaration_locations)
+            reporter_.err(error_location, "missing-delayed-declaration",
+                "forward declaration with no following delayed declaration");
+    }
+
+    void
     buildBlock(const nodes::Block &block_node, sem::Block &block) {
         analyzeLabelDeclarations(block_node, block);
 
@@ -851,6 +944,7 @@ public:
         analyzeConstantDefinitions(block_node, block);
         analyzeTypeDefinitions(block_node, block);
         analyzeVariableDeclarations(block_node, block);
+        analyzeSubroutineDeclarations(block_node, block);
     }
 
     sem::Program

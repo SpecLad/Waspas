@@ -41,5 +41,13 @@ var
    {^ note }
     d: real;
    {^ error:duplicate-identifier }
+procedure e; begin end;
+         {^ note }
+procedure e; begin end;
+         {^ error:duplicate-identifier }
+function f: integer; begin f := 0 end;
+        {^ note }
+function f: integer; begin f := 0 end;
+        {^ error:duplicate-identifier }
 begin
 end.
