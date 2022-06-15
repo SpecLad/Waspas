@@ -661,6 +661,7 @@ public:
 
 private:
     const char *last_declaration_location_;
+    bool is_function_; // this will likely be replaced by the signature later
 
     friend class ProgramBuilder;
 };

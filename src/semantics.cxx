@@ -858,33 +858,49 @@ public:
             using parameters_t
                 = std::vector<std::unique_ptr<nodes::FormalParameterSection>>;
 
-            parameters_t *parameters = visit(
+            auto [is_function, parameter_nodes, result_type_node] = visit(
                 *subr_decl_node.heading, overloaded{
                     [&](nodes::FunctionHeading &function_head_node) {
-                        return &function_head_node.parameters;
+                        return std::make_tuple(
+                            true,
+                            &function_head_node.parameters,
+                            &function_head_node.result_type);
                     },
                     [&](nodes::FunctionIdentification &function_id_node) {
-                        return static_cast<parameters_t *>(nullptr);
+                        return std::make_tuple(
+                            true,
+                            static_cast<parameters_t *>(nullptr),
+                            static_cast<nodes::Identifier *>(nullptr));
                     },
                     [&](nodes::ProcedureHeading &procedure_head_node) {
+                        auto result = std::make_tuple(
+                            false,
+                            &procedure_head_node.parameters,
+                            static_cast<nodes::Identifier *>(nullptr)
+                        );
+
                         if (forward_declarations.contains(subr_name)
                             && procedure_head_node.parameters.empty()
-                        )
-                            return static_cast<parameters_t *>(nullptr);
+                        ) {
+                            // this is a delayed declaration
+                            std::get<1>(result) = nullptr;
+                        }
 
-                        return &procedure_head_node.parameters;
+                        return result;
                     },
                 }
             );
 
-            if (parameters) {
+            if (parameter_nodes) {
                 // this is the first declaration of this subroutine
 
                 if (checkDuplicateIdentifier(block.scope_, subr_name_node))
                     continue;
 
-                block.subroutines_.try_emplace(
+                auto [it, success] = block.subroutines_.try_emplace(
                     subr_name, subr_name_node.view.data());
+
+                it->second.is_function_ = is_function;
 
                 // TODO: analyze parameters
 
@@ -919,8 +935,16 @@ public:
 
                 assert(it != block.subroutines_.end());
 
-                // TODO: check that delayed function definitions match to functions and
-                // delayed procedure definitions match procedures
+                if (it->second.is_function_ != is_function) {
+                    reporter_.err(subr_name_node.view.data(),
+                        "mismatched-subroutine-declaration",
+                        "\"{}\" declared as a {} when it had previously been declared as a {}",
+                        subr_name, is_function ? "function" : "procedure",
+                        it->second.is_function_ ? "function" : "procedure");
+                    reporter_.note(it->second.last_declaration_location_,
+                        "last declaration of \"{}\"", subr_name);
+                    continue;
+                }
 
                 it->second.last_declaration_location_ = subr_name_node.view.data();
                 forward_declarations.erase(subr_name);
