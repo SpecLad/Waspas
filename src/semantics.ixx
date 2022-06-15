@@ -654,7 +654,16 @@ private:
 };
 
 export
-class Subroutine {};
+class Subroutine {
+public:
+    Subroutine(const char *declaration_location)
+        : last_declaration_location_(declaration_location) {}
+
+private:
+    const char *last_declaration_location_;
+
+    friend class ProgramBuilder;
+};
 
 export
 class Block {

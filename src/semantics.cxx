@@ -883,7 +883,8 @@ public:
                 if (checkDuplicateIdentifier(block.scope_, subr_name_node))
                     continue;
 
-                block.subroutines_.try_emplace(subr_name);
+                block.subroutines_.try_emplace(
+                    subr_name, subr_name_node.view.data());
 
                 // TODO: analyze parameters
 
@@ -897,9 +898,9 @@ public:
             else {
                 // this is a delayed declaration of this subroutine
 
-                if (!forward_declarations.contains(subr_name)) {
-                    auto it = block.subroutines_.find(subr_name);
+                auto it = block.subroutines_.find(subr_name);
 
+                if (!forward_declarations.contains(subr_name)) {
                     if (it == block.subroutines_.end()) {
                         reporter_.err(subr_name_node.view.data(),
                             "missing-forward-declaration",
@@ -909,14 +910,19 @@ public:
                         reporter_.err(subr_name_node.view.data(),
                             "duplicate-subroutine-declaration",
                             "duplicate declaration for \"{}\"", subr_name);
-                        // TODO: note where the previous declaration was
+                        reporter_.note(it->second.last_declaration_location_,
+                            "last declaration of \"{}\"", subr_name);
                     }
 
                     continue;
                 }
+
+                assert(it != block.subroutines_.end());
+
                 // TODO: check that delayed function definitions match to functions and
                 // delayed procedure definitions match procedures
 
+                it->second.last_declaration_location_ = subr_name_node.view.data();
                 forward_declarations.erase(subr_name);
 
                 // TODO: analyze block

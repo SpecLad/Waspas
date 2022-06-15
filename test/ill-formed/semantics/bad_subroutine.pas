@@ -6,11 +6,13 @@ function delayedButNoForward; begin end;
         {^ error:missing-forward-declaration }
 
 function doubleDeclaration: integer; begin doubleDeclaration := 0 end;
+        {^ note }
 function doubleDeclaration; begin doubleDeclaration := 0 end;
         {^ error:duplicate-subroutine-declaration }
 
 function tripleDeclaration: integer; forward;
 function tripleDeclaration; begin tripleDeclaration := 0 end;
+        {^ note }
 function tripleDeclaration; begin tripleDeclaration := 0 end;
         {^ error:duplicate-subroutine-declaration }
 begin end.
