@@ -945,8 +945,6 @@ public:
 
                 subroutine->last_declaration_location_ = subr_name_node.view.data();
                 forward_declarations.erase(subr_name);
-
-                // TODO: analyze block
             }
 
             if (subr_decl_node.block) {
