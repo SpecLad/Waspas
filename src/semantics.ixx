@@ -653,18 +653,7 @@ private:
     std::unordered_map<std::string, DefiningOccurrence> dos_;
 };
 
-export
-class Subroutine {
-public:
-    Subroutine(const char *declaration_location)
-        : last_declaration_location_(declaration_location) {}
-
-private:
-    const char *last_declaration_location_;
-    bool is_function_; // this will likely be replaced by the signature later
-
-    friend class ProgramBuilder;
-};
+class Subroutine;
 
 export
 class Block {
@@ -684,6 +673,23 @@ private:
 
     friend class ProgramBuilder;
     friend struct BuiltinBlockInitializer;
+};
+
+export
+class Subroutine {
+public:
+    Subroutine(const char *declaration_location, Block &parent_block)
+        : last_declaration_location_(declaration_location)
+        , block_(&parent_block)
+    {}
+
+private:
+    const char *last_declaration_location_;
+    bool is_function_; // this will likely be replaced by the signature later
+
+    Block block_;
+
+    friend class ProgramBuilder;
 };
 
 export

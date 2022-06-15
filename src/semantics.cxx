@@ -891,6 +891,8 @@ public:
                 }
             );
 
+            sem::Subroutine *subroutine;
+
             if (parameter_nodes) {
                 // this is the first declaration of this subroutine
 
@@ -898,18 +900,12 @@ public:
                     continue;
 
                 auto [it, success] = block.subroutines_.try_emplace(
-                    subr_name, subr_name_node.view.data());
+                    subr_name, subr_name_node.view.data(), block);
+                subroutine = &it->second;
 
-                it->second.is_function_ = is_function;
+                subroutine->is_function_ = is_function;
 
                 // TODO: analyze parameters
-
-                if (subr_decl_node.block) {
-                    // TODO: analyze block
-                }
-                else {
-                    forward_declarations.insert(subr_name);
-                }
             }
             else {
                 // this is a delayed declaration of this subroutine
@@ -934,22 +930,32 @@ public:
                 }
 
                 assert(it != block.subroutines_.end());
+                subroutine = &it->second;
 
                 if (it->second.is_function_ != is_function) {
                     reporter_.err(subr_name_node.view.data(),
                         "mismatched-subroutine-declaration",
                         "\"{}\" declared as a {} when it had previously been declared as a {}",
                         subr_name, is_function ? "function" : "procedure",
-                        it->second.is_function_ ? "function" : "procedure");
-                    reporter_.note(it->second.last_declaration_location_,
+                        subroutine->is_function_ ? "function" : "procedure");
+                    reporter_.note(subroutine->last_declaration_location_,
                         "last declaration of \"{}\"", subr_name);
                     continue;
                 }
 
-                it->second.last_declaration_location_ = subr_name_node.view.data();
+                subroutine->last_declaration_location_ = subr_name_node.view.data();
                 forward_declarations.erase(subr_name);
 
                 // TODO: analyze block
+            }
+
+            if (subr_decl_node.block) {
+                buildBlock(*subr_decl_node.block, subroutine->block_);
+                // TODO: check that the function contains at least one
+                // assignment to the function identifier.
+            }
+            else {
+                forward_declarations.insert(subr_name);
             }
         }
 
