@@ -844,6 +844,33 @@ public:
         }
     }
 
+    sem::Signature
+    resolveSignature(
+        sem::Scope &scope,
+        std::span<std::unique_ptr<nodes::FormalParameterSection>> parameter_section_nodes,
+        nodes::Identifier *result_type_node
+    ) {
+        std::vector<sem::FormalParameterSection> parameters;
+
+        // TODO: analyze the parameter section nodes
+
+        std::shared_ptr<const sem::Type> result_type;
+
+        if (result_type_node) {
+            // TODO: analyze the result type node
+
+            if (!result_type) {
+                // Use a fallback type. We can't just leave result_type as nullptr,
+                // since that would turn the function into a procedure and cause
+                // more errors down the line.
+                result_type = BuiltinBlockInitializer::getBuiltinPtr(
+                    sem::TypeInteger::instance);
+            }
+        }
+
+        return sem::Signature(parameters, result_type);
+    }
+
     void
     analyzeSubroutineDeclarations(
         const nodes::Block &block_node,
@@ -858,54 +885,48 @@ public:
             using parameters_t
                 = std::vector<std::unique_ptr<nodes::FormalParameterSection>>;
 
-            auto [is_function, parameter_nodes, result_type_node] = visit(
+            auto [is_function, signature] = visit(
                 *subr_decl_node.heading, overloaded{
                     [&](nodes::FunctionHeading &function_head_node) {
-                        return std::make_tuple(
-                            true,
-                            &function_head_node.parameters,
-                            &function_head_node.result_type);
+                        return std::make_tuple(true, std::optional<sem::Signature>(
+                            resolveSignature(
+                                block.scope_,
+                                function_head_node.parameters,
+                                &function_head_node.result_type
+                            )
+                        ));
                     },
                     [&](nodes::FunctionIdentification &function_id_node) {
-                        return std::make_tuple(
-                            true,
-                            static_cast<parameters_t *>(nullptr),
-                            static_cast<nodes::Identifier *>(nullptr));
+                        return std::make_tuple(true, std::optional<sem::Signature>{});
                     },
                     [&](nodes::ProcedureHeading &procedure_head_node) {
-                        auto result = std::make_tuple(
+                        bool is_delayed = forward_declarations.contains(subr_name)
+                            && procedure_head_node.parameters.empty();
+
+                        return std::make_tuple(
                             false,
-                            &procedure_head_node.parameters,
-                            static_cast<nodes::Identifier *>(nullptr)
+                            is_delayed ? std::optional<sem::Signature>{}
+                                : resolveSignature(
+                                    block.scope_,
+                                    procedure_head_node.parameters,
+                                    nullptr
+                                )
                         );
-
-                        if (forward_declarations.contains(subr_name)
-                            && procedure_head_node.parameters.empty()
-                        ) {
-                            // this is a delayed declaration
-                            std::get<1>(result) = nullptr;
-                        }
-
-                        return result;
                     },
                 }
             );
 
             sem::Subroutine *subroutine;
 
-            if (parameter_nodes) {
+            if (signature) {
                 // this is the first declaration of this subroutine
 
                 if (checkDuplicateIdentifier(block.scope_, subr_name_node))
                     continue;
 
                 auto [it, success] = block.subroutines_.try_emplace(
-                    subr_name, subr_name_node.view.data(), block);
+                    subr_name, block, subr_name_node.view.data(), *signature);
                 subroutine = &it->second;
-
-                subroutine->is_function_ = is_function;
-
-                // TODO: analyze parameters
             }
             else {
                 // this is a delayed declaration of this subroutine
@@ -931,13 +952,14 @@ public:
 
                 assert(it != block.subroutines_.end());
                 subroutine = &it->second;
+                bool subroutine_is_function = bool(it->second.signature().resultType());
 
-                if (it->second.is_function_ != is_function) {
+                if (subroutine_is_function != is_function) {
                     reporter_.err(subr_name_node.view.data(),
                         "mismatched-subroutine-declaration",
                         "\"{}\" declared as a {} when it had previously been declared as a {}",
                         subr_name, is_function ? "function" : "procedure",
-                        subroutine->is_function_ ? "function" : "procedure");
+                        subroutine_is_function ? "function" : "procedure");
                     reporter_.note(subroutine->last_declaration_location_,
                         "last declaration of \"{}\"", subr_name);
                     continue;

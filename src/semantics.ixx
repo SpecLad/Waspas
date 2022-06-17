@@ -675,19 +675,48 @@ private:
     friend struct BuiltinBlockInitializer;
 };
 
+using FormalParameterSection = std::nullptr_t; // TODO
+
+export
+class Signature {
+public:
+    Signature(
+        std::span<FormalParameterSection> parameters,
+        std::shared_ptr<const Type> result_type
+    )
+        : parameters_(parameters.begin(), parameters.end())
+        , result_type_(result_type)
+    {}
+
+    std::shared_ptr<const Type>
+    resultType() const { return result_type_; }
+
+private:
+    std::vector<FormalParameterSection> parameters_;
+    std::shared_ptr<const Type> result_type_;
+};
+
 export
 class Subroutine {
 public:
-    Subroutine(const char *declaration_location, Block &parent_block)
-        : last_declaration_location_(declaration_location)
-        , block_(&parent_block)
+    Subroutine(
+        Block &parent_block,
+        const char *declaration_location,
+        const Signature &signature
+    )
+        : block_(&parent_block)
+        , last_declaration_location_(declaration_location)
+        , signature_(signature)
     {}
 
-private:
-    const char *last_declaration_location_;
-    bool is_function_; // this will likely be replaced by the signature later
+    const Signature &
+    signature() const { return signature_; }
 
+private:
     Block block_;
+    const char *last_declaration_location_;
+
+    Signature signature_;
 
     friend class ProgramBuilder;
 };
