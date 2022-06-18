@@ -64,10 +64,7 @@ public:
     using Base::Base;
 
     static const T &
-    instance() {
-        static constexpr T t;
-        return t;
-    }
+    instance();
 
     std::string
     str() const override { return std::string(T::NAME); }

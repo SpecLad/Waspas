@@ -13,6 +13,16 @@ module semantics;
 
 using namespace std::literals;
 
+// This should really be defined inline, but doing that
+// makes VC++ generate multiple definitions for the t symbol.
+// TODO: report compiler bug
+template <typename T, typename Base>
+const T &
+sem::TypeBuiltin<T, Base>::instance() {
+    static constexpr T t;
+    return t;
+}
+
 void
 sem::VariantPart::addVariant(
     std::span<std::shared_ptr<const ConstantOrdinal>> case_constants,
