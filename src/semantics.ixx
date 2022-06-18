@@ -49,7 +49,7 @@ public:
     }
 
     virtual const TypeOrdinal &
-    fullRange() const { return *this;}
+    fullRange() const { return *this; }
 
     virtual pascal_integer_t
     smallestOrdinal() const = 0;
