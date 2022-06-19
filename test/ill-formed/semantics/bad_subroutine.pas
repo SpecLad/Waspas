@@ -28,4 +28,6 @@ procedure mismatchedDeclarationFunction; begin end;
          {^ error:mismatched-subroutine-declaration }
 function mismatchedDeclarationFunction; begin mismatchedDeclarationFunction := 0 end;
 
+function disallowedResultType: text; begin disallowedResultType := 0 end;
+                              {^ error:disallowed-result-type }
 begin end.

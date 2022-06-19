@@ -867,7 +867,20 @@ public:
         std::shared_ptr<const sem::Type> result_type;
 
         if (result_type_node) {
-            // TODO: analyze the result type node
+            if (auto type = resolveTypeDenoter(scope, *result_type_node)) {
+                if (dynamic_cast<const sem::TypeOrdinal *>(type.get())
+                    || dynamic_cast<const sem::TypeReal *>(type.get())
+                    || dynamic_cast<const sem::TypePointer *>(type.get())
+                ) {
+                    result_type = type;
+                }
+                else {
+                    reporter_.err(result_type_node->view.data(),
+                        "disallowed-result-type",
+                        "result type \"{}\" is neither a simple nor a pointer type",
+                        type->str());
+                }
+            }
 
             if (!result_type) {
                 // Use a fallback type. We can't just leave result_type as nullptr,
