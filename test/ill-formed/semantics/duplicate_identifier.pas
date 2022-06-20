@@ -49,5 +49,15 @@ function f: integer; begin f := 0 end;
         {^ note }
 function f: integer; begin f := 0 end;
         {^ error:duplicate-identifier }
+
+procedure proc1(
+    a,       a: integer;
+   {^ note }{^ error:duplicate-identifier }
+    procedure b; procedure b;
+             {^ note }    {^ error:duplicate-identifier }
+    function c: integer; function c: integer
+            {^ note }            {^ error:duplicate-identifier }
+);
+    begin end;
 begin
 end.

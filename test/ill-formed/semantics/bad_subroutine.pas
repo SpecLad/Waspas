@@ -30,4 +30,7 @@ function mismatchedDeclarationFunction; begin mismatchedDeclarationFunction := 0
 
 function disallowedResultType: text; begin disallowedResultType := 0 end;
                               {^ error:disallowed-result-type }
+
+procedure disallowedValueParameterType(f: text); begin end;
+                                         {^ error:disallowed-parameter-type }
 begin end.

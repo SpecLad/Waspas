@@ -9,6 +9,7 @@ module;
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <variant>
 
 export module semantics;
 
@@ -23,15 +24,15 @@ struct BuiltinBlockInitializer;
 namespace sem {
 
 export
-class Type {
+class DynamicType {
 public:
-    Type() = default;
+    DynamicType() = default;
+
+    DynamicType(const DynamicType &) = delete;
+    DynamicType &operator =(const DynamicType &) = delete;
 
     virtual constexpr
-    ~Type() = default;
-
-    Type(const Type &) = delete;
-    Type &operator =(const Type &) = delete;
+    ~DynamicType() = default;
 
     virtual std::string
     str() const = 0;
@@ -39,6 +40,9 @@ public:
     virtual bool
     canBeFileComponent() const { return true; }
 };
+
+export
+class Type : public DynamicType {};
 
 export
 class TypeOrdinal : public Type {
@@ -672,7 +676,7 @@ private:
     friend struct BuiltinBlockInitializer;
 };
 
-using FormalParameterSection = std::nullptr_t; // TODO
+class FormalParameterSection;
 
 export
 class Signature {
@@ -691,6 +695,52 @@ public:
 private:
     std::vector<FormalParameterSection> parameters_;
     std::shared_ptr<const Type> result_type_;
+};
+
+export
+class RegularParameterSection {
+public:
+    RegularParameterSection(
+        bool is_variable,
+        std::span<std::string> names,
+        std::shared_ptr<const DynamicType> type
+    )
+        : is_variable_(is_variable)
+        , names_(names.begin(), names.end())
+        , type_(type)
+    {
+        assert(!names.empty());
+    }
+
+private:
+    bool is_variable_;
+
+    // It would have made more sense to have one parameter object per name,
+    // but the Pascal signature matching rules require the parameter sections
+    // to match, so we have to remember which names were originally in which
+    // sections.
+    std::vector<std::string> names_;
+    std::shared_ptr<const DynamicType> type_;
+};
+
+export
+class SubroutineParameterSpecification {
+public:
+    SubroutineParameterSpecification(
+        const std::string &name, const Signature &signature
+    ) : name_(name), signature_(signature) {}
+
+private:
+    std::string name_;
+    Signature signature_;
+};
+
+// Ugly, but we can't just alias FormalParameterSection to std::variant,
+// since we need to forward-declare it to break the dependency loop.
+class FormalParameterSection
+    : public std::variant<RegularParameterSection, SubroutineParameterSpecification>
+{
+    using variant::variant;
 };
 
 export

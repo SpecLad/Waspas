@@ -854,15 +854,134 @@ public:
         }
     }
 
+    static void
+    collectBoundDefiningOccurrences(
+        sem::Scope &scope,
+        nodes::FormalParameterTypeOrSchema &type_or_schema_node
+    ) {
+        visit(type_or_schema_node, overloaded{
+            [](const nodes::Identifier &) {},
+            [&](const nodes::PackedConformantArraySchema &schema_node) {
+                scope.add(schema_node.index_type.smallest);
+                scope.add(schema_node.index_type.largest);
+            },
+            [&](const nodes::UnpackedConformantArraySchema &schema_node) {
+                for (auto &index_type_node : schema_node.index_types) {
+                    scope.add(index_type_node.smallest);
+                    scope.add(index_type_node.largest);
+                }
+
+                collectBoundDefiningOccurrences(scope, *schema_node.component_type);
+            },
+        });
+    }
+
+    std::shared_ptr<const sem::DynamicType>
+    resolveDynamicType(
+        sem::Scope &scope, nodes::FormalParameterTypeOrSchema &type_or_schema_node
+    ) {
+        return visit(type_or_schema_node, overloaded{
+            [&](nodes::Identifier &id_node) -> std::shared_ptr<const sem::DynamicType> {
+                return resolveTypeDenoter(scope, id_node);
+            },
+            [&](nodes::PackedConformantArraySchema &schema_node)
+                -> std::shared_ptr<const sem::DynamicType>
+            {
+                reporter_.err(schema_node.view.data(), "unsupported-feature",
+                    "conformant array parameters are not supported");
+                return nullptr;
+            },
+            [&](nodes::UnpackedConformantArraySchema &schema_node)
+                -> std::shared_ptr<const sem::DynamicType>
+            {
+                reporter_.err(schema_node.view.data(), "unsupported-feature",
+                    "conformant array parameters are not supported");
+                return nullptr;
+            },
+        });
+    }
+
     sem::Signature
     resolveSignature(
         sem::Scope &scope,
         std::span<std::unique_ptr<nodes::FormalParameterSection>> parameter_section_nodes,
         nodes::Identifier *result_type_node
     ) {
+        sem::Scope parameter_list_scope(&scope, nullptr);
         std::vector<sem::FormalParameterSection> parameters;
 
-        // TODO: analyze the parameter section nodes
+        for (auto &parameter_section_node : parameter_section_nodes) {
+            visit(*parameter_section_node, overloaded{
+                [&](nodes::SubroutineHeading &heading_node) {
+                    parameter_list_scope.add(heading_node.name);
+                },
+                [&](nodes::RegularParameterSection &rps_node) {
+                    for (auto &id_node : rps_node.parameter_names)
+                        parameter_list_scope.add(id_node);
+
+                    collectBoundDefiningOccurrences(
+                        parameter_list_scope, *rps_node.parameter_type);
+                },
+            });
+        }
+
+        for (auto &parameter_section_node : parameter_section_nodes) {
+            visit(*parameter_section_node, overloaded{
+                [&](nodes::FunctionHeading &heading_node) {
+                    if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
+                        return;
+
+                    auto signature = resolveSignature(
+                        parameter_list_scope,
+                        heading_node.parameters, &heading_node.result_type);
+
+                    parameters.push_back(sem::SubroutineParameterSpecification(
+                        heading_node.name.spelling, signature));
+                },
+                [&](nodes::ProcedureHeading &heading_node) {
+                    if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
+                        return;
+
+                    auto signature = resolveSignature(
+                        parameter_list_scope,
+                        heading_node.parameters, nullptr);
+
+                    parameters.push_back(sem::SubroutineParameterSpecification(
+                        heading_node.name.spelling, signature));
+                },
+                [&](nodes::RegularParameterSection &rps_node) {
+                    std::vector<std::string> names;
+
+                    for (auto &id_node : rps_node.parameter_names) {
+                        if (checkDuplicateIdentifier(parameter_list_scope, id_node))
+                            continue;
+
+                        names.push_back(id_node.spelling);
+                    }
+
+                    if (names.empty()) return;
+
+                    auto type = resolveDynamicType(parameter_list_scope, *rps_node.parameter_type);
+
+                    if (type && !rps_node.is_variable && !type->canBeFileComponent()) {
+                        reporter_.err(rps_node.parameter_type->view.data(),
+                            "disallowed-parameter-type",
+                            "disallowed type \"{}\" used as value parameter type",
+                            type->str());
+                        type = nullptr;
+                    }
+
+                    if (!type) {
+                        // Use a fallback type.
+                        type = BuiltinBlockInitializer::getBuiltinPtr(
+                            sem::TypeInteger::instance);
+                    }
+
+                    parameters.push_back(sem::RegularParameterSection(
+                        rps_node.is_variable, names, type));
+                },
+            });
+        }
 
         std::shared_ptr<const sem::Type> result_type;
 
