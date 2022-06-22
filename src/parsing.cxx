@@ -696,29 +696,41 @@ public:
     }
 
     void
-    parsePackedConformantArraySchema(nodes::PackedConformantArraySchema &pcas) {
-        auto rec = viewRecorder(pcas);
+    parsePackedConformantArraySchema(nodes::ConformantArraySchema &cas) {
+        auto rec = viewRecorder(cas);
 
         token_reader_.consume<TokenWsPacked>();
+        cas.is_packed = true;
+
         token_reader_.consume<TokenWsArray>();
         token_reader_.consume<TokenLeftBracket>();
-        parseIndexTypeSpecification(pcas.index_type);
+
+        nodes::IndexTypeSpecification index_type;
+        parseIndexTypeSpecification(index_type);
+        cas.index_types.push_back(std::move(index_type));
+
         token_reader_.consume<TokenRightBracket>();
         token_reader_.consume<TokenWsOf>();
-        parseIdentifier(pcas.component_type);
+
+        nodes::Identifier component_type;
+        parseIdentifier(component_type);
+        cas.component_type = std::make_unique<nodes::Identifier>(
+            std::move(component_type));
     }
 
     void
-    parseUnpackedConformantArraySchema(nodes::UnpackedConformantArraySchema &ucas) {
-        auto rec = viewRecorder(ucas);
+    parseUnpackedConformantArraySchema(nodes::ConformantArraySchema &cas) {
+        auto rec = viewRecorder(cas);
+
+        cas.is_packed = false;
 
         token_reader_.consume<TokenWsArray>();
         token_reader_.consume<TokenLeftBracket>();
-        parseSeparatedList<TokenSemicolon>(ucas.index_types,
+        parseSeparatedList<TokenSemicolon>(cas.index_types,
             &Parser::parseIndexTypeSpecification);
         token_reader_.consume<TokenRightBracket>();
         token_reader_.consume<TokenWsOf>();
-        parseFormalParameterTypeOrSchema(ucas.component_type);
+        parseFormalParameterTypeOrSchema(cas.component_type);
     }
 
     void

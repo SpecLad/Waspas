@@ -860,12 +860,7 @@ public:
         nodes::FormalParameterTypeOrSchema &type_or_schema_node
     ) {
         visit(type_or_schema_node, overloaded{
-            [](const nodes::Identifier &) {},
-            [&](const nodes::PackedConformantArraySchema &schema_node) {
-                scope.add(schema_node.index_type.smallest);
-                scope.add(schema_node.index_type.largest);
-            },
-            [&](const nodes::UnpackedConformantArraySchema &schema_node) {
+            [&](const nodes::ConformantArraySchema &schema_node) {
                 for (auto &index_type_node : schema_node.index_types) {
                     scope.add(index_type_node.smallest);
                     scope.add(index_type_node.largest);
@@ -873,6 +868,7 @@ public:
 
                 collectBoundDefiningOccurrences(scope, *schema_node.component_type);
             },
+            [](const nodes::Identifier &) {},
         });
     }
 
@@ -881,22 +877,15 @@ public:
         sem::Scope &scope, nodes::FormalParameterTypeOrSchema &type_or_schema_node
     ) {
         return visit(type_or_schema_node, overloaded{
+            [&](nodes::ConformantArraySchema &schema_node)
+                -> std::shared_ptr<const sem::DynamicType>
+            {
+                reporter_.err(schema_node.view.data(), "unsupported-feature",
+                    "conformant array parameters are not supported");
+                return nullptr;
+            },
             [&](nodes::Identifier &id_node) -> std::shared_ptr<const sem::DynamicType> {
                 return resolveTypeDenoter(scope, id_node);
-            },
-            [&](nodes::PackedConformantArraySchema &schema_node)
-                -> std::shared_ptr<const sem::DynamicType>
-            {
-                reporter_.err(schema_node.view.data(), "unsupported-feature",
-                    "conformant array parameters are not supported");
-                return nullptr;
-            },
-            [&](nodes::UnpackedConformantArraySchema &schema_node)
-                -> std::shared_ptr<const sem::DynamicType>
-            {
-                reporter_.err(schema_node.view.data(), "unsupported-feature",
-                    "conformant array parameters are not supported");
-                return nullptr;
             },
         });
     }

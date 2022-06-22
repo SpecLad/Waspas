@@ -359,6 +359,14 @@ NODE_TYPES = (
         NodeListField('statements', 'Statement'),
     )),
 
+    NodeType('ConformantArraySchema', bases=(
+        'FormalParameterTypeOrSchema',
+    ), fields=(
+        BooleanField('is_packed'),
+        NodeListField('index_types', 'IndexTypeSpecification'),
+        NodeField('component_type', 'FormalParameterTypeOrSchema'),
+    )),
+
     NodeType('Constant', abstract=True),
 
     NodeType('ConstantDefinition', fields=(
@@ -480,13 +488,6 @@ NODE_TYPES = (
 
     NodeType('OrdinalType', abstract=True, bases=('TypeDenoter',)),
 
-    NodeType('PackedConformantArraySchema', bases=(
-        'FormalParameterTypeOrSchema',
-    ), fields=(
-        NodeField('index_type', 'IndexTypeSpecification'),
-        NodeField('component_type', 'Identifier'),
-    )),
-
     NodeType('Parenthetical', bases=('Factor',), fields=(
         NodeField('inner_expression', 'Expression'),
     )),
@@ -597,13 +598,6 @@ NODE_TYPES = (
     NodeType('TypeDenoter', abstract=True),
 
     NodeType('UnlabeledStatement', abstract=True),
-
-    NodeType('UnpackedConformantArraySchema', bases=(
-        'FormalParameterTypeOrSchema',
-    ), fields=(
-        NodeListField('index_types', 'IndexTypeSpecification'),
-        NodeField('component_type', 'FormalParameterTypeOrSchema'),
-    )),
 
     NodeType('UnpackedStructuredType', abstract=True),
 
