@@ -25,11 +25,11 @@ sem::TypeBuiltin<T, Base>::instance() {
 
 void
 sem::VariantPart::addVariant(
-    std::span<std::shared_ptr<const ConstantOrdinal>> case_constants,
+    std::span<ConstantOrdinal::ptr_t> case_constants,
     const FieldList &fields
 ) {
     variants_.push_back(Variant{
-        std::vector<std::shared_ptr<const ConstantOrdinal>>(
+        std::vector<ConstantOrdinal::ptr_t>(
             case_constants.begin(), case_constants.end()),
         fields,
     });
@@ -158,7 +158,7 @@ public:
     }
 
     void
-    applySignToConstant(std::shared_ptr<const sem::Constant> &v, nodes::Sign sign, const char *location) {
+    applySignToConstant(sem::Constant::ptr_t &v, nodes::Sign sign, const char *location) {
         if (sign == nodes::Sign::NONE) return;
 
         if (auto *p_integer_value = dynamic_cast<const sem::ConstantInteger *>(v.get())) {
@@ -336,7 +336,7 @@ public:
         return nullptr;
     }
 
-    std::shared_ptr<const sem::Constant> *
+    sem::Constant::ptr_t *
     lookupConstant(
         sem::Scope &scope,
         const nodes::Identifier &applied_occurrence_node
@@ -345,7 +345,7 @@ public:
             &sem::Block::constants_, "constant");
     }
 
-    std::shared_ptr<const sem::Type> *
+    sem::Type::ptr_t *
     lookupType(
         sem::Scope &scope,
         const nodes::Identifier &applied_occurrence_node
@@ -354,10 +354,10 @@ public:
             &sem::Block::types_, "type");
     }
 
-    std::shared_ptr<const sem::Constant>
+    sem::Constant::ptr_t
     resolveConstant(sem::Scope &scope, nodes::Constant &constant_node) {
         auto constant_location = constant_node.view.data();
-        std::shared_ptr<const sem::Constant> constant;
+        sem::Constant::ptr_t constant;
 
         visit(constant_node, overloaded{
             [&, this](nodes::SignedConstant &sc_node) {
@@ -548,7 +548,7 @@ public:
             std::unordered_map<pascal_integer_t, const char *> used_ordinals;
 
             for (auto &variant : variant_part_node->variants) {
-                std::vector<std::shared_ptr<const sem::ConstantOrdinal>> case_constants;
+                std::vector<sem::ConstantOrdinal::ptr_t> case_constants;
 
                 for (auto &constant_node : variant.case_constants) {
                     auto constant = resolveConstant(scope, *constant_node);
@@ -687,7 +687,7 @@ public:
         return enumerated_type;
     }
 
-    std::shared_ptr<const sem::Type>
+    sem::Type::ptr_t
     resolveTypeDenoter(
         sem::Scope &scope, nodes::Identifier &id_node
     ) {
@@ -748,12 +748,12 @@ public:
             defining_scope->block(), domain_type_name);
     }
 
-    std::shared_ptr<const sem::Type>
+    sem::Type::ptr_t
     resolveTypeDenoter(
         sem::Scope &scope, nodes::NewStructuredType &structured_type_node
     ) {
         return visit(*structured_type_node.unpacked,
-            [&](auto &node) -> std::shared_ptr<const sem::Type> {
+            [&](auto &node) -> sem::Type::ptr_t {
                 return resolveStructuredType(scope, node, structured_type_node.is_packed);
             }
         );
@@ -804,10 +804,10 @@ public:
         return std::make_shared<sem::TypeSubrange>(smallest_ordinal, largest_ordinal);
     }
 
-    std::shared_ptr<const sem::Type>
+    sem::Type::ptr_t
     resolveType(sem::Scope &scope, nodes::TypeDenoter &type_denoter_node) {
         return visit(type_denoter_node,
-            [&](auto &node) -> std::shared_ptr<const sem::Type> {
+            [&](auto &node) -> sem::Type::ptr_t {
                 return resolveTypeDenoter(scope, node);
             }
         );
@@ -872,19 +872,19 @@ public:
         });
     }
 
-    std::shared_ptr<const sem::DynamicType>
+    sem::DynamicType::ptr_t
     resolveDynamicType(
         sem::Scope &scope, nodes::FormalParameterTypeOrSchema &type_or_schema_node
     ) {
         return visit(type_or_schema_node, overloaded{
             [&](nodes::ConformantArraySchema &schema_node)
-                -> std::shared_ptr<const sem::DynamicType>
+                -> sem::DynamicType::ptr_t
             {
                 reporter_.err(schema_node.view.data(), "unsupported-feature",
                     "conformant array parameters are not supported");
                 return nullptr;
             },
-            [&](nodes::Identifier &id_node) -> std::shared_ptr<const sem::DynamicType> {
+            [&](nodes::Identifier &id_node) -> sem::DynamicType::ptr_t {
                 return resolveTypeDenoter(scope, id_node);
             },
         });
@@ -972,7 +972,7 @@ public:
             });
         }
 
-        std::shared_ptr<const sem::Type> result_type;
+        sem::Type::ptr_t result_type;
 
         if (result_type_node) {
             if (auto type = resolveTypeDenoter(scope, *result_type_node)) {

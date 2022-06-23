@@ -26,6 +26,8 @@ namespace sem {
 export
 class DynamicType {
 public:
+    using ptr_t = std::shared_ptr<const DynamicType>;
+
     DynamicType() = default;
 
     DynamicType(const DynamicType &) = delete;
@@ -42,11 +44,16 @@ public:
 };
 
 export
-class Type : public DynamicType {};
+class Type : public DynamicType {
+public:
+    using ptr_t = std::shared_ptr<const Type>;
+};
 
 export
 class TypeOrdinal : public Type {
 public:
+    using ptr_t = std::shared_ptr<const TypeOrdinal>;
+
     bool
     isCompatibleWith(const TypeOrdinal &other) const {
         return &fullRange() == &other.fullRange();
@@ -60,6 +67,33 @@ public:
 
     virtual pascal_integer_t
     largestOrdinal() const = 0;
+};
+
+export
+class Constant {
+public:
+    using ptr_t = std::shared_ptr<const Constant>;
+
+    virtual constexpr
+    ~Constant() = default;
+
+    virtual const Type &
+    type() const = 0;
+};
+
+export
+class ConstantOrdinal : public Constant {
+public:
+    using ptr_t = std::shared_ptr<const ConstantOrdinal>;
+
+    const TypeOrdinal &
+    type() const override = 0;
+
+    virtual std::string
+    str() const = 0;
+
+    virtual pascal_integer_t
+    ordinalNumber() const = 0;
 };
 
 template <typename T, typename Base = Type>
@@ -134,7 +168,6 @@ private:
     friend class TypeBuiltin;
 };
 
-class ConstantOrdinal;
 class ConstantEnumerated;
 
 export
@@ -163,8 +196,8 @@ export
 class TypeSubrange final : public TypeOrdinal {
 public:
     TypeSubrange(
-        std::shared_ptr<const ConstantOrdinal> smallest_value,
-        std::shared_ptr<const ConstantOrdinal> largest_value
+        ConstantOrdinal::ptr_t smallest_value,
+        ConstantOrdinal::ptr_t largest_value
     ) : smallest_value_(smallest_value), largest_value_(largest_value) {}
 
     std::string
@@ -180,16 +213,16 @@ public:
     largestOrdinal() const override;
 
 private:
-    std::shared_ptr<const ConstantOrdinal> smallest_value_;
-    std::shared_ptr<const ConstantOrdinal> largest_value_;
+    ConstantOrdinal::ptr_t smallest_value_;
+    ConstantOrdinal::ptr_t largest_value_;
 };
 
 export
 class TypeArray final : public Type {
 public:
     TypeArray(
-        std::shared_ptr<const TypeOrdinal> index_type,
-        std::shared_ptr<const Type> component_type,
+        TypeOrdinal::ptr_t index_type,
+        Type::ptr_t component_type,
         bool is_packed
     ) : index_type_(index_type), component_type_(component_type), is_packed_(is_packed) {}
 
@@ -205,8 +238,8 @@ public:
     }
 
 private:
-    std::shared_ptr<const TypeOrdinal> index_type_;
-    std::shared_ptr<const Type> component_type_;
+    TypeOrdinal::ptr_t index_type_;
+    Type::ptr_t component_type_;
     bool is_packed_;
 };
 
@@ -222,7 +255,7 @@ export
 class TypeFile final : public TypeFileLike {
 public:
     TypeFile(
-        std::shared_ptr<const Type> component_type,
+        Type::ptr_t component_type,
         bool is_packed
     ) : component_type_(component_type), is_packed_(is_packed) {
         assert(component_type_->canBeFileComponent());
@@ -235,7 +268,7 @@ public:
     }
 
 private:
-    std::shared_ptr<const Type> component_type_;
+    Type::ptr_t component_type_;
     bool is_packed_;
 };
 
@@ -255,7 +288,7 @@ struct Variant;
 export
 class VariantPart {
 public:
-    explicit VariantPart(std::shared_ptr<const TypeOrdinal> tag_type)
+    explicit VariantPart(TypeOrdinal::ptr_t tag_type)
         : tag_type_(tag_type)
     {}
 
@@ -269,12 +302,12 @@ public:
 
     void
     addVariant(
-        std::span<std::shared_ptr<const ConstantOrdinal>> case_constants,
+        std::span<ConstantOrdinal::ptr_t> case_constants,
         const FieldList &fields
     );
 
 private:
-    std::shared_ptr<const TypeOrdinal> tag_type_;
+    TypeOrdinal::ptr_t tag_type_;
     std::optional<std::string> tag_field_;
     std::vector<Variant> variants_;
 };
@@ -295,7 +328,7 @@ public:
     }
 
     void
-    addField(const std::string &name, std::shared_ptr<const Type> type) {
+    addField(const std::string &name, Type::ptr_t type) {
         fields_.push_back(name);
         field_types_.emplace(name, type);
     }
@@ -310,12 +343,12 @@ public:
 
 private:
     std::vector<std::string> fields_;
-    std::unordered_map<std::string, std::shared_ptr<const Type>> field_types_;
+    std::unordered_map<std::string, Type::ptr_t> field_types_;
     std::optional<VariantPart> variant_part_;
 };
 
 struct Variant {
-    std::vector<std::shared_ptr<const ConstantOrdinal>> case_constants;
+    std::vector<ConstantOrdinal::ptr_t> case_constants;
     FieldList fields;
 };
 
@@ -362,7 +395,7 @@ export
 class TypeSet final : public Type {
 public:
     TypeSet(
-        std::shared_ptr<const TypeOrdinal> base_type,
+        TypeOrdinal::ptr_t base_type,
         bool is_packed
     ) : base_type_(base_type), is_packed_(is_packed) {}
 
@@ -373,7 +406,7 @@ public:
     }
 
 private:
-    std::shared_ptr<const TypeOrdinal> base_type_;
+    TypeOrdinal::ptr_t base_type_;
     bool is_packed_;
 };
 
@@ -397,29 +430,6 @@ public:
 private:
     const Block &domain_type_block_;
     std::string domain_type_name_;
-};
-
-export
-class Constant {
-public:
-    virtual constexpr
-    ~Constant() = default;
-
-    virtual const Type &
-    type() const = 0;
-};
-
-export
-class ConstantOrdinal : public Constant {
-public:
-    const TypeOrdinal &
-    type() const override = 0;
-
-    virtual std::string
-    str() const = 0;
-
-    virtual pascal_integer_t
-    ordinalNumber() const = 0;
 };
 
 export
@@ -535,7 +545,7 @@ public:
                 std::make_shared<ConstantInteger>(1),
                 std::make_shared<ConstantInteger>(pascal_integer_t(value.size()))
             ),
-            std::shared_ptr<const Type>(std::shared_ptr<void>(), &TypeChar::instance()),
+            Type::ptr_t(std::shared_ptr<void>(), &TypeChar::instance()),
             true
         )
     {
@@ -667,9 +677,9 @@ private:
     Scope scope_;
 
     std::unordered_map<pascal_integer_t, const char *> labels_;
-    std::unordered_map<std::string, std::shared_ptr<const Constant>> constants_;
-    std::unordered_map<std::string, std::shared_ptr<const Type>> types_;
-    std::unordered_map<std::string, std::shared_ptr<const Type>> variables_;
+    std::unordered_map<std::string, Constant::ptr_t> constants_;
+    std::unordered_map<std::string, Type::ptr_t> types_;
+    std::unordered_map<std::string, Type::ptr_t> variables_;
     std::unordered_map<std::string, Subroutine> subroutines_;
 
     friend class ProgramBuilder;
@@ -683,18 +693,18 @@ class Signature {
 public:
     Signature(
         std::span<FormalParameterSection> parameters,
-        std::shared_ptr<const Type> result_type
+        Type::ptr_t result_type
     )
         : parameters_(parameters.begin(), parameters.end())
         , result_type_(result_type)
     {}
 
-    std::shared_ptr<const Type>
+    Type::ptr_t
     resultType() const { return result_type_; }
 
 private:
     std::vector<FormalParameterSection> parameters_;
-    std::shared_ptr<const Type> result_type_;
+    Type::ptr_t result_type_;
 };
 
 export
@@ -703,7 +713,7 @@ public:
     RegularParameterSection(
         bool is_variable,
         std::span<std::string> names,
-        std::shared_ptr<const DynamicType> type
+        DynamicType::ptr_t type
     )
         : is_variable_(is_variable)
         , names_(names.begin(), names.end())
@@ -720,7 +730,7 @@ private:
     // to match, so we have to remember which names were originally in which
     // sections.
     std::vector<std::string> names_;
-    std::shared_ptr<const DynamicType> type_;
+    DynamicType::ptr_t type_;
 };
 
 export
