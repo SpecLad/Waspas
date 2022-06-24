@@ -201,16 +201,27 @@ public:
     ) : smallest_value_(smallest_value), largest_value_(largest_value) {}
 
     std::string
-    str() const override;
+    str() const override {
+        return smallest_value_->str() + ".."s + largest_value_->str();
+    }
 
     const TypeOrdinal &
-    fullRange() const override;
+    fullRange() const override {
+        // It shouldn't be possible to form subranges of subranges,
+        // so `smallest_value_->type()` should be sufficient, but
+        // just in case, we also call `fullRange` on that.
+        return smallest_value_->type().fullRange();
+    }
 
     pascal_integer_t
-    smallestOrdinal() const override;
+    smallestOrdinal() const override {
+        return smallest_value_->ordinalNumber();
+    }
 
     pascal_integer_t
-    largestOrdinal() const override;
+    largestOrdinal() const override {
+        return largest_value_->ordinalNumber();
+    }
 
 private:
     ConstantOrdinal::ptr_t smallest_value_;

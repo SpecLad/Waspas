@@ -57,29 +57,6 @@ sem::TypeEnumerated::str() const {
     return s;
 }
 
-std::string
-sem::TypeSubrange::str() const {
-    return smallest_value_->str() + ".."s + largest_value_->str();
-}
-
-const sem::TypeOrdinal &
-sem::TypeSubrange::fullRange() const {
-    // It shouldn't be possible to form subranges of subranges,
-    // so `smallest_value_->type()` should be sufficient, but
-    // just in case, we also call `fullRange` on that.
-    return smallest_value_->type().fullRange();
-}
-
-pascal_integer_t
-sem::TypeSubrange::smallestOrdinal() const {
-    return smallest_value_->ordinalNumber();
-}
-
-pascal_integer_t
-sem::TypeSubrange::largestOrdinal() const {
-    return largest_value_->ordinalNumber();
-}
-
 template<class... Ts>
 struct overloaded : Ts... {
     using Ts::operator()...;
