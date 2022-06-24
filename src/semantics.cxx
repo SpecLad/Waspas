@@ -57,6 +57,17 @@ sem::TypeEnumerated::str() const {
     return s;
 }
 
+// In situations where a type fails to resolve this function can be used
+// to recover without dropping the declaration being analysed entirely.
+template <typename T>
+void
+applyFallback(std::shared_ptr<const T> &ptr)
+    requires std::is_base_of_v<T, sem::TypeInteger>
+{
+    if (!ptr)
+        ptr = BuiltinBlockInitializer::getBuiltinPtr(sem::TypeInteger::instance);
+}
+
 template<class... Ts>
 struct overloaded : Ts... {
     using Ts::operator()...;
@@ -801,11 +812,7 @@ public:
 
             auto &type = block.types_[type_def_node.name.spelling];
             type = resolveType(block.scope_, *type_def_node.denoter);
-
-            if (!type) {
-                // use a fallback type so that we can continue with the analysis
-                type = BuiltinBlockInitializer::getBuiltinPtr(sem::TypeInteger::instance);
-            }
+            applyFallback(type);
         }
     }
 
@@ -816,11 +823,7 @@ public:
     ) {
         for (auto &var_decl_node : block_node.variable_declarations) {
             auto type = resolveType(block.scope_, *var_decl_node.var_type);
-
-            if (!type) {
-                // use a fallback type so that we can continue with the analysis
-                type = BuiltinBlockInitializer::getBuiltinPtr(sem::TypeInteger::instance);
-            }
+            applyFallback(type);
 
             for (auto &var_name_node : var_decl_node.var_names) {
                 if (checkDuplicateIdentifier(block.scope_, var_name_node))
@@ -937,11 +940,7 @@ public:
                         type = nullptr;
                     }
 
-                    if (!type) {
-                        // Use a fallback type.
-                        type = BuiltinBlockInitializer::getBuiltinPtr(
-                            sem::TypeInteger::instance);
-                    }
+                    applyFallback(type);
 
                     parameters.push_back(sem::RegularParameterSection(
                         rps_node.is_variable, names, type));
@@ -967,13 +966,10 @@ public:
                 }
             }
 
-            if (!result_type) {
-                // Use a fallback type. We can't just leave result_type as nullptr,
-                // since that would turn the function into a procedure and cause
-                // more errors down the line.
-                result_type = BuiltinBlockInitializer::getBuiltinPtr(
-                    sem::TypeInteger::instance);
-            }
+            // If result_type is nullptr, we can't just leave it as that,
+            // since that would turn the function into a procedure
+            // and cause more errors down the line.
+            applyFallback(result_type);
         }
 
         return sem::Signature(parameters, result_type);
