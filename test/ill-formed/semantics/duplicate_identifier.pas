@@ -55,8 +55,12 @@ procedure proc1(
    {^ note }{^ error:duplicate-identifier }
     procedure b; procedure b;
              {^ note }    {^ error:duplicate-identifier }
-    function c: integer; function c: integer
+    function c: integer; function c: integer;
             {^ note }            {^ error:duplicate-identifier }
+    d,       d:
+   {^ note }{^ error:duplicate-identifier }
+        array [e..      e: integer] of integer
+              {^ note }{^ error:duplicate-identifier }
 );
     begin end;
 begin

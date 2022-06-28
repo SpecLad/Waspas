@@ -444,6 +444,49 @@ private:
 };
 
 export
+class ConformantArraySchema final : public DynamicType {
+public:
+    ConformantArraySchema(
+        const std::string &smallest_bound, const std::string &largest_bound,
+        TypeOrdinal::ptr_t bound_type, DynamicType::ptr_t component_type,
+        bool is_packed
+    )
+        : smallest_bound_(smallest_bound)
+        , largest_bound_(largest_bound)
+        , bound_type_(bound_type)
+        , component_type_(component_type)
+        , is_packed_(is_packed)
+    {}
+
+    std::string
+    str() const override {
+        // the following gives ICE in MSVC++ 17.2.5:
+        //return std::format("{}array [{}..{}: {}] of {}",
+        //    is_packed_ ? "packed "sv : ""sv,
+        //    smallest_bound_, largest_bound_, bound_type_->str(),
+        //    component_type_->str());
+        return (is_packed_ ? "packed "s : ""s) +
+            "array ["s + smallest_bound_ + ".."s + largest_bound_ + ": "s +
+            bound_type_->str() + "] of "s + component_type_->str();
+    }
+
+    // Schemas can't really be file components, but we need to implement this
+    // method anyway so that analysis can determine whether a schema should be
+    // allowed as a value parameter.
+    bool
+    canBeFileComponent() const override {
+        return component_type_->canBeFileComponent();
+    }
+
+private:
+    std::string smallest_bound_;
+    std::string largest_bound_;
+    TypeOrdinal::ptr_t bound_type_;
+    DynamicType::ptr_t component_type_;
+    bool is_packed_;
+};
+
+export
 template <typename T, typename Value, typename Base = Constant>
 class ConstantImpl : public Base {
 public:

@@ -860,9 +860,41 @@ public:
             [&](nodes::ConformantArraySchema &schema_node)
                 -> sem::DynamicType::ptr_t
             {
-                reporter_.err(schema_node.view.data(), "unsupported-feature",
-                    "conformant array parameters are not supported");
-                return nullptr;
+                auto component_type = resolveDynamicType(scope, *schema_node.component_type);
+                if (!component_type) return nullptr;
+
+                std::shared_ptr<const sem::ConformantArraySchema> schema;
+
+                for (auto &index_type_node : std::views::reverse(schema_node.index_types)) {
+                    if (checkDuplicateIdentifier(scope, index_type_node.smallest))
+                        return nullptr;
+
+                    if (checkDuplicateIdentifier(scope, index_type_node.largest))
+                        return nullptr;
+
+                    auto bound_type = resolveType(scope, index_type_node.bound_type);
+                    if (!bound_type) return nullptr;
+
+                    auto bound_type_ordinal
+                        = std::dynamic_pointer_cast<const sem::TypeOrdinal>(bound_type);
+
+                    if (!bound_type_ordinal) {
+                        reporter_.err(index_type_node.bound_type.view.data(), "non-ordinal-type",
+                            "bound type is non-ordinal");
+                        return nullptr;
+                    }
+
+                    schema = std::make_shared<sem::ConformantArraySchema>(
+                        index_type_node.smallest.spelling, index_type_node.largest.spelling,
+                        bound_type_ordinal, component_type, schema_node.is_packed);
+                    component_type = schema;
+                }
+
+                // The grammar requires at least one index type, so the loop should
+                // execute at least once.
+                assert(schema);
+
+                return schema;
             },
             [&](nodes::Identifier &id_node) -> sem::DynamicType::ptr_t {
                 return resolveTypeDenoter(scope, id_node);

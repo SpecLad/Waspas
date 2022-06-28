@@ -33,4 +33,11 @@ function disallowedResultType: text; begin disallowedResultType := 0 end;
 
 procedure disallowedValueParameterType(f: text); begin end;
                                          {^ error:disallowed-parameter-type }
+
+procedure disallowedValueConformantArray(a: array [m..n: integer] of text); begin end;
+                                           {^ error:disallowed-parameter-type }
+
+procedure nonOrdinalBoundType(a: array [m..n: real] of integer); begin end;
+                                             {^ error:non-ordinal-type }
+
 begin end.
