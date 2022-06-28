@@ -986,9 +986,6 @@ public:
             const auto &subr_name_node = subr_decl_node.heading->name;
             const auto &subr_name = subr_name_node.spelling;
 
-            using parameters_t
-                = std::vector<std::unique_ptr<nodes::FormalParameterSection>>;
-
             auto [is_function, signature] = visit(
                 *subr_decl_node.heading, overloaded{
                     [&](nodes::FunctionHeading &function_head_node) {
