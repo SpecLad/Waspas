@@ -740,7 +740,7 @@ private:
     friend struct BuiltinBlockInitializer;
 };
 
-class FormalParameterSection;
+struct FormalParameterSection;
 
 export
 class Signature {
@@ -801,10 +801,9 @@ private:
 
 // Ugly, but we can't just alias FormalParameterSection to std::variant,
 // since we need to forward-declare it to break the dependency loop.
-class FormalParameterSection
-    : public std::variant<RegularParameterSection, SubroutineParameterSpecification>
+struct FormalParameterSection
 {
-    using variant::variant;
+    std::variant<RegularParameterSection, SubroutineParameterSpecification> v;
 };
 
 export

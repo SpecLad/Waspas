@@ -936,8 +936,9 @@ public:
                         parameter_list_scope,
                         heading_node.parameters, &heading_node.result_type);
 
-                    parameters.push_back(sem::SubroutineParameterSpecification(
-                        heading_node.name.spelling, signature));
+                    parameters.push_back(sem::FormalParameterSection{
+                        sem::SubroutineParameterSpecification(
+                            heading_node.name.spelling, signature)});
                 },
                 [&](nodes::ProcedureHeading &heading_node) {
                     if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
@@ -947,8 +948,9 @@ public:
                         parameter_list_scope,
                         heading_node.parameters, nullptr);
 
-                    parameters.push_back(sem::SubroutineParameterSpecification(
-                        heading_node.name.spelling, signature));
+                    parameters.push_back(sem::FormalParameterSection{
+                        sem::SubroutineParameterSpecification(
+                            heading_node.name.spelling, signature)});
                 },
                 [&](nodes::RegularParameterSection &rps_node) {
                     std::vector<std::string> names;
@@ -974,8 +976,9 @@ public:
 
                     applyFallback(type);
 
-                    parameters.push_back(sem::RegularParameterSection(
-                        rps_node.is_variable, names, type));
+                    parameters.push_back(sem::FormalParameterSection{
+                        sem::RegularParameterSection(
+                            rps_node.is_variable, names, type)});
                 },
             });
         }
