@@ -903,7 +903,12 @@ public:
         });
     }
 
-    sem::Signature
+    struct SignatureWithScope {
+        sem::Signature signature;
+        sem::Scope scope;
+    };
+
+    SignatureWithScope
     resolveSignature(
         sem::Scope &scope,
         std::span<std::unique_ptr<nodes::FormalParameterSection>> parameter_section_nodes,
@@ -933,25 +938,25 @@ public:
                     if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
                         return;
 
-                    auto signature = resolveSignature(
+                    auto sws = resolveSignature(
                         parameter_list_scope,
                         heading_node.parameters, &heading_node.result_type);
 
                     parameters.push_back(sem::FormalParameterSection{
                         sem::SubroutineParameterSpecification(
-                            heading_node.name.spelling, signature)});
+                            heading_node.name.spelling, sws.signature)});
                 },
                 [&](nodes::ProcedureHeading &heading_node) {
                     if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
                         return;
 
-                    auto signature = resolveSignature(
+                    auto sws = resolveSignature(
                         parameter_list_scope,
                         heading_node.parameters, nullptr);
 
                     parameters.push_back(sem::FormalParameterSection{
                         sem::SubroutineParameterSpecification(
-                            heading_node.name.spelling, signature)});
+                            heading_node.name.spelling, sws.signature)});
                 },
                 [&](nodes::RegularParameterSection &rps_node) {
                     std::vector<std::string> names;
@@ -1008,7 +1013,10 @@ public:
             applyFallback(result_type);
         }
 
-        return sem::Signature(parameters, result_type);
+        return {
+            sem::Signature(parameters, result_type),
+            parameter_list_scope,
+        };
     }
 
     void
@@ -1024,7 +1032,7 @@ public:
 
             enum SubroutineType { PROCEDURE = 0, FUNCTION = 1 };
             static constexpr std::string_view SUBROUTINE_TYPE_STRS[] = {"procedure"sv, "function"sv};
-            using optional_signature_t = std::variant<sem::Signature, SubroutineType>;
+            using optional_signature_t = std::variant<SignatureWithScope, SubroutineType>;
 
             optional_signature_t opt_sig = visit(
                 *subr_decl_node.heading, overloaded{
@@ -1058,14 +1066,16 @@ public:
             );
 
             sem::Subroutine *subroutine = std::visit(overloaded{
-                [&](const sem::Signature &signature) -> sem::Subroutine * {
+                [&](const SignatureWithScope &sws) -> sem::Subroutine * {
                     // this is the first declaration of this subroutine
 
                     if (checkDuplicateIdentifier(block.scope_, subr_name_node))
                         return nullptr;
 
                     auto [it, success] = block.subroutines_.try_emplace(
-                        subr_name, block, subr_name_node.view.data(), signature);
+                        subr_name, block, subr_name_node.view.data(), sws.signature);
+
+                    it->second.block_.scope_.mergeFrom(sws.scope);
                     return &it->second;
                 },
                 [&](SubroutineType subr_type) -> sem::Subroutine * {

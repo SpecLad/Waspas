@@ -63,5 +63,11 @@ procedure proc1(
               {^ note }{^ error:duplicate-identifier }
 );
     begin end;
+
+procedure proc2(a: integer);
+               {^ note }
+    var a: integer;
+       {^ error:duplicate-identifier }
+    begin end;
 begin
 end.

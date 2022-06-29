@@ -681,6 +681,11 @@ public:
         assert(success); // builtins should not be duplicated
     }
 
+    void
+    mergeFrom(const Scope &s) {
+        dos_.insert(s.dos_.begin(), s.dos_.end());
+    }
+
     Block *
     block() { return block_; }
 
