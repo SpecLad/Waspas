@@ -8,6 +8,7 @@ module;
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 
 module semantics;
 
@@ -1021,89 +1022,98 @@ public:
             const auto &subr_name_node = subr_decl_node.heading->name;
             const auto &subr_name = subr_name_node.spelling;
 
-            auto [is_function, signature] = visit(
+            enum SubroutineType { PROCEDURE = 0, FUNCTION = 1 };
+            static constexpr std::string_view SUBROUTINE_TYPE_STRS[] = {"procedure"sv, "function"sv};
+            using optional_signature_t = std::variant<sem::Signature, SubroutineType>;
+
+            optional_signature_t opt_sig = visit(
                 *subr_decl_node.heading, overloaded{
                     [&](nodes::FunctionHeading &function_head_node) {
-                        return std::make_tuple(true, std::optional<sem::Signature>(
+                        return optional_signature_t(
                             resolveSignature(
                                 block.scope_,
                                 function_head_node.parameters,
                                 &function_head_node.result_type
                             )
-                        ));
+                        );
                     },
                     [&](nodes::FunctionIdentification &function_id_node) {
-                        return std::make_tuple(true, std::optional<sem::Signature>{});
+                        return optional_signature_t(FUNCTION);
                     },
                     [&](nodes::ProcedureHeading &procedure_head_node) {
                         bool is_delayed = forward_declarations.contains(subr_name)
                             && procedure_head_node.parameters.empty();
 
-                        return std::make_tuple(
-                            false,
-                            is_delayed ? std::optional<sem::Signature>{}
-                                : resolveSignature(
-                                    block.scope_,
-                                    procedure_head_node.parameters,
-                                    nullptr
-                                )
+                        if (is_delayed) return optional_signature_t(PROCEDURE);
+
+                        return optional_signature_t(
+                            resolveSignature(
+                                block.scope_,
+                                procedure_head_node.parameters,
+                                nullptr
+                            )
                         );
                     },
                 }
             );
 
-            sem::Subroutine *subroutine;
+            sem::Subroutine *subroutine = std::visit(overloaded{
+                [&](const sem::Signature &signature) -> sem::Subroutine * {
+                    // this is the first declaration of this subroutine
 
-            if (signature) {
-                // this is the first declaration of this subroutine
+                    if (checkDuplicateIdentifier(block.scope_, subr_name_node))
+                        return nullptr;
 
-                if (checkDuplicateIdentifier(block.scope_, subr_name_node))
-                    continue;
+                    auto [it, success] = block.subroutines_.try_emplace(
+                        subr_name, block, subr_name_node.view.data(), signature);
+                    return &it->second;
+                },
+                [&](SubroutineType subr_type) -> sem::Subroutine * {
+                    // this is a delayed declaration of this subroutine
 
-                auto [it, success] = block.subroutines_.try_emplace(
-                    subr_name, block, subr_name_node.view.data(), *signature);
-                subroutine = &it->second;
-            }
-            else {
-                // this is a delayed declaration of this subroutine
+                    auto it = block.subroutines_.find(subr_name);
 
-                auto it = block.subroutines_.find(subr_name);
+                    if (!forward_declarations.contains(subr_name)) {
+                        if (it == block.subroutines_.end()) {
+                            reporter_.err(subr_name_node.view.data(),
+                                "missing-forward-declaration",
+                                "delayed declaration with no preceding forward declaration");
+                        }
+                        else {
+                            reporter_.err(subr_name_node.view.data(),
+                                "duplicate-subroutine-declaration",
+                                "duplicate declaration for \"{}\"", subr_name);
+                            reporter_.note(it->second.last_declaration_location_,
+                                "last declaration of \"{}\"", subr_name);
+                        }
 
-                if (!forward_declarations.contains(subr_name)) {
-                    if (it == block.subroutines_.end()) {
-                        reporter_.err(subr_name_node.view.data(),
-                            "missing-forward-declaration",
-                            "delayed declaration with no preceding forward declaration");
+                        return nullptr;
                     }
-                    else {
+
+                    assert(it != block.subroutines_.end());
+                    auto &previous_subroutine = it->second;
+                    SubroutineType previous_subroutine_type
+                        = previous_subroutine.signature().resultType() ? FUNCTION : PROCEDURE;
+
+                    if (previous_subroutine_type != subr_type) {
                         reporter_.err(subr_name_node.view.data(),
-                            "duplicate-subroutine-declaration",
-                            "duplicate declaration for \"{}\"", subr_name);
-                        reporter_.note(it->second.last_declaration_location_,
+                            "mismatched-subroutine-declaration",
+                            "\"{}\" declared as a {} when it had previously been declared as a {}",
+                            subr_name,
+                            SUBROUTINE_TYPE_STRS[subr_type],
+                            SUBROUTINE_TYPE_STRS[previous_subroutine_type]);
+                        reporter_.note(previous_subroutine.last_declaration_location_,
                             "last declaration of \"{}\"", subr_name);
+                        return nullptr;
                     }
 
-                    continue;
-                }
+                    previous_subroutine.last_declaration_location_ = subr_name_node.view.data();
+                    forward_declarations.erase(subr_name);
+                    return &previous_subroutine;
+                },
+            }, opt_sig);
 
-                assert(it != block.subroutines_.end());
-                subroutine = &it->second;
-                bool subroutine_is_function = bool(it->second.signature().resultType());
-
-                if (subroutine_is_function != is_function) {
-                    reporter_.err(subr_name_node.view.data(),
-                        "mismatched-subroutine-declaration",
-                        "\"{}\" declared as a {} when it had previously been declared as a {}",
-                        subr_name, is_function ? "function" : "procedure",
-                        subroutine_is_function ? "function" : "procedure");
-                    reporter_.note(subroutine->last_declaration_location_,
-                        "last declaration of \"{}\"", subr_name);
-                    continue;
-                }
-
-                subroutine->last_declaration_location_ = subr_name_node.view.data();
-                forward_declarations.erase(subr_name);
-            }
+            if (!subroutine) continue;
 
             if (subr_decl_node.block) {
                 buildBlock(*subr_decl_node.block, subroutine->block_);
