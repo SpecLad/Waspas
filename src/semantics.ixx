@@ -815,23 +815,23 @@ export
 class Subroutine {
 public:
     Subroutine(
-        Block &parent_block,
         const char *declaration_location,
-        const Signature &signature
+        const Signature &signature,
+        Block &parent_block
     )
-        : block_(&parent_block)
-        , last_declaration_location_(declaration_location)
+        : last_declaration_location_(declaration_location)
         , signature_(signature)
+        , block_(&parent_block)
     {}
 
     const Signature &
     signature() const { return signature_; }
 
 private:
-    Block block_;
     const char *last_declaration_location_;
 
     Signature signature_;
+    Block block_;
 
     friend class ProgramBuilder;
 };

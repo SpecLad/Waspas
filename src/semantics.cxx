@@ -1073,7 +1073,7 @@ public:
                         return nullptr;
 
                     auto [it, success] = block.subroutines_.try_emplace(
-                        subr_name, block, subr_name_node.view.data(), sws.signature);
+                        subr_name, subr_name_node.view.data(), sws.signature, block);
 
                     it->second.block_.scope_.mergeFrom(sws.scope);
                     return &it->second;
