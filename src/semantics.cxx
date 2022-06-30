@@ -1147,6 +1147,60 @@ public:
                 "forward declaration with no following delayed declaration");
     }
 
+    std::unique_ptr<sem::StatementAssignment>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::AssignmentStatement &assignment_statement_node
+    ) {
+        // TODO: resolve the sides of the assignment
+        return std::make_unique<sem::StatementAssignment>();
+    }
+
+    std::unique_ptr<sem::StatementCompound>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::CompoundStatement &compound_statement_node
+    ) {
+        std::vector<std::unique_ptr<sem::Statement>> statements;
+
+        for (auto &statement_node : compound_statement_node.statements) {
+            statements.push_back(resolveStatement(block, statement_node));
+        }
+
+        return std::make_unique<sem::StatementCompound>(std::move(statements));
+    }
+
+    std::unique_ptr<sem::StatementEmpty>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::EmptyStatement &empty_statement_node
+    ) {
+        return std::make_unique<sem::StatementEmpty>();
+    }
+
+    template <typename T>
+    std::unique_ptr<sem::Statement>
+    resolveUnlabeledStatement(
+        sem::Block &block, const T &statement_node
+    ) {
+        reporter_.err(statement_node.view.data(), "unsupported-feature",
+            "statement type not supported");
+        return nullptr;
+    }
+
+    std::unique_ptr<sem::Statement>
+    resolveStatement(
+        sem::Block &block, const nodes::Statement &statement_node
+    ) {
+        auto statement = visit(*statement_node.unlabeled,
+            [&](auto &node) -> std::unique_ptr<sem::Statement> {
+                return resolveUnlabeledStatement(block, node);
+            });
+
+        if (statement_node.label) {
+            // TODO
+        }
+
+        return statement;
+    }
+
     void
     buildBlock(const nodes::Block &block_node, sem::Block &block) {
         analyzeLabelDeclarations(block_node, block);
@@ -1157,6 +1211,8 @@ public:
         analyzeTypeDefinitions(block_node, block);
         analyzeVariableDeclarations(block_node, block);
         analyzeSubroutineDeclarations(block_node, block);
+
+        block.statement_ = resolveUnlabeledStatement(block, block_node.statement);
     }
 
     sem::Program

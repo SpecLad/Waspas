@@ -645,6 +645,27 @@ private:
     friend class TypeEnumerated;
 };
 
+class Statement {
+public:
+    virtual ~Statement() = default;
+};
+
+class StatementAssignment : public Statement {
+};
+
+class StatementCompound : public Statement {
+public:
+    explicit
+    StatementCompound(std::vector<std::unique_ptr<Statement>> &&statements)
+        : statements_(std::move(statements)) {}
+
+private:
+    std::vector<std::unique_ptr<Statement>> statements_;
+};
+
+class StatementEmpty : public Statement {
+};
+
 struct DefiningOccurrence {
     const char *location;
     enum Kind { NOT_TYPE, TYPE } kind;
@@ -740,6 +761,8 @@ private:
     std::unordered_map<std::string, Type::ptr_t> types_;
     std::unordered_map<std::string, Type::ptr_t> variables_;
     std::unordered_map<std::string, Subroutine> subroutines_;
+
+    std::unique_ptr<StatementCompound> statement_;
 
     friend class ProgramBuilder;
     friend struct BuiltinBlockInitializer;
