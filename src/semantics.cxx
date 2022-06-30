@@ -1207,6 +1207,36 @@ public:
             resolveStatement(block, for_statement_node.body));
     }
 
+    std::unique_ptr<sem::Statement>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::GotoStatement &goto_statement_node
+    ) {
+        pascal_integer_t label = goto_statement_node.label.value;
+        std::size_t parent_index = 0;
+
+        sem::Block *lookup_block = &block;
+
+        for (; ; ) {
+            auto it = lookup_block->labels_.find(label);
+            if (it != lookup_block->labels_.end()) {
+                // TODO: check goto target requirements
+                return std::make_unique<sem::StatementGoto>(label, parent_index);
+            }
+
+            auto *parent_scope = lookup_block->scope_.parent();
+            if (!parent_scope) break;
+
+            lookup_block = parent_scope->block();
+            assert(lookup_block); // all parent scopes of a block should be blocks
+
+            ++parent_index;
+        }
+
+        reporter_.err(goto_statement_node.label.view.data(),
+            "undefined-label", "undefined label");
+        return std::make_unique<sem::StatementEmpty>();
+    }
+
     std::unique_ptr<sem::StatementIf>
     resolveUnlabeledStatement(
         sem::Block &block, const nodes::IfStatement &if_statement_node
@@ -1217,6 +1247,15 @@ public:
             if_statement_node.false_branch
                 ? resolveStatement(block, *if_statement_node.false_branch)
                 : nullptr);
+    }
+
+    std::unique_ptr<sem::Statement>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::ProcedureStatement &procedure_statement_node
+    ) {
+        reporter_.err(procedure_statement_node.view.data(), "unsupported-feature",
+            "procedure statements are not supported");
+        return std::make_unique<sem::StatementEmpty>();
     }
 
     template <typename T>

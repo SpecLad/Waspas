@@ -689,6 +689,18 @@ private:
     std::unique_ptr<Statement> body_;
 };
 
+class StatementGoto : public Statement {
+public:
+    StatementGoto(
+        pascal_integer_t label,
+        std::size_t parent_index
+    ) : label_(label), parent_index_(parent_index) {}
+
+private:
+    pascal_integer_t label_;
+    std::size_t parent_index_;
+};
+
 class StatementIf : public Statement {
 public:
     StatementIf(
@@ -754,6 +766,9 @@ public:
     mergeFrom(const Scope &s) {
         dos_.insert(s.dos_.begin(), s.dos_.end());
     }
+
+    Scope *
+    parent() { return parent_; }
 
     Block *
     block() { return block_; }

@@ -16,4 +16,7 @@ begin
 
     for j := 1 to 10 do;
        {^ error:non-ordinal-type }
+
+    goto 2;
+        {^ error:undefined-label }
 end.
