@@ -671,6 +671,39 @@ private:
 class StatementEmpty : public Statement {
 };
 
+class StatementFor : public Statement {
+public:
+    StatementFor(
+        const std::string &control_variable,
+        nodes::RangeDirection direction,
+        std::unique_ptr<Statement> &&body
+    )
+        : control_variable_(control_variable)
+        , direction_(direction)
+        , body_(std::move(body))
+    {}
+
+private:
+    std::string control_variable_;
+    nodes::RangeDirection direction_;
+    std::unique_ptr<Statement> body_;
+};
+
+class StatementIf : public Statement {
+public:
+    StatementIf(
+        std::unique_ptr<Statement> &&true_branch,
+        std::unique_ptr<Statement> &&false_branch
+    )
+        : true_branch_(std::move(true_branch))
+        , false_branch_(std::move(false_branch))
+    {}
+
+private:
+    std::unique_ptr<Statement> true_branch_;
+    std::unique_ptr<Statement> false_branch_;
+};
+
 class StatementLabeled : public Statement {
 public:
     StatementLabeled(pascal_integer_t label, std::unique_ptr<Statement> &&unlabeled)

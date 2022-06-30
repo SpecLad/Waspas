@@ -1172,6 +1172,53 @@ public:
         return std::make_unique<sem::StatementEmpty>();
     }
 
+    std::unique_ptr<sem::Statement>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::ForStatement &for_statement_node
+    ) {
+        const std::string &control_variable
+            = for_statement_node.control_variable.spelling;
+
+        auto it = block.variables_.find(control_variable);
+
+        if (it == block.variables_.end()) {
+            reporter_.err(for_statement_node.control_variable.view.data(),
+                "undefined-identifier",
+                "undefined variable identifier");
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
+        auto control_variable_type
+            = std::dynamic_pointer_cast<const sem::TypeOrdinal>(it->second);
+
+        if (!control_variable_type) {
+            reporter_.err(for_statement_node.control_variable.view.data(),
+                "non-ordinal-type",
+                "control variable has non-ordinal type \"{}\"", it->second->str());
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
+        // TODO: resolve the initial and final value expressions; check their types
+        // TODO: check for threatening statements
+
+        return std::make_unique<sem::StatementFor>(
+            control_variable,
+            for_statement_node.direction,
+            resolveStatement(block, for_statement_node.body));
+    }
+
+    std::unique_ptr<sem::StatementIf>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::IfStatement &if_statement_node
+    ) {
+        // TODO: resolve the expression; make sure it is of type boolean
+        return std::make_unique<sem::StatementIf>(
+            resolveStatement(block, if_statement_node.true_branch),
+            if_statement_node.false_branch
+                ? resolveStatement(block, *if_statement_node.false_branch)
+                : nullptr);
+    }
+
     template <typename T>
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
