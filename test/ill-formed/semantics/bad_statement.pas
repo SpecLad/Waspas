@@ -1,5 +1,6 @@
 program badstmt;
-label 1;
+label 1, 3;
+        {^ error:unused-label }
 begin
     1: ;
    {^ note }

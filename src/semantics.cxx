@@ -140,9 +140,6 @@ public:
                 reporter_.note(it->second.defining_occurrence,
                     "defining point of \"{}\"", label_node.value);
             }
-
-            // TODO: verify that each label is used exactly once
-            // in the block where it's defined
         }
     }
 
@@ -1236,6 +1233,19 @@ public:
         analyzeSubroutineDeclarations(block_node, block);
 
         block.statement_ = resolveUnlabeledStatement(block, block_node.statement);
+
+        std::vector<const char *> nonprefixing_label_locations;
+
+        for (const auto &label : block.labels_) {
+            if (!label.second.prefixing_occurrence)
+                nonprefixing_label_locations.push_back(label.second.defining_occurrence);
+        }
+
+        std::ranges::sort(nonprefixing_label_locations);
+
+        for (const auto location : nonprefixing_label_locations)
+            reporter_.err(location, "unused-label",
+                "label that does not prefix a statement");
     }
 
     sem::Program
