@@ -132,12 +132,12 @@ public:
             auto label_location = label_node.view.data();
 
             auto [it, success] = block.labels_.try_emplace(
-                label_node.value, label_location);
+                label_node.value, label_location, nullptr);
 
             if (!success) {
                 reporter_.err(label_location, "duplicate-label",
                     "label \"{}\" already defined", label_node.value);
-                reporter_.note(it->second,
+                reporter_.note(it->second.defining_occurrence,
                     "defining point of \"{}\"", label_node.value);
             }
 
@@ -1195,7 +1195,30 @@ public:
             });
 
         if (statement_node.label) {
-            // TODO
+            pascal_integer_t label_value = statement_node.label->value;
+            auto it = block.labels_.find(label_value);
+
+            if (it != block.labels_.end()) {
+                const char *new_prefixing_occurrence
+                    = statement_node.label->view.data();
+
+                if (it->second.prefixing_occurrence) {
+                    reporter_.err(new_prefixing_occurrence,
+                        "ambiguous-label",
+                        "multiple statements prefixed by label {}", label_value);
+                    reporter_.note(it->second.prefixing_occurrence,
+                        "first statement prefixed by label {}", label_value);
+                }
+                else {
+                    it->second.prefixing_occurrence = new_prefixing_occurrence;
+                    statement = std::make_unique<sem::StatementLabeled>(
+                        label_value, std::move(statement));
+                }
+            }
+            else {
+                reporter_.err(statement_node.label->view.data(),
+                    "undefined-label", "undefined label");
+            }
         }
 
         return statement;

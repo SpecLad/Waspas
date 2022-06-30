@@ -23,6 +23,11 @@ struct BuiltinBlockInitializer;
 
 namespace sem {
 
+struct Label {
+    const char *defining_occurrence;
+    const char *prefixing_occurrence;
+};
+
 export
 class DynamicType {
 public:
@@ -666,6 +671,16 @@ private:
 class StatementEmpty : public Statement {
 };
 
+class StatementLabeled : public Statement {
+public:
+    StatementLabeled(pascal_integer_t label, std::unique_ptr<Statement> &&unlabeled)
+        : label_(label), unlabeled_(std::move(unlabeled)) {}
+
+private:
+    pascal_integer_t label_;
+    std::unique_ptr<Statement> unlabeled_;
+};
+
 struct DefiningOccurrence {
     const char *location;
     enum Kind { NOT_TYPE, TYPE } kind;
@@ -756,7 +771,7 @@ public:
 private:
     Scope scope_;
 
-    std::unordered_map<pascal_integer_t, const char *> labels_;
+    std::unordered_map<pascal_integer_t, Label> labels_;
     std::unordered_map<std::string, Constant::ptr_t> constants_;
     std::unordered_map<std::string, Type::ptr_t> types_;
     std::unordered_map<std::string, Type::ptr_t> variables_;
