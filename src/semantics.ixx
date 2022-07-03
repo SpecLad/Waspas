@@ -726,6 +726,27 @@ private:
     std::unique_ptr<Statement> unlabeled_;
 };
 
+class StatementRepeat : public Statement {
+public:
+    StatementRepeat(std::vector<std::unique_ptr<Statement>> &&statements)
+        : statements_(std::move(statements)) {}
+
+private:
+    std::vector<std::unique_ptr<Statement>> statements_;
+};
+
+class StatementWhile : public Statement {
+public:
+    StatementWhile(
+        std::unique_ptr<Statement> &&body
+    )
+        : body_(std::move(body))
+    {}
+
+private:
+    std::unique_ptr<Statement> body_;
+};
+
 struct DefiningOccurrence {
     const char *location;
     enum Kind { NOT_TYPE, TYPE } kind;

@@ -1258,6 +1258,31 @@ public:
         return std::make_unique<sem::StatementEmpty>();
     }
 
+    std::unique_ptr<sem::Statement>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::RepeatStatement &repeat_statement_node
+    ) {
+        std::vector<std::unique_ptr<sem::Statement>> statements;
+
+        for (auto &statement_node : repeat_statement_node.statements) {
+            statements.push_back(resolveStatement(block, statement_node));
+        }
+
+        // TODO: resolve expression; check type
+
+        return std::make_unique<sem::StatementRepeat>(std::move(statements));
+    }
+
+    std::unique_ptr<sem::Statement>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::WhileStatement &while_statement_node
+    ) {
+        // TODO: resolve expression; check type
+
+        return std::make_unique<sem::StatementWhile>(
+            resolveStatement(block, while_statement_node.body));
+    }
+
     template <typename T>
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
