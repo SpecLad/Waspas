@@ -658,6 +658,31 @@ public:
 class StatementAssignment : public Statement {
 };
 
+class CaseListElement {
+public:
+    CaseListElement(
+        std::span<ConstantOrdinal::ptr_t> constants,
+        std::unique_ptr<Statement> &&statement
+    )
+        : constants_(constants.begin(), constants.end())
+        , statement_(std::move(statement))
+    {}
+
+private:
+    std::vector<ConstantOrdinal::ptr_t> constants_;
+    std::unique_ptr<Statement> statement_;
+};
+
+class StatementCase : public Statement {
+public:
+    explicit
+    StatementCase(std::vector<CaseListElement> &&cases)
+        : cases_(std::move(cases)) {}
+
+private:
+    std::vector<CaseListElement> cases_;
+};
+
 class StatementCompound : public Statement {
 public:
     explicit

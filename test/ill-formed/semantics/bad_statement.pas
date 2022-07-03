@@ -19,4 +19,12 @@ begin
 
     goto 2;
         {^ error:undefined-label }
+
+    case 0 of
+        1.1: ;
+       {^ error:non-ordinal-type }
+
+        0,       0: ;
+       {^ note }{^ error:duplicate-case }
+    end;
 end.

@@ -1152,6 +1152,58 @@ public:
         return std::make_unique<sem::StatementAssignment>();
     }
 
+    std::unique_ptr<sem::Statement>
+    resolveUnlabeledStatement(
+        sem::Block &block, const nodes::CaseStatement &case_statement_node
+    ) {
+        // TODO: resolve case index; verify that the type is ordinal
+
+        std::vector<sem::CaseListElement> case_list_elements;
+
+        std::unordered_map<pascal_integer_t, const char *> used_ordinals;
+
+        for (auto &element_node : case_statement_node.cases) {
+            std::vector<sem::ConstantOrdinal::ptr_t> case_constants;
+
+            for (auto &constant_node : element_node.constants) {
+                auto constant = resolveConstant(block.scope_, *constant_node);
+                if (!constant) continue;
+
+                auto ordinal_constant
+                    = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
+                if (!ordinal_constant) {
+                    reporter_.err(constant_node->view.data(), "non-ordinal-type",
+                        "case constant has non-ordinal type \"{}\"", constant->type().str());
+                    continue;
+                }
+
+                // TODO: check that the constant has the same type as the index
+
+                auto ordinal = ordinal_constant->ordinalNumber();
+
+                if (auto it = used_ordinals.find(ordinal); it != used_ordinals.end()) {
+                    reporter_.err(constant_node->view.data(), "duplicate-case",
+                        "case constant already used");
+                    reporter_.note(it->second, "previous occurrence of the case constant");
+                    continue;
+                }
+                used_ordinals.insert_or_assign(ordinal, constant_node->view.data());
+
+                case_constants.push_back(ordinal_constant);
+            }
+
+            auto statement = resolveStatement(block, element_node.statement);
+
+            if (!case_constants.empty())
+                case_list_elements.emplace_back(case_constants, std::move(statement));
+        }
+
+        if (case_list_elements.empty())
+            return std::make_unique<sem::StatementEmpty>();
+
+        return std::make_unique<sem::StatementCase>(std::move(case_list_elements));
+    }
+
     std::unique_ptr<sem::StatementCompound>
     resolveUnlabeledStatement(
         sem::Block &block, const nodes::CompoundStatement &compound_statement_node
