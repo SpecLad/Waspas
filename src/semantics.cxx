@@ -1335,14 +1335,18 @@ public:
             resolveStatement(block, while_statement_node.body));
     }
 
-    template <typename T>
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Block &block, const T &statement_node
+        sem::Block &block, const nodes::WithStatement &with_statement_node
     ) {
-        reporter_.err(statement_node.view.data(), "unsupported-feature",
-            "statement type not supported");
-        return nullptr;
+        auto statement = resolveStatement(block, with_statement_node.body);
+
+        for (auto &variable : std::views::reverse(with_statement_node.variables)) {
+            // TODO: resolve the variable; check it's of a record type; introduce a new scope
+            statement = std::make_unique<sem::StatementWith>(std::move(statement));
+        }
+
+        return statement;
     }
 
     std::unique_ptr<sem::Statement>

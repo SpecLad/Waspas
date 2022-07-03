@@ -772,6 +772,18 @@ private:
     std::unique_ptr<Statement> body_;
 };
 
+class StatementWith : public Statement {
+public:
+    StatementWith(
+        std::unique_ptr<Statement> &&body
+    )
+        : body_(std::move(body))
+    {}
+
+private:
+    std::unique_ptr<Statement> body_;
+};
+
 struct DefiningOccurrence {
     const char *location;
     enum Kind { NOT_TYPE, TYPE } kind;
