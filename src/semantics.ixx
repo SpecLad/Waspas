@@ -816,6 +816,11 @@ public:
         : scope_(parent_block ? &parent_block->scope_ : nullptr, this)
     {}
 
+    // Copying a block trivially would mess up the parent scope pointers
+    // in the subroutines.
+    Block(const Block &) = delete;
+    Block &operator =(const Block &) = delete;
+
 private:
     Scope scope_;
 
@@ -924,10 +929,11 @@ private:
 
 export
 class Program {
+public:
     Program();
 
+private:
     std::unordered_map<std::string, const char *> parameters_;
-
     Block block_;
 
     friend class ProgramBuilder;
@@ -936,5 +942,5 @@ class Program {
 }
 
 export
-sem::Program
+std::unique_ptr<sem::Program>
 analyze(const nodes::Program &program_node, Reporter &reporter);

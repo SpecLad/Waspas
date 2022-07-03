@@ -1334,10 +1334,8 @@ public:
                 "label that does not prefix a statement");
     }
 
-    sem::Program
-    build(const nodes::Program &program_node) {
-        sem::Program program;
-
+    void
+    build(const nodes::Program &program_node, sem::Program &program) {
         for (auto &parameter_node : program_node.parameter_declarations) {
             auto parameter_location = parameter_node.view.data();
             auto &parameter_name = parameter_node.spelling;
@@ -1369,15 +1367,15 @@ public:
                     "program parameter \"{}\" has no corresponding variable",
                     parameter_name);
         }
-
-        return program;
     }
 
 private:
     Reporter &reporter_;
 };
 
-sem::Program
+std::unique_ptr<sem::Program>
 analyze(const nodes::Program &program_node, Reporter &reporter) {
-    return ProgramBuilder(reporter).build(program_node);
+    auto program = std::make_unique<sem::Program>();
+    ProgramBuilder(reporter).build(program_node, *program);
+    return program;
 }
