@@ -721,12 +721,12 @@ class StatementGoto : public Statement {
 public:
     StatementGoto(
         pascal_integer_t label,
-        std::size_t parent_index
-    ) : label_(label), parent_index_(parent_index) {}
+        std::size_t scope_index
+    ) : label_(label), scope_index_(scope_index) {}
 
 private:
     pascal_integer_t label_;
-    std::size_t parent_index_;
+    std::size_t scope_index_;
 };
 
 class StatementIf : public Statement {

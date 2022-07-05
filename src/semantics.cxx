@@ -1265,18 +1265,18 @@ public:
         sem::Scope &scope, const nodes::GotoStatement &goto_statement_node
     ) {
         pascal_integer_t label = goto_statement_node.label.value;
-        std::size_t parent_index = 0;
+        std::size_t scope_index = 0;
 
         for (
             sem::Scope *lookup_scope = &scope;
             lookup_scope;
-            lookup_scope = lookup_scope->parent(), ++parent_index
+            lookup_scope = lookup_scope->parent(), ++scope_index
         ) {
             if (sem::Block *block = lookup_scope->block()) {
                 auto it = block->labels_.find(label);
                 if (it != block->labels_.end()) {
                     // TODO: check goto target requirements
-                    return std::make_unique<sem::StatementGoto>(label, parent_index);
+                    return std::make_unique<sem::StatementGoto>(label, scope_index);
                 }
             }
         }
