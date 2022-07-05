@@ -3,6 +3,12 @@ label 1, 3;
         {^ error:unused-label }
 var
     j: real;
+    k: integer;
+procedure p;
+    begin
+        for k := 1 to 10 do;
+           {^ error:undefined-identifier }
+    end;
 begin
     1: ;
    {^ note }
