@@ -612,7 +612,7 @@ public:
     resolveStructuredType(
         sem::Scope &scope, nodes::RecordType &record_type_node, bool is_packed
     ) {
-        sem::Scope record_scope(&scope, nullptr);
+        sem::Scope record_scope(&scope);
         collectFieldDefiningOccurrences(record_scope, record_type_node.fields);
 
         return std::make_shared<sem::TypeRecord>(
@@ -911,7 +911,7 @@ public:
         std::span<std::unique_ptr<nodes::FormalParameterSection>> parameter_section_nodes,
         nodes::Identifier *result_type_node
     ) {
-        sem::Scope parameter_list_scope(&scope, nullptr);
+        sem::Scope parameter_list_scope(&scope);
         std::vector<sem::FormalParameterSection> parameters;
 
         for (auto &parameter_section_node : parameter_section_nodes) {
@@ -1333,17 +1333,31 @@ public:
     }
 
     std::unique_ptr<sem::Statement>
+    resolveWithStatementHelper(
+        sem::Scope &scope,
+        const nodes::WithStatement &with_statement_node,
+        std::size_t variable_index
+    ) {
+        if (variable_index == with_statement_node.variables.size())
+            return resolveStatement(scope, with_statement_node.body);
+
+        // TODO: resolve the variable; check it's of a record type
+
+        auto with_statement = std::make_unique<sem::StatementWith>(scope);
+
+        // TODO: populate the new scope
+
+        with_statement->setBody(resolveWithStatementHelper(
+            with_statement->scope(), with_statement_node, variable_index + 1));
+
+        return with_statement;
+    }
+
+    std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope, const nodes::WithStatement &with_statement_node
     ) {
-        auto statement = resolveStatement(scope, with_statement_node.body);
-
-        for (auto &variable : std::views::reverse(with_statement_node.variables)) {
-            // TODO: resolve the variable; check it's of a record type; introduce a new scope
-            statement = std::make_unique<sem::StatementWith>(std::move(statement));
-        }
-
-        return statement;
+        return resolveWithStatementHelper(scope, with_statement_node, 0);
     }
 
     std::unique_ptr<sem::Statement>

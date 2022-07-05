@@ -775,17 +775,7 @@ private:
     std::unique_ptr<Statement> body_;
 };
 
-class StatementWith : public Statement {
-public:
-    StatementWith(
-        std::unique_ptr<Statement> &&body
-    )
-        : body_(std::move(body))
-    {}
-
-private:
-    std::unique_ptr<Statement> body_;
-};
+class StatementWith;
 
 struct DefiningOccurrence {
     const char *location;
@@ -799,8 +789,10 @@ public:
         DefiningOccurrence defining_occurrence;
     };
 
-    Scope(Scope *parent, Block *block)
-        : parent_(parent), block_(block) {}
+    using region_t = std::variant<std::monostate, Block *, StatementWith *>;
+
+    Scope(Scope *parent, const region_t &region = region_t())
+        : parent_(parent), region_(region) {}
 
     void
     add(
@@ -832,11 +824,14 @@ public:
     parent() { return parent_; }
 
     Block *
-    block() { return block_; }
+    block() {
+        Block **pb = std::get_if<Block *>(&region_);
+        return pb ? *pb : nullptr;
+    }
 
     Block &
     closestContainingBlock() {
-        if (block_) return *block_;
+        if (auto *b = block()) return *b;
 
         // at least one scope in the chain has to be associated with a block
         assert(parent_);
@@ -863,9 +858,26 @@ public:
 
 private:
     Scope *parent_;
-    Block *block_;
+    region_t region_;
 
     std::unordered_map<std::string, DefiningOccurrence> dos_;
+};
+
+class StatementWith : public Statement {
+public:
+    StatementWith(Scope &parent_scope)
+        : scope_(&parent_scope, this)
+    {}
+
+    Scope &
+    scope() { return scope_; }
+
+    void
+    setBody(std::unique_ptr<Statement> &&body) { body_ = std::move(body); }
+
+private:
+    Scope scope_;
+    std::unique_ptr<Statement> body_;
 };
 
 class Subroutine;
