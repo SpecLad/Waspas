@@ -1231,7 +1231,21 @@ public:
         const std::string &control_variable
             = for_statement_node.control_variable.spelling;
 
-        auto &block = scope.closestContainingBlock();
+        sem::Scope *lookup_scope = &scope;
+        while (!lookup_scope->block()) {
+            if (lookup_scope->containsShallow(control_variable)) {
+                reporter_.err(for_statement_node.control_variable.view.data(),
+                    "wrong-identifier-kind",
+                    "identifier \"{}\" is not a variable identifier",
+                    control_variable);
+                return std::make_unique<sem::StatementEmpty>();
+            }
+
+            lookup_scope = lookup_scope->parent();
+            assert(lookup_scope);
+        }
+
+        auto &block = *lookup_scope->block();
         auto it = block.variables_.find(control_variable);
 
         if (it == block.variables_.end()) {

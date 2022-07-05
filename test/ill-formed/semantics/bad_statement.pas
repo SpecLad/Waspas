@@ -1,9 +1,14 @@
 program badstmt;
 label 1, 3;
         {^ error:unused-label }
+type
+    rec = record
+        f: integer;
+    end;
 var
     j: real;
     k: integer;
+    r: rec;
 procedure p;
     begin
         for k := 1 to 10 do;
@@ -22,6 +27,12 @@ begin
 
     for j := 1 to 10 do;
        {^ error:non-ordinal-type }
+
+    {
+    with r do
+        for f := 1 to 10 do;
+    }
+           {TODO: error:wrong-identifier-kind }
 
     goto 2;
         {^ error:undefined-label }

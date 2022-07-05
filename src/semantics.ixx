@@ -851,6 +851,11 @@ public:
         return std::nullopt;
     }
 
+    bool
+    containsShallow(const std::string &id) const {
+        return dos_.contains(id);
+    }
+
     DefiningOccurrence
     lookupShallowUnsafe(const std::string &id) const {
         return dos_.at(id);
