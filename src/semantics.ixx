@@ -653,6 +653,23 @@ private:
     friend class TypeEnumerated;
 };
 
+class Scope;
+
+class VariableAccess {
+public:
+    virtual ~VariableAccess() = default;
+};
+
+class VariableAccessEntire : public VariableAccess {
+public:
+    VariableAccessEntire(const std::string &name, std::size_t scope_index)
+        : name_(name), scope_index_(scope_index) {}
+
+private:
+    std::string name_;
+    std::size_t scope_index_;
+};
+
 class Statement {
 public:
     virtual ~Statement() = default;
@@ -785,6 +802,7 @@ struct DefiningOccurrence {
 class Scope {
 public:
     struct LookupResult {
+        std::size_t scope_index;
         Scope *scope;
         DefiningOccurrence defining_occurrence;
     };
@@ -841,12 +859,17 @@ public:
 
     std::optional<LookupResult>
     lookup(const std::string &id) {
-        auto it = dos_.find(id);
-        if (it != dos_.end())
-            return LookupResult{this, it->second};
+        std::size_t scope_index = 0;
 
-        if (parent_)
-            return parent_->lookup(id);
+        for (
+            auto *lookup_scope = this;
+            lookup_scope;
+            lookup_scope = lookup_scope->parent(), ++scope_index
+        ) {
+            auto it = lookup_scope->dos_.find(id);
+            if (it != lookup_scope->dos_.end())
+                return LookupResult{scope_index, lookup_scope, it->second};
+        }
 
         return std::nullopt;
     }

@@ -288,7 +288,8 @@ public:
             return nullptr;
         }
 
-        auto &[defining_scope, defining_occurrence] = *generic_result;
+        auto *defining_scope = generic_result->scope;
+        auto &defining_occurrence = generic_result->defining_occurrence;
 
         if (auto *block = defining_scope->block()) {
             auto &map = block->*map_member;
@@ -711,7 +712,8 @@ public:
             return nullptr;
         }
 
-        auto &[defining_scope, defining_occurrence] = *lookup_result;
+        auto *defining_scope = lookup_result->scope;
+        auto &defining_occurrence = lookup_result->defining_occurrence;
 
         if (defining_occurrence.kind != sem::DefiningOccurrence::TYPE) {
             reporter_.err(pointer_type_node.domain_type.view.data(),
@@ -1142,6 +1144,58 @@ public:
         for (const char *error_location : missing_declaration_locations)
             reporter_.err(error_location, "missing-delayed-declaration",
                 "forward declaration with no following delayed declaration");
+    }
+
+    std::unique_ptr<sem::VariableAccess>
+    resolveVariableAccess(sem::Scope &scope, const nodes::VariableAccess &access_node) {
+        const auto &name = access_node.variable.spelling;
+
+        auto lookup_result = scope.lookup(name);
+
+        if (!lookup_result) {
+            reporter_.err(access_node.variable.view.data(), "undefined-identifier",
+                "undefined identifier \"{}\"", name);
+            return nullptr;
+        }
+
+        std::unique_ptr<sem::VariableAccess> access;
+
+        if (auto *block = lookup_result->scope->block()) {
+            if (
+                auto it = block->variables_.find(name);
+                it != block->variables_.end()
+            ) {
+                access = std::make_unique<sem::VariableAccessEntire>(
+                    name, lookup_result->scope_index);
+            }
+
+            // TODO: process parameters & with statements
+        }
+
+        if (!access) {
+            reporter_.err(access_node.variable.view.data(), "wrong-identifier-kind",
+                "identifier \"{}\" is not a variable identifier", name);
+            return nullptr;
+        }
+
+        for (auto &modifier_node : access_node.modifiers) {
+            visit(*modifier_node, overloaded{
+                [&](nodes::DereferencingModifier &deref_mod_node) {
+                    reporter_.err(deref_mod_node.view.data(),
+                        "unsupported-feature", "dereferencing is not supported");
+                },
+                [&](nodes::FieldAccessModifier &field_mod_node) {
+                    reporter_.err(field_mod_node.view.data(),
+                        "unsupported-feature", "field access is not supported");
+                },
+                [&](nodes::IndexingModifier &indexing_mod_node) {
+                    reporter_.err(indexing_mod_node.view.data(),
+                        "unsupported-feature", "indexing is not supported");
+                },
+            });
+        }
+
+        return access;
     }
 
     std::unique_ptr<sem::StatementAssignment>
