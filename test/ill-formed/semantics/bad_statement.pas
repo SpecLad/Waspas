@@ -28,11 +28,9 @@ begin
     for j := 1 to 10 do;
        {^ error:non-ordinal-type }
 
-    {
     with r do
         for f := 1 to 10 do;
-    }
-           {TODO: error:wrong-identifier-kind }
+           {^ error:wrong-identifier-kind }
 
     goto 2;
         {^ error:undefined-label }
@@ -44,4 +42,7 @@ begin
         0,       0: ;
        {^ note }{^ error:duplicate-case }
     end;
+
+    with k do;
+        {^ error:non-record-type }
 end.

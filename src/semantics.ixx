@@ -311,6 +311,9 @@ public:
         : tag_type_(tag_type)
     {}
 
+    const std::optional<std::string> &
+    tagField() const { return tag_field_; }
+
     void
     setTagField(const std::string &tag_field) {
         tag_field_ = tag_field;
@@ -345,6 +348,9 @@ public:
             }
         );
     }
+
+    std::vector<std::string>
+    allFieldNames() const;
 
     void
     addField(const std::string &name, Type::ptr_t type) {
@@ -390,6 +396,9 @@ public:
     canBeFileComponent() const override {
         return fieldListCanBeInFileComponent(field_list_);
     }
+
+    const FieldList &
+    fieldList() const { return field_list_; }
 
 private:
     static bool
@@ -658,12 +667,18 @@ class Scope;
 class VariableAccess {
 public:
     virtual ~VariableAccess() = default;
+
+    virtual DynamicType::ptr_t
+    type(Scope &scope) const = 0;
 };
 
 class VariableAccessEntire : public VariableAccess {
 public:
     VariableAccessEntire(const std::string &name, std::size_t scope_index)
         : name_(name), scope_index_(scope_index) {}
+
+    DynamicType::ptr_t
+    type(Scope &scope) const override;
 
 private:
     std::string name_;
@@ -814,13 +829,21 @@ public:
 
     void
     add(
-        const nodes::Identifier &id_node,
+        const std::string &id,
+        const char *location,
         DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
     ) {
         // Ignore duplicate identifiers; this is so that when the analysis
         // logic reports the error, it can note the first defining occurrence.
-        dos_.try_emplace(id_node.spelling,
-            DefiningOccurrence{id_node.view.data(), kind});
+        dos_.try_emplace(id, DefiningOccurrence{location, kind});
+    }
+
+    void
+    add(
+        const nodes::Identifier &id_node,
+        DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
+    ) {
+        add(id_node.spelling, id_node.view.data(), kind);
     }
 
     void
@@ -840,6 +863,13 @@ public:
 
     Scope *
     parent() { return parent_; }
+
+    Scope &
+    parent(std::size_t index) {
+        if (index == 0) return *this;
+        assert(parent_);
+        return parent_->parent(index - 1);
+    }
 
     Block *
     block() {
@@ -893,8 +923,11 @@ private:
 
 class StatementWith : public Statement {
 public:
-    StatementWith(Scope &parent_scope)
-        : scope_(&parent_scope, this)
+    StatementWith(
+        Scope &parent_scope,
+        std::unique_ptr<VariableAccess> &&variable
+    )
+        : scope_(&parent_scope, this), variable_(std::move(variable))
     {}
 
     Scope &
@@ -905,6 +938,7 @@ public:
 
 private:
     Scope scope_;
+    std::unique_ptr<VariableAccess> variable_;
     std::unique_ptr<Statement> body_;
 };
 
@@ -921,6 +955,9 @@ public:
     // in the subroutines.
     Block(const Block &) = delete;
     Block &operator =(const Block &) = delete;
+
+    Type::ptr_t
+    variableType(const std::string &name) const { return variables_.at(name); }
 
 private:
     Scope scope_;

@@ -58,6 +58,33 @@ sem::TypeEnumerated::str() const {
     return s;
 }
 
+std::vector<std::string>
+sem::FieldList::allFieldNames() const {
+    std::vector<std::string> names = fields_;
+
+    if (variant_part_) {
+        if (auto tag_field = variant_part_->tagField()) {
+            names.push_back(*tag_field);
+        }
+
+        for (auto &variant : variant_part_->variants()) {
+            auto variant_field_names = variant.fields.allFieldNames();
+            names.insert(names.end(),
+                variant_field_names.begin(), variant_field_names.end());
+        }
+    }
+
+    return names;
+}
+
+sem::DynamicType::ptr_t
+sem::VariableAccessEntire::type(Scope &scope) const {
+    auto *block = scope.parent(scope_index_).block();
+    assert(block);
+    return block->variableType(name_);
+}
+
+
 // In situations where a type fails to resolve this function can be used
 // to recover without dropping the declaration being analysed entirely.
 template <typename T>
@@ -1409,14 +1436,32 @@ public:
         if (variable_index == with_statement_node.variables.size())
             return resolveStatement(scope, with_statement_node.body);
 
-        // TODO: resolve the variable; check it's of a record type
+        auto &variable_node = with_statement_node.variables[variable_index];
+        auto variable = resolveVariableAccess(scope, variable_node);
+        if (!variable)
+            return std::make_unique<sem::StatementEmpty>();
 
-        auto with_statement = std::make_unique<sem::StatementWith>(scope);
+        auto variable_type = variable->type(scope);
+        auto *record_type = dynamic_cast<const sem::TypeRecord *>(
+            variable_type.get());
+        if (!record_type) {
+            reporter_.err(variable_node.view.data(),
+                "non-record-type",
+                "variable has non-record type \"{}\"", variable_type->str());
+            return std::make_unique<sem::StatementEmpty>();
+        }
 
-        // TODO: populate the new scope
+        auto with_statement = std::make_unique<sem::StatementWith>(
+            scope, std::move(variable));
+
+        auto &with_scope = with_statement->scope();
+
+        for (const auto &field_name : record_type->fieldList().allFieldNames()) {
+            with_scope.add(field_name, variable_node.view.data());
+        }
 
         with_statement->setBody(resolveWithStatementHelper(
-            with_statement->scope(), with_statement_node, variable_index + 1));
+            with_scope, with_statement_node, variable_index + 1));
 
         return with_statement;
     }
