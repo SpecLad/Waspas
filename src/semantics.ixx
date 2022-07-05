@@ -46,6 +46,9 @@ public:
 
     virtual bool
     canBeFileComponent() const { return true; }
+
+    virtual const DynamicType &
+    fullRange() const { return *this; }
 };
 
 export
@@ -64,8 +67,8 @@ public:
         return &fullRange() == &other.fullRange();
     }
 
-    virtual const TypeOrdinal &
-    fullRange() const { return *this; }
+    const TypeOrdinal &
+    fullRange() const override { return *this; }
 
     virtual pascal_integer_t
     smallestOrdinal() const = 0;
