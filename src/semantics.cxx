@@ -1146,7 +1146,7 @@ public:
 
     std::unique_ptr<sem::StatementAssignment>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::AssignmentStatement &assignment_statement_node
+        sem::Scope &scope, const nodes::AssignmentStatement &assignment_statement_node
     ) {
         // TODO: resolve the sides of the assignment
         return std::make_unique<sem::StatementAssignment>();
@@ -1154,7 +1154,7 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::CaseStatement &case_statement_node
+        sem::Scope &scope, const nodes::CaseStatement &case_statement_node
     ) {
         // TODO: resolve case index; verify that the type is ordinal
 
@@ -1166,7 +1166,7 @@ public:
             std::vector<sem::ConstantOrdinal::ptr_t> case_constants;
 
             for (auto &constant_node : element_node.constants) {
-                auto constant = resolveConstant(block.scope_, *constant_node);
+                auto constant = resolveConstant(scope, *constant_node);
                 if (!constant) continue;
 
                 auto ordinal_constant
@@ -1192,7 +1192,7 @@ public:
                 case_constants.push_back(ordinal_constant);
             }
 
-            auto statement = resolveStatement(block, element_node.statement);
+            auto statement = resolveStatement(scope, element_node.statement);
 
             if (!case_constants.empty())
                 case_list_elements.emplace_back(case_constants, std::move(statement));
@@ -1206,12 +1206,12 @@ public:
 
     std::unique_ptr<sem::StatementCompound>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::CompoundStatement &compound_statement_node
+        sem::Scope &scope, const nodes::CompoundStatement &compound_statement_node
     ) {
         std::vector<std::unique_ptr<sem::Statement>> statements;
 
         for (auto &statement_node : compound_statement_node.statements) {
-            statements.push_back(resolveStatement(block, statement_node));
+            statements.push_back(resolveStatement(scope, statement_node));
         }
 
         return std::make_unique<sem::StatementCompound>(std::move(statements));
@@ -1219,18 +1219,19 @@ public:
 
     std::unique_ptr<sem::StatementEmpty>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::EmptyStatement &empty_statement_node
+        sem::Scope &, const nodes::EmptyStatement &
     ) {
         return std::make_unique<sem::StatementEmpty>();
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::ForStatement &for_statement_node
+        sem::Scope &scope, const nodes::ForStatement &for_statement_node
     ) {
         const std::string &control_variable
             = for_statement_node.control_variable.spelling;
 
+        auto &block = scope.closestContainingBlock();
         auto it = block.variables_.find(control_variable);
 
         if (it == block.variables_.end()) {
@@ -1256,32 +1257,28 @@ public:
         return std::make_unique<sem::StatementFor>(
             control_variable,
             for_statement_node.direction,
-            resolveStatement(block, for_statement_node.body));
+            resolveStatement(scope, for_statement_node.body));
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::GotoStatement &goto_statement_node
+        sem::Scope &scope, const nodes::GotoStatement &goto_statement_node
     ) {
         pascal_integer_t label = goto_statement_node.label.value;
         std::size_t parent_index = 0;
 
-        sem::Block *lookup_block = &block;
-
-        for (; ; ) {
-            auto it = lookup_block->labels_.find(label);
-            if (it != lookup_block->labels_.end()) {
-                // TODO: check goto target requirements
-                return std::make_unique<sem::StatementGoto>(label, parent_index);
+        for (
+            sem::Scope *lookup_scope = &scope;
+            lookup_scope;
+            lookup_scope = lookup_scope->parent(), ++parent_index
+        ) {
+            if (sem::Block *block = lookup_scope->block()) {
+                auto it = block->labels_.find(label);
+                if (it != block->labels_.end()) {
+                    // TODO: check goto target requirements
+                    return std::make_unique<sem::StatementGoto>(label, parent_index);
+                }
             }
-
-            auto *parent_scope = lookup_block->scope_.parent();
-            if (!parent_scope) break;
-
-            lookup_block = parent_scope->block();
-            assert(lookup_block); // all parent scopes of a block should be blocks
-
-            ++parent_index;
         }
 
         reporter_.err(goto_statement_node.label.view.data(),
@@ -1291,19 +1288,19 @@ public:
 
     std::unique_ptr<sem::StatementIf>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::IfStatement &if_statement_node
+        sem::Scope &scope, const nodes::IfStatement &if_statement_node
     ) {
         // TODO: resolve the expression; make sure it is of type boolean
         return std::make_unique<sem::StatementIf>(
-            resolveStatement(block, if_statement_node.true_branch),
+            resolveStatement(scope, if_statement_node.true_branch),
             if_statement_node.false_branch
-                ? resolveStatement(block, *if_statement_node.false_branch)
+                ? resolveStatement(scope, *if_statement_node.false_branch)
                 : nullptr);
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::ProcedureStatement &procedure_statement_node
+        sem::Scope &scope, const nodes::ProcedureStatement &procedure_statement_node
     ) {
         reporter_.err(procedure_statement_node.view.data(), "unsupported-feature",
             "procedure statements are not supported");
@@ -1312,12 +1309,12 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::RepeatStatement &repeat_statement_node
+        sem::Scope &scope, const nodes::RepeatStatement &repeat_statement_node
     ) {
         std::vector<std::unique_ptr<sem::Statement>> statements;
 
         for (auto &statement_node : repeat_statement_node.statements) {
-            statements.push_back(resolveStatement(block, statement_node));
+            statements.push_back(resolveStatement(scope, statement_node));
         }
 
         // TODO: resolve expression; check type
@@ -1327,19 +1324,19 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::WhileStatement &while_statement_node
+        sem::Scope &scope, const nodes::WhileStatement &while_statement_node
     ) {
         // TODO: resolve expression; check type
 
         return std::make_unique<sem::StatementWhile>(
-            resolveStatement(block, while_statement_node.body));
+            resolveStatement(scope, while_statement_node.body));
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Block &block, const nodes::WithStatement &with_statement_node
+        sem::Scope &scope, const nodes::WithStatement &with_statement_node
     ) {
-        auto statement = resolveStatement(block, with_statement_node.body);
+        auto statement = resolveStatement(scope, with_statement_node.body);
 
         for (auto &variable : std::views::reverse(with_statement_node.variables)) {
             // TODO: resolve the variable; check it's of a record type; introduce a new scope
@@ -1351,15 +1348,16 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveStatement(
-        sem::Block &block, const nodes::Statement &statement_node
+        sem::Scope &scope, const nodes::Statement &statement_node
     ) {
         auto statement = visit(*statement_node.unlabeled,
             [&](auto &node) -> std::unique_ptr<sem::Statement> {
-                return resolveUnlabeledStatement(block, node);
+                return resolveUnlabeledStatement(scope, node);
             });
 
         if (statement_node.label) {
             pascal_integer_t label_value = statement_node.label->value;
+            auto &block = scope.closestContainingBlock();
             auto it = block.labels_.find(label_value);
 
             if (it != block.labels_.end()) {
@@ -1399,7 +1397,8 @@ public:
         analyzeVariableDeclarations(block_node, block);
         analyzeSubroutineDeclarations(block_node, block);
 
-        block.statement_ = resolveUnlabeledStatement(block, block_node.statement);
+        block.statement_ = resolveUnlabeledStatement(
+            block.scope_, block_node.statement);
 
         std::vector<const char *> nonprefixing_label_locations;
 
