@@ -1386,11 +1386,17 @@ public:
         sem::Scope &scope, const nodes::IfStatement &if_statement_node
     ) {
         // TODO: resolve the expression; make sure it is of type boolean
+
+        // These variables shouldn't be inlined in the `make_unique` call,
+        // because we need to make sure that the true branch is resolved before
+        // the false branch (and thus the error messages from it are emitted first).
+        auto true_branch = resolveStatement(scope, if_statement_node.true_branch);
+        auto false_branch = if_statement_node.false_branch
+            ? resolveStatement(scope, *if_statement_node.false_branch)
+            : nullptr;
+
         return std::make_unique<sem::StatementIf>(
-            resolveStatement(scope, if_statement_node.true_branch),
-            if_statement_node.false_branch
-                ? resolveStatement(scope, *if_statement_node.false_branch)
-                : nullptr);
+            std::move(true_branch), std::move(false_branch));
     }
 
     std::unique_ptr<sem::Statement>
@@ -1477,10 +1483,7 @@ public:
     resolveStatement(
         sem::Scope &scope, const nodes::Statement &statement_node
     ) {
-        auto statement = visit(*statement_node.unlabeled,
-            [&](auto &node) -> std::unique_ptr<sem::Statement> {
-                return resolveUnlabeledStatement(scope, node);
-            });
+        std::optional<pascal_integer_t> label_value_opt;
 
         if (statement_node.label) {
             pascal_integer_t label_value = statement_node.label->value;
@@ -1500,8 +1503,7 @@ public:
                 }
                 else {
                     it->second.prefixing_occurrence = new_prefixing_occurrence;
-                    statement = std::make_unique<sem::StatementLabeled>(
-                        label_value, std::move(statement));
+                    label_value_opt = label_value;
                 }
             }
             else {
@@ -1509,6 +1511,15 @@ public:
                     "undefined-label", "undefined label");
             }
         }
+
+        auto statement = visit(*statement_node.unlabeled,
+            [&](auto &node) -> std::unique_ptr<sem::Statement> {
+                return resolveUnlabeledStatement(scope, node);
+            });
+
+        if (label_value_opt)
+            statement = std::make_unique<sem::StatementLabeled>(
+                *label_value_opt, std::move(statement));
 
         return statement;
     }
