@@ -344,7 +344,7 @@ public:
 
     void
     addField(const std::string &name, Type::ptr_t type) {
-        fields_.push_back(name);
+        field_names_.push_back(name);
         field_types_.emplace(name, type);
     }
 
@@ -360,7 +360,7 @@ public:
     canBeFileComponent() const;
 
 private:
-    std::vector<std::string> fields_;
+    std::vector<std::string> field_names_;
     std::unordered_map<std::string, Type::ptr_t> field_types_;
     std::optional<VariantPart> variant_part_;
 };

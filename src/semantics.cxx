@@ -60,7 +60,7 @@ sem::TypeEnumerated::str() const {
 
 std::vector<std::string>
 sem::FieldList::allFieldNames() const {
-    std::vector<std::string> names = fields_;
+    std::vector<std::string> names = field_names_;
 
     if (variant_part_) {
         if (auto tag_field = variant_part_->tagField()) {
