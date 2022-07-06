@@ -645,38 +645,39 @@ class Scope;
 
 class VariableAccess {
 public:
+    VariableAccess(const std::string &id, std::size_t scope_index)
+        : id_(id), scope_index_(scope_index) {}
+
     virtual ~VariableAccess() = default;
+
+    const std::string &
+    id() const { return id_; }
+
+    std::size_t
+    scopeIndex() const { return scope_index_; }
 
     virtual DynamicType::ptr_t
     type(Scope &scope) const = 0;
+
+private:
+    std::string id_;
+    std::size_t scope_index_;
 };
 
 class VariableAccessActivationResult : public VariableAccess {
 public:
-    VariableAccessActivationResult(
-        const std::string &function_name, std::size_t scope_index
-    )
-        : function_name_(function_name), scope_index_(scope_index) {}
+    using VariableAccess::VariableAccess;
 
     DynamicType::ptr_t
     type(Scope &scope) const override;
-
-private:
-    std::string function_name_;
-    std::size_t scope_index_;
 };
 
 class VariableAccessEntire : public VariableAccess {
 public:
-    VariableAccessEntire(const std::string &name, std::size_t scope_index)
-        : name_(name), scope_index_(scope_index) {}
+    using VariableAccess::VariableAccess;
 
     DynamicType::ptr_t
     type(Scope &scope) const override;
-
-private:
-    std::string name_;
-    std::size_t scope_index_;
 };
 
 class Statement {

@@ -93,16 +93,16 @@ sem::FieldList::canBeFileComponent() const {
 
 sem::DynamicType::ptr_t
 sem::VariableAccessActivationResult::type(Scope &scope) const {
-    auto *block = scope.parent(scope_index_).block();
+    auto *block = scope.parent(scopeIndex()).block();
     assert(block);
-    return block->subroutine(function_name_).signature().resultType();
+    return block->subroutine(id()).signature().resultType();
 }
 
 sem::DynamicType::ptr_t
 sem::VariableAccessEntire::type(Scope &scope) const {
-    auto *block = scope.parent(scope_index_).block();
+    auto *block = scope.parent(scopeIndex()).block();
     assert(block);
-    return block->variableType(name_);
+    return block->variableType(id());
 }
 
 
