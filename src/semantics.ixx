@@ -339,16 +339,6 @@ class FieldList {
 public:
     FieldList() = default;
 
-    auto
-    fields() const {
-        // returns all fields in definition order
-        return std::views::transform(fields_,
-            [this](const std::string &name) -> decltype(auto) {
-                return *field_types_.find(name);
-            }
-        );
-    }
-
     std::vector<std::string>
     allFieldNames() const;
 
@@ -365,6 +355,9 @@ public:
     setVariantPart(const VariantPart &variant_part) {
         variant_part_ = variant_part;
     }
+
+    bool
+    canBeFileComponent() const;
 
 private:
     std::vector<std::string> fields_;
@@ -394,27 +387,13 @@ public:
 
     bool
     canBeFileComponent() const override {
-        return fieldListCanBeInFileComponent(field_list_);
+        return field_list_.canBeFileComponent();
     }
 
     const FieldList &
     fieldList() const { return field_list_; }
 
 private:
-    static bool
-    fieldListCanBeInFileComponent(const FieldList &field_list) {
-        for (const auto &field : field_list.fields())
-            if (!field.second->canBeFileComponent())
-                return false;
-
-        if (const auto &variant_part = field_list.variantPart())
-            for (const auto &variant : variant_part->variants())
-                if (!fieldListCanBeInFileComponent(variant.fields))
-                    return false;
-
-        return true;
-    }
-
     FieldList field_list_;
     bool is_packed_;
 };

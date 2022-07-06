@@ -77,6 +77,20 @@ sem::FieldList::allFieldNames() const {
     return names;
 }
 
+bool
+sem::FieldList::canBeFileComponent() const {
+    for (const auto &field : field_types_)
+        if (!field.second->canBeFileComponent())
+            return false;
+
+    if (variant_part_)
+        for (const auto &variant : variant_part_->variants())
+            if (!variant.fields.canBeFileComponent())
+                return false;
+
+    return true;
+}
+
 sem::DynamicType::ptr_t
 sem::VariableAccessEntire::type(Scope &scope) const {
     auto *block = scope.parent(scope_index_).block();
