@@ -15,6 +15,7 @@ export module semantics;
 
 import parsing;
 import reporting;
+import utilities;
 
 using namespace std::literals;
 
@@ -595,7 +596,7 @@ public:
                 std::make_shared<ConstantInteger>(1),
                 std::make_shared<ConstantInteger>(pascal_integer_t(value.size()))
             ),
-            Type::ptr_t(std::shared_ptr<void>(), &TypeChar::instance()),
+            staticPtr(TypeChar::instance()),
             true
         )
     {
