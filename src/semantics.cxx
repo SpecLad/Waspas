@@ -92,6 +92,13 @@ sem::FieldList::canBeFileComponent() const {
 }
 
 sem::DynamicType::ptr_t
+sem::VariableAccessActivationResult::type(Scope &scope) const {
+    auto *block = scope.parent(scope_index_).block();
+    assert(block);
+    return block->subroutine(function_name_).signature().resultType();
+}
+
+sem::DynamicType::ptr_t
 sem::VariableAccessEntire::type(Scope &scope) const {
     auto *block = scope.parent(scope_index_).block();
     assert(block);
@@ -1187,8 +1194,61 @@ public:
                 "forward declaration with no following delayed declaration");
     }
 
+    static std::unique_ptr<sem::VariableAccess>
+    resolveVariableIdentifier(
+        sem::Scope &, sem::Scope::LookupResult &lr, const std::string &name
+    ) {
+        if (auto *block = lr.scope->block()) {
+            if (
+                auto it = block->variables_.find(name);
+                it != block->variables_.end()
+            ) {
+                return std::make_unique<sem::VariableAccessEntire>(
+                    name, lr.scope_index);
+            }
+
+            // TODO: process parameters & with statements
+        }
+
+        return nullptr;
+    }
+
+    static std::unique_ptr<sem::VariableAccess>
+    resolveVariableOrCurrentFunctionIdentifier(
+        sem::Scope &scope, sem::Scope::LookupResult &lr, const std::string &name
+    ) {
+        if (auto access = resolveVariableIdentifier(scope, lr, name))
+            return access;
+
+        if (lr.scope_index == 0) return nullptr;
+
+        if (auto *block = lr.scope->block()) {
+            auto it = block->subroutines_.find(name);
+            if (it == block->subroutines_.end()) return nullptr;
+
+            auto &subroutine = it->second;
+            if (!subroutine.signature().resultType()) return nullptr;
+
+            // Check that `scope` is within the function's scope
+            // (IOW, that the function is a _current_ function).
+            if (&scope.parent(lr.scope_index - 1) != &subroutine.block().scope())
+                return nullptr;
+
+            return std::make_unique<sem::VariableAccessActivationResult>(
+                name, lr.scope_index);
+        }
+
+        return nullptr;
+    }
+
     std::unique_ptr<sem::VariableAccess>
-    resolveVariableAccess(sem::Scope &scope, const nodes::VariableAccess &access_node) {
+    resolveVariableAccess(
+        sem::Scope &scope,
+        const nodes::VariableAccess &access_node,
+        std::unique_ptr<sem::VariableAccess> (*resolve_identifier)(
+            sem::Scope &, sem::Scope::LookupResult &, const std::string &),
+        std::string_view identifier_kind_str
+    ) {
         const auto &name = access_node.variable.spelling;
 
         auto lookup_result = scope.lookup(name);
@@ -1199,23 +1259,21 @@ public:
             return nullptr;
         }
 
-        std::unique_ptr<sem::VariableAccess> access;
-
-        if (auto *block = lookup_result->scope->block()) {
-            if (
-                auto it = block->variables_.find(name);
-                it != block->variables_.end()
-            ) {
-                access = std::make_unique<sem::VariableAccessEntire>(
-                    name, lookup_result->scope_index);
-            }
-
-            // TODO: process parameters & with statements
-        }
+        auto access = resolve_identifier(scope, *lookup_result, name);
 
         if (!access) {
             reporter_.err(access_node.variable.view.data(), "wrong-identifier-kind",
-                "identifier \"{}\" is not a variable identifier", name);
+                "identifier \"{}\" is not a {} identifier", name, identifier_kind_str);
+            return nullptr;
+        }
+
+        if (
+            !access_node.modifiers.empty()
+            && dynamic_cast<sem::VariableAccessActivationResult *>(access.get())
+        ) {
+            reporter_.err(access_node.modifiers[0]->view.data(),
+                "invalid-component-access",
+                "accessing component of a function activation result");
             return nullptr;
         }
 
@@ -1239,12 +1297,17 @@ public:
         return access;
     }
 
-    std::unique_ptr<sem::StatementAssignment>
+    std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope, const nodes::AssignmentStatement &assignment_statement_node
     ) {
-        // TODO: resolve the sides of the assignment
-        return std::make_unique<sem::StatementAssignment>();
+        auto access = resolveVariableAccess(scope, assignment_statement_node.access,
+            &resolveVariableOrCurrentFunctionIdentifier, "variable or current function");
+        if (!access)
+            return std::make_unique<sem::StatementEmpty>();
+
+        // TODO: resolve the right hand side; verify assignment compatibility
+        return std::make_unique<sem::StatementAssignment>(std::move(access));
     }
 
     std::unique_ptr<sem::Statement>
@@ -1457,7 +1520,8 @@ public:
             return resolveStatement(scope, with_statement_node.body);
 
         auto &variable_node = with_statement_node.variables[variable_index];
-        auto variable = resolveVariableAccess(scope, variable_node);
+        auto variable = resolveVariableAccess(scope, variable_node,
+            resolveVariableIdentifier, "variable");
         if (!variable)
             return std::make_unique<sem::StatementEmpty>();
 

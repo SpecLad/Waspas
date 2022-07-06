@@ -651,6 +651,21 @@ public:
     type(Scope &scope) const = 0;
 };
 
+class VariableAccessActivationResult : public VariableAccess {
+public:
+    VariableAccessActivationResult(
+        const std::string &function_name, std::size_t scope_index
+    )
+        : function_name_(function_name), scope_index_(scope_index) {}
+
+    DynamicType::ptr_t
+    type(Scope &scope) const override;
+
+private:
+    std::string function_name_;
+    std::size_t scope_index_;
+};
+
 class VariableAccessEntire : public VariableAccess {
 public:
     VariableAccessEntire(const std::string &name, std::size_t scope_index)
@@ -670,6 +685,12 @@ public:
 };
 
 class StatementAssignment : public Statement {
+public:
+    StatementAssignment(std::unique_ptr<VariableAccess> &&access)
+        : access_(std::move(access)) {}
+
+private:
+    std::unique_ptr<VariableAccess> access_;
 };
 
 class CaseListElement {
@@ -935,8 +956,14 @@ public:
     Block(const Block &) = delete;
     Block &operator =(const Block &) = delete;
 
+    const Scope &
+    scope() const { return scope_; }
+
     Type::ptr_t
     variableType(const std::string &name) const { return variables_.at(name); }
+
+    const Subroutine &
+    subroutine(const std::string &name) const { return subroutines_.at(name); }
 
 private:
     Scope scope_;
@@ -1034,6 +1061,9 @@ public:
 
     const Signature &
     signature() const { return signature_; }
+
+    const Block &
+    block() const { return block_; }
 
 private:
     const char *last_declaration_location_;
