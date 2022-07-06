@@ -81,6 +81,11 @@ sem::TypeEnumerated::str() const {
     return s;
 }
 
+pascal_integer_t
+sem::TypeEnumerated::largestOrdinal() const {
+    return constants_.size() - 1;
+}
+
 std::vector<std::string>
 sem::FieldList::fieldNames() const {
     auto keys = std::views::keys(field_types_);
