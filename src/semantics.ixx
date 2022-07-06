@@ -680,6 +680,14 @@ public:
     type(Scope &scope) const override;
 };
 
+class VariableAccessParameter : public VariableAccess {
+public:
+    using VariableAccess::VariableAccess;
+
+    DynamicType::ptr_t
+    type(Scope &scope) const override;
+};
+
 class Statement {
 public:
     virtual ~Statement() = default;
@@ -948,8 +956,13 @@ class Subroutine;
 export
 class Block {
 public:
-    Block(Block *parent_block)
+    // This is a variant rather than an optional,
+    // because we'll likely add Program * as an alternative later.
+    using container_t = std::variant<std::monostate, Subroutine *>;
+
+    Block(Block *parent_block, const container_t &container = {})
         : scope_(parent_block ? &parent_block->scope_ : nullptr, this)
+        , container_(container)
     {}
 
     // Copying a block trivially would mess up the parent scope pointers
@@ -960,6 +973,12 @@ public:
     const Scope &
     scope() const { return scope_; }
 
+    const Subroutine *
+    containingSubroutine() const {
+        auto *s = std::get_if<Subroutine *>(&container_);
+        return s ? *s : nullptr;
+    }
+
     Type::ptr_t
     variableType(const std::string &name) const { return variables_.at(name); }
 
@@ -968,6 +987,7 @@ public:
 
 private:
     Scope scope_;
+    container_t container_;
 
     std::unordered_map<pascal_integer_t, Label> labels_;
     std::unordered_map<std::string, Constant::ptr_t> constants_;
@@ -989,16 +1009,24 @@ public:
     Signature(
         std::span<FormalParameterSection> parameters,
         Type::ptr_t result_type
-    )
-        : parameters_(parameters.begin(), parameters.end())
-        , result_type_(result_type)
-    {}
+    );
 
     Type::ptr_t
     resultType() const { return result_type_; }
 
+    bool
+    hasRegularParameter(const std::string &name) const {
+        return regular_parameter_types_.contains(name);
+    }
+
+    DynamicType::ptr_t
+    regularParameterType(const std::string &name) const {
+        return regular_parameter_types_.at(name);
+    }
+
 private:
     std::vector<FormalParameterSection> parameters_;
+    std::unordered_map<std::string, DynamicType::ptr_t> regular_parameter_types_;
     Type::ptr_t result_type_;
 };
 
@@ -1016,6 +1044,12 @@ public:
     {
         assert(!names.empty());
     }
+
+    const std::vector<std::string> &
+    names() const { return names_; }
+
+    DynamicType::ptr_t
+    type() const { return type_; }
 
 private:
     bool is_variable_;
@@ -1057,7 +1091,7 @@ public:
     )
         : last_declaration_location_(declaration_location)
         , signature_(signature)
-        , block_(&parent_block)
+        , block_(&parent_block, this)
     {}
 
     const Signature &

@@ -91,6 +91,20 @@ sem::FieldList::canBeFileComponent() const {
     return true;
 }
 
+sem::Signature::Signature(
+    std::span<FormalParameterSection> parameters,
+    Type::ptr_t result_type
+)
+    : parameters_(parameters.begin(), parameters.end())
+    , result_type_(result_type)
+{
+    for (const auto &parameter : parameters_) {
+        if (auto *rps = std::get_if<RegularParameterSection>(&parameter.v))
+            for (const auto &name : rps->names())
+                regular_parameter_types_.try_emplace(name, rps->type());
+    }
+}
+
 sem::DynamicType::ptr_t
 sem::VariableAccessActivationResult::type(Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
@@ -105,6 +119,14 @@ sem::VariableAccessEntire::type(Scope &scope) const {
     return block->variableType(id());
 }
 
+sem::DynamicType::ptr_t
+sem::VariableAccessParameter::type(Scope &scope) const {
+    auto *block = scope.parent(scopeIndex()).block();
+    assert(block);
+    auto *subroutine = block->containingSubroutine();
+    assert(subroutine);
+    return subroutine->signature().regularParameterType(id());
+}
 
 // In situations where a type fails to resolve this function can be used
 // to recover without dropping the declaration being analysed entirely.
@@ -1199,15 +1221,18 @@ public:
         sem::Scope &, sem::Scope::LookupResult &lr, const std::string &name
     ) {
         if (auto *block = lr.scope->block()) {
-            if (
-                auto it = block->variables_.find(name);
-                it != block->variables_.end()
-            ) {
+            if (block->variables_.contains(name)) {
                 return std::make_unique<sem::VariableAccessEntire>(
                     name, lr.scope_index);
             }
 
-            // TODO: process parameters & with statements
+            if (auto *subroutine = block->containingSubroutine()) {
+                if (subroutine->signature().hasRegularParameter(name))
+                    return std::make_unique<sem::VariableAccessParameter>(
+                        name, lr.scope_index);
+            }
+
+            // TODO: process with statements
         }
 
         return nullptr;
