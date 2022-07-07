@@ -1402,7 +1402,7 @@ public:
 
         auto &with_scope = with_statement->scope();
 
-        for (const auto &field_name : record_type->fieldList().allFieldNames()) {
+        for (const auto &field_name : record_type->fieldList().fieldNames()) {
             with_scope.add(field_name, variable_node.view.data());
         }
 

@@ -57,22 +57,23 @@ sem::TypeEnumerated::str() const {
 }
 
 std::vector<std::string>
-sem::FieldList::allFieldNames() const {
-    std::vector<std::string> names = field_names_;
+sem::FieldList::fieldNames() const {
+    auto keys = std::views::keys(field_types_);
+    return std::vector<std::string>(keys.begin(), keys.end());
+}
 
-    if (variant_part_) {
-        if (auto tag_field = variant_part_->tagField()) {
-            names.push_back(*tag_field);
-        }
+void
+sem::FieldList::setVariantPart(const VariantPart &variant_part) {
+    assert(!variant_part_);
+    variant_part_ = variant_part;
 
-        for (auto &variant : variant_part_->variants()) {
-            auto variant_field_names = variant.fields.allFieldNames();
-            names.insert(names.end(),
-                variant_field_names.begin(), variant_field_names.end());
-        }
-    }
+    if (auto &tag_field = variant_part_->tagField())
+        field_types_.emplace(*tag_field, variant_part_->tagType());
 
-    return names;
+    for (auto &variant : variant_part_->variants())
+        field_types_.insert(
+            variant.fields.field_types_.begin(),
+            variant.fields.field_types_.end());
 }
 
 bool

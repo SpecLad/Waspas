@@ -312,6 +312,9 @@ public:
         : tag_type_(tag_type)
     {}
 
+    TypeOrdinal::ptr_t
+    tagType() const { return tag_type_; }
+
     const std::optional<std::string> &
     tagField() const { return tag_field_; }
 
@@ -340,12 +343,24 @@ class FieldList {
 public:
     FieldList() = default;
 
+    // Returns all fields' names (including the ones from the variant part)
+    // in an arbitrary order.
     std::vector<std::string>
-    allFieldNames() const;
+    fieldNames() const;
+
+    bool
+    hasField(const std::string &name) const {
+        return field_types_.contains(name);
+    }
+
+    Type::ptr_t
+    fieldType(const std::string &name) const {
+        return field_types_.at(name);
+    }
 
     void
     addField(const std::string &name, Type::ptr_t type) {
-        field_names_.push_back(name);
+        own_field_names_.push_back(name);
         field_types_.emplace(name, type);
     }
 
@@ -353,15 +368,13 @@ public:
     variantPart() const { return variant_part_; }
 
     void
-    setVariantPart(const VariantPart &variant_part) {
-        variant_part_ = variant_part;
-    }
+    setVariantPart(const VariantPart &variant_part);
 
     bool
     canBeFileComponent() const;
 
 private:
-    std::vector<std::string> field_names_;
+    std::vector<std::string> own_field_names_;
     std::unordered_map<std::string, Type::ptr_t> field_types_;
     std::optional<VariantPart> variant_part_;
 };
