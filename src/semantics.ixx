@@ -265,10 +265,14 @@ private:
 
 export
 class TypeFileLike : public Type {
+public:
     bool
     canBeFileComponent() const override {
         return false;
     }
+
+    virtual Type::ptr_t
+    componentType() const = 0;
 };
 
 export
@@ -287,6 +291,9 @@ public:
             + "file of "s + component_type_->str();
     }
 
+    Type::ptr_t
+    componentType() const override { return component_type_; }
+
 private:
     Type::ptr_t component_type_;
     bool is_packed_;
@@ -296,6 +303,11 @@ export
 class TypeText final : public TypeBuiltin<TypeText, TypeFileLike> {
 public:
     static inline constexpr std::string_view NAME = "text"sv;
+
+    Type::ptr_t
+    componentType() const override {
+        return staticPtr(TypeChar::instance());
+    }
 
 private:
     TypeText() = default;
@@ -447,6 +459,9 @@ public:
         // might get into a recursive loop.
         return '^' + domain_type_name_;
     }
+
+    Type::ptr_t
+    domainType() const;
 
 private:
     const Block &domain_type_block_;
@@ -711,6 +726,34 @@ public:
 
     DynamicType::ptr_t
     type(const Scope &scope) const override;
+};
+
+class VariableAccessBuffer : public VariableAccess {
+public:
+    explicit
+    VariableAccessBuffer(
+        std::unique_ptr<VariableAccess> &&file
+    ) : file_(std::move(file)) {}
+
+    DynamicType::ptr_t
+    type(const Scope &scope) const override;
+
+private:
+    std::unique_ptr<VariableAccess> file_;
+};
+
+class VariableAccessDereference : public VariableAccess {
+public:
+    explicit
+    VariableAccessDereference(
+        std::unique_ptr<VariableAccess> &&pointer
+    ) : pointer_(std::move(pointer)) {}
+
+    DynamicType::ptr_t
+    type(const Scope &scope) const override;
+
+private:
+    std::unique_ptr<VariableAccess> pointer_;
 };
 
 class VariableAccessField : public VariableAccess {
@@ -1048,6 +1091,9 @@ public:
         auto *s = std::get_if<Subroutine *>(&container_);
         return s ? *s : nullptr;
     }
+
+    Type::ptr_t
+    type(const std::string &name) const { return types_.at(name); }
 
     Type::ptr_t
     variableType(const std::string &name) const { return variables_.at(name); }

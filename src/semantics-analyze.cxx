@@ -1147,20 +1147,35 @@ public:
         }
 
         for (auto &modifier_node : access_node.modifiers) {
+            auto access_type = access->type(scope);
+
             visit(*modifier_node, overloaded{
                 [&](nodes::DereferencingModifier &deref_mod_node) {
+                    if (std::dynamic_pointer_cast<const sem::TypePointer>(access_type)) {
+                        access = std::make_unique<sem::VariableAccessDereference>(
+                            std::move(access));
+                        return;
+                    }
+
+                    if (std::dynamic_pointer_cast<const sem::TypeFileLike>(access_type)) {
+                        access = std::make_unique<sem::VariableAccessBuffer>(
+                            std::move(access));
+                        return;
+                    }
+
                     reporter_.err(deref_mod_node.view.data(),
-                        "unsupported-feature", "dereferencing is not supported");
+                        "type-mismatch",
+                        "dereferenced value of non-pointer, non-file type \"{}\"",
+                        access_type->str());
                 },
                 [&](nodes::FieldAccessModifier &field_mod_node) {
-                    auto access_type = access->type(scope);
                     auto record_type = std::dynamic_pointer_cast<const sem::TypeRecord>(
                         access_type);
 
                     if (!record_type) {
                         reporter_.err(field_mod_node.view.data(),
                             "non-record-type",
-                            "accessing a field of a variable of a non-record type \"{}\"",
+                            "accessing a field of a value of a non-record type \"{}\"",
                             access_type->str());
                         return;
                     }

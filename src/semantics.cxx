@@ -90,6 +90,11 @@ sem::FieldList::canBeFileComponent() const {
     return true;
 }
 
+sem::Type::ptr_t
+sem::TypePointer::domainType() const {
+    return domain_type_block_.type(domain_type_name_);
+}
+
 sem::Signature::Signature(
     std::span<FormalParameterSection> parameters,
     Type::ptr_t result_type
@@ -132,6 +137,22 @@ sem::VariableAccessVariableId::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     return block->variableType(id());
+}
+
+sem::DynamicType::ptr_t
+sem::VariableAccessBuffer::type(const Scope &scope) const {
+    auto file_type = std::static_pointer_cast<const TypeFileLike>(
+        file_->type(scope));
+
+    return file_type->componentType();
+}
+
+sem::DynamicType::ptr_t
+sem::VariableAccessDereference::type(const Scope &scope) const {
+    auto pointer_type = std::static_pointer_cast<const TypePointer>(
+        pointer_->type(scope));
+
+    return pointer_type->domainType();
 }
 
 sem::DynamicType::ptr_t

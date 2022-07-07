@@ -29,4 +29,7 @@ begin
         {TODO: error:non-record-type }
     i := r.a;
           {TODO: error:undefined-identifier }
+
+    i := i^;
+         {TODO: error:type-mismatch }
 end.
