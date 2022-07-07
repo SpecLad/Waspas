@@ -673,7 +673,7 @@ public:
     type(const Scope &scope) const override;
 };
 
-class VariableAccessEntire : public VariableAccess {
+class VariableAccessParameterId : public VariableAccess {
 public:
     using VariableAccess::VariableAccess;
 
@@ -681,7 +681,7 @@ public:
     type(const Scope &scope) const override;
 };
 
-class VariableAccessParameter : public VariableAccess {
+class VariableAccessVariableId : public VariableAccess {
 public:
     using VariableAccess::VariableAccess;
 

@@ -111,19 +111,19 @@ sem::VariableAccessActivationResult::type(const Scope &scope) const {
 }
 
 sem::DynamicType::ptr_t
-sem::VariableAccessEntire::type(const Scope &scope) const {
-    auto *block = scope.parent(scopeIndex()).block();
-    assert(block);
-    return block->variableType(id());
-}
-
-sem::DynamicType::ptr_t
-sem::VariableAccessParameter::type(const Scope &scope) const {
+sem::VariableAccessParameterId::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     auto *subroutine = block->containingSubroutine();
     assert(subroutine);
     return subroutine->signature().regularParameterType(id());
+}
+
+sem::DynamicType::ptr_t
+sem::VariableAccessVariableId::type(const Scope &scope) const {
+    auto *block = scope.parent(scopeIndex()).block();
+    assert(block);
+    return block->variableType(id());
 }
 
 sem::Block builtin_block(nullptr);

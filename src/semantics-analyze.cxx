@@ -1059,13 +1059,13 @@ public:
     ) {
         if (auto *block = lr.scope->block()) {
             if (block->variables_.contains(name)) {
-                return std::make_unique<sem::VariableAccessEntire>(
+                return std::make_unique<sem::VariableAccessVariableId>(
                     name, lr.scope_index);
             }
 
             if (auto *subroutine = block->containingSubroutine()) {
                 if (subroutine->signature().hasRegularParameter(name))
-                    return std::make_unique<sem::VariableAccessParameter>(
+                    return std::make_unique<sem::VariableAccessParameterId>(
                         name, lr.scope_index);
             }
 
