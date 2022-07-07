@@ -104,21 +104,21 @@ sem::Signature::Signature(
 }
 
 sem::DynamicType::ptr_t
-sem::VariableAccessActivationResult::type(Scope &scope) const {
+sem::VariableAccessActivationResult::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     return block->subroutine(id()).signature().resultType();
 }
 
 sem::DynamicType::ptr_t
-sem::VariableAccessEntire::type(Scope &scope) const {
+sem::VariableAccessEntire::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     return block->variableType(id());
 }
 
 sem::DynamicType::ptr_t
-sem::VariableAccessParameter::type(Scope &scope) const {
+sem::VariableAccessParameter::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     auto *subroutine = block->containingSubroutine();

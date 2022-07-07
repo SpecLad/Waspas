@@ -658,7 +658,7 @@ public:
     scopeIndex() const { return scope_index_; }
 
     virtual DynamicType::ptr_t
-    type(Scope &scope) const = 0;
+    type(const Scope &scope) const = 0;
 
 private:
     std::string id_;
@@ -670,7 +670,7 @@ public:
     using VariableAccess::VariableAccess;
 
     DynamicType::ptr_t
-    type(Scope &scope) const override;
+    type(const Scope &scope) const override;
 };
 
 class VariableAccessEntire : public VariableAccess {
@@ -678,7 +678,7 @@ public:
     using VariableAccess::VariableAccess;
 
     DynamicType::ptr_t
-    type(Scope &scope) const override;
+    type(const Scope &scope) const override;
 };
 
 class VariableAccessParameter : public VariableAccess {
@@ -686,7 +686,7 @@ public:
     using VariableAccess::VariableAccess;
 
     DynamicType::ptr_t
-    type(Scope &scope) const override;
+    type(const Scope &scope) const override;
 };
 
 class Statement {
@@ -881,11 +881,18 @@ public:
         return parent_->parent(index - 1);
     }
 
-    Block *
-    block() {
-        Block **pb = std::get_if<Block *>(&region_);
-        return pb ? *pb : nullptr;
+    const Scope &
+    parent(std::size_t index) const {
+        if (index == 0) return *this;
+        assert(parent_);
+        return parent_->parent(index - 1);
     }
+
+    Block *
+    block() { return region<Block>(); }
+
+    const Block *
+    block() const { return region<Block>(); }
 
     Block &
     closestContainingBlock() {
@@ -925,6 +932,13 @@ public:
     }
 
 private:
+    template <typename T>
+    T *
+    region() const {
+        T *const *p = std::get_if<T *>(&region_);
+        return p ? *p : nullptr;
+    }
+
     Scope *parent_;
     region_t region_;
 
