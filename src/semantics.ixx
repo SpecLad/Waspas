@@ -1029,6 +1029,7 @@ public:
     // because we'll likely add Program * as an alternative later.
     using container_t = std::variant<std::monostate, Subroutine *>;
 
+    explicit
     Block(Block *parent_block, const container_t &container = {})
         : scope_(parent_block ? &parent_block->scope_ : nullptr, this)
         , container_(container)

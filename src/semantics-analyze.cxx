@@ -640,7 +640,7 @@ public:
         assert(defining_scope->block());
 
         return std::make_shared<sem::TypePointer>(
-            defining_scope->block(), domain_type_name);
+            *defining_scope->block(), domain_type_name);
     }
 
     sem::Type::ptr_t
