@@ -686,6 +686,14 @@ public:
     type(const Scope &scope) const override;
 };
 
+class VariableAccessFieldDesignatorId : public VariableAccess {
+public:
+    using VariableAccess::VariableAccess;
+
+    DynamicType::ptr_t
+    type(const Scope &scope) const override;
+};
+
 class VariableAccessParameterId : public VariableAccess {
 public:
     using VariableAccess::VariableAccess;
@@ -887,6 +895,9 @@ public:
     Scope *
     parent() { return parent_; }
 
+    const Scope *
+    parent() const { return parent_; }
+
     Scope &
     parent(std::size_t index) {
         if (index == 0) return *this;
@@ -906,6 +917,9 @@ public:
 
     const Block *
     block() const { return region<Block>(); }
+
+    const StatementWith *
+    statementWith() const { return region<StatementWith>(); }
 
     Block &
     closestContainingBlock() {
@@ -964,11 +978,19 @@ public:
         Scope &parent_scope,
         std::unique_ptr<VariableAccess> &&variable
     )
-        : scope_(&parent_scope, this), variable_(std::move(variable))
-    {}
+        : scope_(&parent_scope, this)
+        , variable_(std::move(variable))
+        , variable_type_(std::dynamic_pointer_cast<const TypeRecord>(
+            variable_->type(parent_scope)))
+    {
+        assert(variable_type_);
+    }
 
     Scope &
     scope() { return scope_; }
+
+    std::shared_ptr<const TypeRecord>
+    variableType() const { return variable_type_; }
 
     void
     setBody(std::unique_ptr<Statement> &&body) { body_ = std::move(body); }
@@ -976,6 +998,7 @@ public:
 private:
     Scope scope_;
     std::unique_ptr<VariableAccess> variable_;
+    std::shared_ptr<const TypeRecord> variable_type_;
     std::unique_ptr<Statement> body_;
 };
 

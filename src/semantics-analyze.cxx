@@ -1054,7 +1054,7 @@ public:
     }
 
     static std::unique_ptr<sem::VariableAccess>
-    resolveVariableIdentifier(
+    resolveVariableOrFdIdentifier(
         sem::Scope &, sem::Scope::LookupResult &lr, const std::string &name
     ) {
         if (auto *block = lr.scope->block()) {
@@ -1069,17 +1069,24 @@ public:
                         name, lr.scope_index);
             }
 
-            // TODO: process with statements
+            return nullptr;
+        }
+
+        if (auto *with = lr.scope->statementWith()) {
+            auto type = with->variableType();
+            if (type->fieldList().hasField(name))
+                return std::make_unique<sem::VariableAccessFieldDesignatorId>(
+                    name, lr.scope_index);
         }
 
         return nullptr;
     }
 
     static std::unique_ptr<sem::VariableAccess>
-    resolveVariableOrCurrentFunctionIdentifier(
+    resolveVariableFdOrCurrentFunctionIdentifier(
         sem::Scope &scope, sem::Scope::LookupResult &lr, const std::string &name
     ) {
-        if (auto access = resolveVariableIdentifier(scope, lr, name))
+        if (auto access = resolveVariableOrFdIdentifier(scope, lr, name))
             return access;
 
         if (lr.scope_index == 0) return nullptr;
@@ -1164,7 +1171,8 @@ public:
         sem::Scope &scope, const nodes::AssignmentStatement &assignment_statement_node
     ) {
         auto access = resolveVariableAccess(scope, assignment_statement_node.access,
-            &resolveVariableOrCurrentFunctionIdentifier, "variable or current function");
+            &resolveVariableFdOrCurrentFunctionIdentifier,
+            "variable, field designator or current function");
         if (!access)
             return std::make_unique<sem::StatementEmpty>();
 
@@ -1383,7 +1391,7 @@ public:
 
         auto &variable_node = with_statement_node.variables[variable_index];
         auto variable = resolveVariableAccess(scope, variable_node,
-            resolveVariableIdentifier, "variable");
+            resolveVariableOrFdIdentifier, "variable or field designator");
         if (!variable)
             return std::make_unique<sem::StatementEmpty>();
 

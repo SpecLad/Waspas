@@ -112,6 +112,13 @@ sem::VariableAccessActivationResult::type(const Scope &scope) const {
 }
 
 sem::DynamicType::ptr_t
+sem::VariableAccessFieldDesignatorId::type(const Scope &scope) const {
+    auto *with = scope.parent(scopeIndex()).statementWith();
+    assert(with);
+    return with->variableType()->fieldList().fieldType(id());
+}
+
+sem::DynamicType::ptr_t
 sem::VariableAccessParameterId::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
