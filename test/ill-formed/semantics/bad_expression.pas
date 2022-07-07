@@ -3,6 +3,10 @@ const
     c = 0;
 type
     pint = ^integer;
+    rec = record end;
+var
+    i: integer;
+    r: rec;
 function f(a: array[m..n: integer] of integer): pint;
     begin
         f := nil;
@@ -20,4 +24,9 @@ begin
    {^ error:wrong-identifier-kind }
     f := nil;
    {^ error:wrong-identifier-kind }
+
+    i := i.a;
+        {TODO: error:non-record-type }
+    i := r.a;
+          {TODO: error:undefined-identifier }
 end.

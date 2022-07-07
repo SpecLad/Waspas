@@ -134,6 +134,14 @@ sem::VariableAccessVariableId::type(const Scope &scope) const {
     return block->variableType(id());
 }
 
+sem::DynamicType::ptr_t
+sem::VariableAccessField::type(const Scope &scope) const {
+    auto record_type = std::static_pointer_cast<const TypeRecord>(
+        record_->type(scope));
+
+    return record_type->fieldList().fieldType(field_name_);
+}
+
 sem::Block builtin_block(nullptr);
 
 sem::Program::Program() : block_(&builtin_block) {}

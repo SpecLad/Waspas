@@ -659,10 +659,16 @@ class Scope;
 
 class VariableAccess {
 public:
-    VariableAccess(const std::string &id, std::size_t scope_index)
-        : id_(id), scope_index_(scope_index) {}
-
     virtual ~VariableAccess() = default;
+
+    virtual DynamicType::ptr_t
+    type(const Scope &scope) const = 0;
+};
+
+class VariableAccessId : public VariableAccess {
+public:
+    VariableAccessId(const std::string &id, std::size_t scope_index)
+        : id_(id), scope_index_(scope_index) {}
 
     const std::string &
     id() const { return id_; }
@@ -670,44 +676,56 @@ public:
     std::size_t
     scopeIndex() const { return scope_index_; }
 
-    virtual DynamicType::ptr_t
-    type(const Scope &scope) const = 0;
-
 private:
     std::string id_;
     std::size_t scope_index_;
 };
 
-class VariableAccessActivationResult : public VariableAccess {
+class VariableAccessActivationResult : public VariableAccessId {
 public:
-    using VariableAccess::VariableAccess;
+    using VariableAccessId::VariableAccessId;
 
     DynamicType::ptr_t
     type(const Scope &scope) const override;
 };
 
-class VariableAccessFieldDesignatorId : public VariableAccess {
+class VariableAccessFieldDesignatorId : public VariableAccessId {
 public:
-    using VariableAccess::VariableAccess;
+    using VariableAccessId::VariableAccessId;
 
     DynamicType::ptr_t
     type(const Scope &scope) const override;
 };
 
-class VariableAccessParameterId : public VariableAccess {
+class VariableAccessParameterId : public VariableAccessId {
 public:
-    using VariableAccess::VariableAccess;
+    using VariableAccessId::VariableAccessId;
 
     DynamicType::ptr_t
     type(const Scope &scope) const override;
 };
 
-class VariableAccessVariableId : public VariableAccess {
+class VariableAccessVariableId : public VariableAccessId {
 public:
-    using VariableAccess::VariableAccess;
+    using VariableAccessId::VariableAccessId;
 
     DynamicType::ptr_t
     type(const Scope &scope) const override;
+};
+
+class VariableAccessField : public VariableAccess {
+public:
+    VariableAccessField(
+        std::unique_ptr<VariableAccess> &&record,
+        const std::string &field_name
+    ) : record_(std::move(record)), field_name_(field_name) {}
+
+    DynamicType::ptr_t
+    type(const Scope &scope) const override;
+
+private:
+    std::unique_ptr<VariableAccess> record_;
+    std::string field_name_;
 };
 
 class Statement {

@@ -1153,8 +1153,30 @@ public:
                         "unsupported-feature", "dereferencing is not supported");
                 },
                 [&](nodes::FieldAccessModifier &field_mod_node) {
-                    reporter_.err(field_mod_node.view.data(),
-                        "unsupported-feature", "field access is not supported");
+                    auto access_type = access->type(scope);
+                    auto record_type = std::dynamic_pointer_cast<const sem::TypeRecord>(
+                        access_type);
+
+                    if (!record_type) {
+                        reporter_.err(field_mod_node.view.data(),
+                            "non-record-type",
+                            "accessing a field of a variable of a non-record type \"{}\"",
+                            access_type->str());
+                        return;
+                    }
+
+                    const auto &field_name = field_mod_node.field.spelling;
+
+                    if (!record_type->fieldList().hasField(field_name)) {
+                        reporter_.err(field_mod_node.field.view.data(),
+                            "undefined-identifier",
+                            "type \"{}\" has no field named \"{}\"",
+                            record_type->str(), field_name);
+                        return;
+                    }
+
+                    access = std::make_unique<sem::VariableAccessField>(
+                        std::move(access), field_mod_node.field.spelling);
                 },
                 [&](nodes::IndexingModifier &indexing_mod_node) {
                     reporter_.err(indexing_mod_node.view.data(),
