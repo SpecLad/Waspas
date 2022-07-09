@@ -672,12 +672,29 @@ private:
 
 class Scope;
 
-class VariableAccess {
+class Expression {
 public:
-    virtual ~VariableAccess() = default;
+    virtual
+    ~Expression() = default;
 
     virtual const DynamicType &
     type(const Scope &scope) const = 0;
+};
+
+class ExpressionConstant : public Expression {
+public:
+    explicit
+    ExpressionConstant(Constant::ptr_t constant)
+        : constant_(constant) {}
+
+    const DynamicType &
+    type(const Scope &) const override { return constant_->type(); }
+
+private:
+    Constant::ptr_t constant_;
+};
+
+class VariableAccess : public Expression {
 };
 
 class VariableAccessId : public VariableAccess {

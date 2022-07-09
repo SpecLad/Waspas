@@ -249,34 +249,47 @@ public:
     }
 
     sem::Constant::ptr_t
+    resolveSignableConstant(
+        sem::Scope &scope, nodes::UnsignedIntegerConstant &uic_node
+    ) {
+        return std::make_shared<sem::ConstantInteger>(uic_node.value);
+    }
+
+    sem::Constant::ptr_t
+    resolveSignableConstant(
+        sem::Scope &scope, nodes::UnsignedRealConstant &urc_node
+    ) {
+        return std::make_shared<sem::ConstantReal>(urc_node.value);
+    }
+
+    sem::Constant::ptr_t
+    resolveSignableConstant(
+        sem::Scope &scope, nodes::Identifier &id_node
+    ) {
+        auto *ref_constant = lookupConstant(scope, id_node);
+        if (!ref_constant) return nullptr;
+
+        if (!*ref_constant) {
+            reporter_.err(id_node.view.data(), "circular-definition",
+                "constant \"{}\" used in its own definition", id_node.spelling);
+            return nullptr;
+        }
+
+        return *ref_constant;
+    }
+
+    sem::Constant::ptr_t
     resolveConstant(sem::Scope &scope, nodes::Constant &constant_node) {
         auto constant_location = constant_node.view.data();
         sem::Constant::ptr_t constant;
 
         visit(constant_node, overloaded{
             [&, this](nodes::SignedConstant &sc_node) {
-                visit(*sc_node.unsigned_value, overloaded{
-                    [&](nodes::UnsignedIntegerConstant &uic_node) {
-                        constant = std::make_shared<sem::ConstantInteger>(
-                            uic_node.value);
-                    },
-                    [&](nodes::UnsignedRealConstant &urc_node) {
-                        constant = std::make_shared<sem::ConstantReal>(
-                            urc_node.value);
-                    },
-                    [&](nodes::Identifier &id_node) {
-                        auto *ref_constant = lookupConstant(scope, id_node);
-                        if (!ref_constant) return;
-
-                        if (!*ref_constant) {
-                            reporter_.err(id_node.view.data(), "circular-definition",
-                                "constant \"{}\" used in its own definition", id_node.spelling);
-                            return;
-                        }
-
-                        constant = *ref_constant;
+                constant = visit(*sc_node.unsigned_value,
+                    [&](auto &signable_constant_node) {
+                        return resolveSignableConstant(scope, signable_constant_node);
                     }
-                });
+                );
 
                 if (constant)
                     applySignToConstant(constant, sc_node.sign, constant_location);
@@ -1199,6 +1212,96 @@ public:
         }
 
         return access;
+    }
+
+    std::unique_ptr<sem::Expression>
+    resolveFactor(
+        sem::Scope &scope,
+        nodes::CharacterString &character_string_node
+    ) {
+        auto constant = resolveConstant(scope, character_string_node);
+        if (!constant)
+            constant = std::make_shared<sem::ConstantString>("???");
+
+        return std::make_unique<sem::ExpressionConstant>(constant);
+    }
+
+    template <typename T>
+    std::unique_ptr<sem::Expression>
+    resolveFactor(
+        sem::Scope &scope,
+        T &signable_constant_node
+    ) requires std::is_base_of_v<nodes::SignableConstant, T> {
+        auto constant = resolveSignableConstant(scope, signable_constant_node);
+        if (!constant)
+            constant = std::make_shared<sem::ConstantInteger>(0);
+
+        return std::make_unique<sem::ExpressionConstant>(constant);
+    }
+
+    std::unique_ptr<sem::Expression>
+    resolveFactor(
+        sem::Scope &scope,
+        auto &factor_node
+    ) {
+        reporter_.err(factor_node.view.data(), "unsupported-feature",
+            "factor type not supported");
+        return std::make_unique<sem::ExpressionConstant>(
+            std::make_shared<sem::ConstantInteger>(0));
+    }
+
+    std::unique_ptr<sem::Expression>
+    resolveTerm(
+        sem::Scope &scope,
+        const nodes::Term &term_node
+    ) {
+        auto expression = visit(*term_node.operand,
+            [&](auto &factor_node) {
+                return resolveFactor(scope, factor_node);
+            }
+        );
+
+        if (!term_node.modifiers.empty())
+            reporter_.err(term_node.modifiers[0].view.data(),
+                "unsupported-feature",
+                "operators are not supported");
+
+        return expression;
+    }
+
+    std::unique_ptr<sem::Expression>
+    resolveSimpleExpression(
+        sem::Scope &scope,
+        const nodes::SimpleExpression &simple_expression_node
+    ) {
+        if (simple_expression_node.sign != nodes::Sign::NONE)
+            reporter_.err(simple_expression_node.view.data(),
+                "unsupported-feature",
+                "operators are not supported");
+
+        auto expression = resolveTerm(scope, simple_expression_node.operand);
+
+        if (!simple_expression_node.modifiers.empty())
+            reporter_.err(simple_expression_node.modifiers[0].view.data(),
+                "unsupported-feature",
+                "operators are not supported");
+
+        return expression;
+    }
+
+    std::unique_ptr<sem::Expression>
+    resolveExpression(
+        sem::Scope &scope,
+        const nodes::Expression &expression_node
+    ) {
+        auto expression = resolveSimpleExpression(scope, expression_node.operand);
+
+        if (expression_node.modifier)
+            reporter_.err(expression_node.modifier->view.data(),
+                "unsupported-feature",
+                "operators are not supported");
+
+        return expression;
     }
 
     std::unique_ptr<sem::Statement>
