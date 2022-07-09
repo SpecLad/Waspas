@@ -109,58 +109,58 @@ sem::Signature::Signature(
     }
 }
 
-sem::DynamicType::ptr_t
+const sem::DynamicType &
 sem::VariableAccessActivationResult::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
-    return block->subroutine(id()).signature().resultType();
+    return *block->subroutine(id()).signature().resultType();
 }
 
-sem::DynamicType::ptr_t
+const sem::DynamicType &
 sem::VariableAccessFieldDesignatorId::type(const Scope &scope) const {
     auto *with = scope.parent(scopeIndex()).statementWith();
     assert(with);
-    return with->variableType()->fieldList().fieldType(id());
+    return *with->variableType().fieldList().fieldType(id());
 }
 
-sem::DynamicType::ptr_t
+const sem::DynamicType &
 sem::VariableAccessParameterId::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     auto *subroutine = block->containingSubroutine();
     assert(subroutine);
-    return subroutine->signature().regularParameterType(id());
+    return *subroutine->signature().regularParameterType(id());
 }
 
-sem::DynamicType::ptr_t
+const sem::DynamicType &
 sem::VariableAccessVariableId::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
-    return block->variableType(id());
+    return *block->variableType(id());
 }
 
-sem::DynamicType::ptr_t
+const sem::DynamicType &
 sem::VariableAccessBuffer::type(const Scope &scope) const {
-    auto file_type = std::static_pointer_cast<const TypeFileLike>(
+    const auto &file_type = dynamic_cast<const TypeFileLike &>(
         file_->type(scope));
 
-    return file_type->componentType();
+    return *file_type.componentType();
 }
 
-sem::DynamicType::ptr_t
+const sem::DynamicType &
 sem::VariableAccessDereference::type(const Scope &scope) const {
-    auto pointer_type = std::static_pointer_cast<const TypePointer>(
+    const auto &pointer_type = dynamic_cast<const TypePointer &>(
         pointer_->type(scope));
 
-    return pointer_type->domainType();
+    return *pointer_type.domainType();
 }
 
-sem::DynamicType::ptr_t
+const sem::DynamicType &
 sem::VariableAccessField::type(const Scope &scope) const {
-    auto record_type = std::static_pointer_cast<const TypeRecord>(
+    const auto &record_type = dynamic_cast<const TypeRecord &>(
         record_->type(scope));
 
-    return record_type->fieldList().fieldType(field_name_);
+    return *record_type.fieldList().fieldType(field_name_);
 }
 
 sem::Block builtin_block(nullptr);

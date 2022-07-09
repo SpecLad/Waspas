@@ -676,7 +676,7 @@ class VariableAccess {
 public:
     virtual ~VariableAccess() = default;
 
-    virtual DynamicType::ptr_t
+    virtual const DynamicType &
     type(const Scope &scope) const = 0;
 };
 
@@ -700,7 +700,7 @@ class VariableAccessActivationResult : public VariableAccessId {
 public:
     using VariableAccessId::VariableAccessId;
 
-    DynamicType::ptr_t
+    const DynamicType &
     type(const Scope &scope) const override;
 };
 
@@ -708,7 +708,7 @@ class VariableAccessFieldDesignatorId : public VariableAccessId {
 public:
     using VariableAccessId::VariableAccessId;
 
-    DynamicType::ptr_t
+    const DynamicType &
     type(const Scope &scope) const override;
 };
 
@@ -716,7 +716,7 @@ class VariableAccessParameterId : public VariableAccessId {
 public:
     using VariableAccessId::VariableAccessId;
 
-    DynamicType::ptr_t
+    const DynamicType &
     type(const Scope &scope) const override;
 };
 
@@ -724,7 +724,7 @@ class VariableAccessVariableId : public VariableAccessId {
 public:
     using VariableAccessId::VariableAccessId;
 
-    DynamicType::ptr_t
+    const DynamicType &
     type(const Scope &scope) const override;
 };
 
@@ -735,7 +735,7 @@ public:
         std::unique_ptr<VariableAccess> &&file
     ) : file_(std::move(file)) {}
 
-    DynamicType::ptr_t
+    const DynamicType &
     type(const Scope &scope) const override;
 
 private:
@@ -749,7 +749,7 @@ public:
         std::unique_ptr<VariableAccess> &&pointer
     ) : pointer_(std::move(pointer)) {}
 
-    DynamicType::ptr_t
+    const DynamicType &
     type(const Scope &scope) const override;
 
 private:
@@ -763,7 +763,7 @@ public:
         const std::string &field_name
     ) : record_(std::move(record)), field_name_(field_name) {}
 
-    DynamicType::ptr_t
+    const DynamicType &
     type(const Scope &scope) const override;
 
 private:
@@ -1041,16 +1041,14 @@ public:
     )
         : scope_(&parent_scope, this)
         , variable_(std::move(variable))
-        , variable_type_(std::dynamic_pointer_cast<const TypeRecord>(
+        , variable_type_(dynamic_cast<const TypeRecord &>(
             variable_->type(parent_scope)))
-    {
-        assert(variable_type_);
-    }
+    {}
 
     Scope &
     scope() { return scope_; }
 
-    std::shared_ptr<const TypeRecord>
+    const TypeRecord &
     variableType() const { return variable_type_; }
 
     void
@@ -1059,7 +1057,7 @@ public:
 private:
     Scope scope_;
     std::unique_ptr<VariableAccess> variable_;
-    std::shared_ptr<const TypeRecord> variable_type_;
+    const TypeRecord &variable_type_;
     std::unique_ptr<Statement> body_;
 };
 
