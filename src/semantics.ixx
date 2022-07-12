@@ -681,7 +681,7 @@ public:
     type(const Scope &scope) const = 0;
 };
 
-class ExpressionConstant : public Expression {
+class ExpressionConstant final : public Expression {
 public:
     explicit
     ExpressionConstant(Constant::ptr_t constant)
@@ -713,7 +713,7 @@ private:
     std::size_t scope_index_;
 };
 
-class VariableAccessActivationResult : public VariableAccessId {
+class VariableAccessActivationResult final : public VariableAccessId {
 public:
     using VariableAccessId::VariableAccessId;
 
@@ -721,7 +721,7 @@ public:
     type(const Scope &scope) const override;
 };
 
-class VariableAccessFieldDesignatorId : public VariableAccessId {
+class VariableAccessFieldDesignatorId final : public VariableAccessId {
 public:
     using VariableAccessId::VariableAccessId;
 
@@ -729,7 +729,7 @@ public:
     type(const Scope &scope) const override;
 };
 
-class VariableAccessParameterId : public VariableAccessId {
+class VariableAccessParameterId final : public VariableAccessId {
 public:
     using VariableAccessId::VariableAccessId;
 
@@ -737,7 +737,7 @@ public:
     type(const Scope &scope) const override;
 };
 
-class VariableAccessVariableId : public VariableAccessId {
+class VariableAccessVariableId final : public VariableAccessId {
 public:
     using VariableAccessId::VariableAccessId;
 
@@ -745,7 +745,7 @@ public:
     type(const Scope &scope) const override;
 };
 
-class VariableAccessBuffer : public VariableAccess {
+class VariableAccessBuffer final : public VariableAccess {
 public:
     explicit
     VariableAccessBuffer(
@@ -759,7 +759,7 @@ private:
     std::unique_ptr<VariableAccess> file_;
 };
 
-class VariableAccessDereference : public VariableAccess {
+class VariableAccessDereference final : public VariableAccess {
 public:
     explicit
     VariableAccessDereference(
@@ -773,7 +773,7 @@ private:
     std::unique_ptr<VariableAccess> pointer_;
 };
 
-class VariableAccessField : public VariableAccess {
+class VariableAccessField final : public VariableAccess {
 public:
     VariableAccessField(
         std::unique_ptr<VariableAccess> &&record,
@@ -793,7 +793,7 @@ public:
     virtual ~Statement() = default;
 };
 
-class StatementAssignment : public Statement {
+class StatementAssignment final : public Statement {
 public:
     StatementAssignment(std::unique_ptr<VariableAccess> &&access)
         : access_(std::move(access)) {}
@@ -817,7 +817,7 @@ private:
     std::unique_ptr<Statement> statement_;
 };
 
-class StatementCase : public Statement {
+class StatementCase final : public Statement {
 public:
     explicit
     StatementCase(std::vector<CaseListElement> &&cases)
@@ -827,7 +827,7 @@ private:
     std::vector<CaseListElement> cases_;
 };
 
-class StatementCompound : public Statement {
+class StatementCompound final : public Statement {
 public:
     explicit
     StatementCompound(std::vector<std::unique_ptr<Statement>> &&statements)
@@ -837,10 +837,10 @@ private:
     std::vector<std::unique_ptr<Statement>> statements_;
 };
 
-class StatementEmpty : public Statement {
+class StatementEmpty final : public Statement {
 };
 
-class StatementFor : public Statement {
+class StatementFor final : public Statement {
 public:
     StatementFor(
         const std::string &control_variable,
@@ -858,7 +858,7 @@ private:
     std::unique_ptr<Statement> body_;
 };
 
-class StatementGoto : public Statement {
+class StatementGoto final : public Statement {
 public:
     StatementGoto(
         pascal_integer_t label,
@@ -870,7 +870,7 @@ private:
     std::size_t scope_index_;
 };
 
-class StatementIf : public Statement {
+class StatementIf final : public Statement {
 public:
     StatementIf(
         std::unique_ptr<Statement> &&true_branch,
@@ -885,7 +885,7 @@ private:
     std::unique_ptr<Statement> false_branch_;
 };
 
-class StatementLabeled : public Statement {
+class StatementLabeled final : public Statement {
 public:
     StatementLabeled(pascal_integer_t label, std::unique_ptr<Statement> &&unlabeled)
         : label_(label), unlabeled_(std::move(unlabeled)) {}
@@ -895,7 +895,7 @@ private:
     std::unique_ptr<Statement> unlabeled_;
 };
 
-class StatementRepeat : public Statement {
+class StatementRepeat final : public Statement {
 public:
     StatementRepeat(std::vector<std::unique_ptr<Statement>> &&statements)
         : statements_(std::move(statements)) {}
@@ -904,7 +904,7 @@ private:
     std::vector<std::unique_ptr<Statement>> statements_;
 };
 
-class StatementWhile : public Statement {
+class StatementWhile final : public Statement {
 public:
     StatementWhile(
         std::unique_ptr<Statement> &&body
