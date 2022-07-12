@@ -48,8 +48,10 @@ public:
     virtual bool
     canBeFileComponent() const { return true; }
 
+    // For a type T, returns the type that an expression of type T should
+    // be treated as having, according to Pascal rules.
     virtual const DynamicType &
-    fullRange() const { return *this; }
+    promoted() const { return *this; }
 };
 
 export
@@ -69,7 +71,10 @@ public:
     }
 
     const TypeOrdinal &
-    fullRange() const override { return *this; }
+    promoted() const override { return fullRange(); }
+
+    virtual const TypeOrdinal &
+    fullRange() const { return *this; }
 
     virtual pascal_integer_t
     smallestOrdinal() const = 0;
@@ -239,6 +244,9 @@ public:
     largestOrdinal() const override {
         return largest_value_->ordinalNumber();
     }
+
+    TypeOrdinal::ptr_t
+    hostType() const { return smallest_value_->typeOrdinal(); }
 
 private:
     ConstantOrdinal::ptr_t smallest_value_;
@@ -438,7 +446,14 @@ public:
     TypeSet(
         TypeOrdinal::ptr_t base_type,
         bool is_packed
-    ) : base_type_(base_type), is_packed_(is_packed) {}
+    ) : base_type_(base_type), is_packed_(is_packed)
+    {
+        if (auto subrange_type
+            = std::dynamic_pointer_cast<const TypeSubrange>(base_type_)
+        )
+            host_type_set_ = std::make_unique<TypeSet>(
+                subrange_type->hostType(), is_packed);
+    }
 
     std::string
     str() const override {
@@ -446,9 +461,40 @@ public:
             + "set of "s + base_type_->str();
     }
 
+    const TypeSet &
+    promoted() const override {
+        /*
+            This isn't quite right according to the standard, but it should
+            be right enough.
+
+            The standard says that sets of subrange types should be treated as
+            [un]packed-canonical-set-of-T, where T is the host type of the subrange.
+            However, we don't implement canonical set types, and just create a new
+            set type of the host type. When we typecheck set operators (which are
+            defined to only accept canonical set types), we just make sure that
+            the operand types have the same base type and packedness.
+
+            This deviation from the standard is for a few reasons:
+
+            1. To implement canonicity, we would need to maintain some sort
+               of global store of canonical set types, which would add complexity.
+            2. The wording in the standard implies that set operators cannot be
+               used with sets of non-subrange types (since they are _not_ treated
+               as canonical sets), which doesn't make much sense. By allowing
+               operators to accept any sets, we fix this.
+
+            This change should not make any programs which are valid under the
+            standard rules to become invalid or change semantics.
+        */
+
+        return host_type_set_ ? *host_type_set_ : *this;
+    }
+
 private:
     TypeOrdinal::ptr_t base_type_;
     bool is_packed_;
+
+    std::unique_ptr<TypeSet> host_type_set_;
 };
 
 class Block;
