@@ -45,17 +45,31 @@ sem::TypeEnumerated::TypeEnumerated(
     assert(!constant_names.empty());
     assert(constant_names.size() - 1 <= std::size_t(PASCAL_INTEGER_MAX));
 
+    constants_.reserve(constant_names.size());
+
     for (auto i : std::views::iota(std::size_t(0), constant_names.size()))
-        constants_.push_back(std::shared_ptr<ConstantEnumerated>(
-            new ConstantEnumerated(*this, i, constant_names[i])));
+        constants_.push_back(ConstantEnumerated(*this, i, constant_names[i]));
+}
+
+std::vector<std::shared_ptr<const sem::ConstantEnumerated>>
+sem::TypeEnumerated::constants() const {
+    auto self_ptr = shared_from_this();
+
+    std::vector<std::shared_ptr<const sem::ConstantEnumerated>> result;
+    result.reserve(constants_.size());
+
+    for (const auto &c : constants_)
+        result.push_back(std::shared_ptr<const sem::ConstantEnumerated>(self_ptr, &c));
+
+    return result;
 }
 
 std::string
 sem::TypeEnumerated::str() const {
-    std::string s = "("s + constants_[0]->str();
+    std::string s = "("s + constants_[0].str();
 
     for (const auto &c : std::views::drop(constants_, 1))
-        s += ", "s + c->str();
+        s += ", "s + c.str();
 
     s += ")"s;
     return s;

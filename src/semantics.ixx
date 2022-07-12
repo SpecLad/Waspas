@@ -190,8 +190,8 @@ public:
     static std::shared_ptr<const TypeEnumerated>
     make(std::span<const std::string> constant_names);
 
-    std::span<const std::shared_ptr<const ConstantEnumerated>>
-    constants() const { return constants_; }
+    std::vector<std::shared_ptr<const ConstantEnumerated>>
+    constants() const;
 
     std::string
     str() const override;
@@ -206,7 +206,7 @@ private:
     explicit
     TypeEnumerated(std::span<const std::string> constant_names);
 
-    std::vector<std::shared_ptr<const ConstantEnumerated>> constants_;
+    std::vector<ConstantEnumerated> constants_;
 };
 
 export
