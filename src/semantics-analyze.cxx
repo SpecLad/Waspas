@@ -461,20 +461,16 @@ public:
                     auto constant = resolveConstant(scope, *constant_node);
                     if (!constant) return field_list;
 
-                    auto ordinal_constant
-                        = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
-                    if (!ordinal_constant) {
-                        reporter_.err(constant_node->view.data(), "non-ordinal-type",
-                            "case constant has non-ordinal type \"{}\"", constant->type()->str());
+                    if (!constant->type()->isCompatibleWith(*tag_type_ordinal)) {
+                        reporter_.err(constant_node->view.data(), "type-mismatch",
+                            "case constant type (\"{}\") is incompatible with tag type (\"{}\")",
+                            constant->type()->str(), tag_type_ordinal->str());
                         return field_list;
                     }
 
-                    if (!ordinal_constant->typeOrdinal()->isCompatibleWith(*tag_type_ordinal)) {
-                        reporter_.err(constant_node->view.data(), "type-mismatch",
-                            "case constant type (\"{}\") is incompatible with tag type (\"{}\")",
-                            ordinal_constant->type()->str(), tag_type_ordinal->str());
-                        return field_list;
-                    }
+                    auto ordinal_constant
+                        = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
+                    assert(ordinal_constant); // the type check above guarantees this
 
                     auto ordinal = ordinal_constant->ordinalNumber();
                     if (!(tag_smallest_ordinal <= ordinal && ordinal <= tag_largest_ordinal)) {

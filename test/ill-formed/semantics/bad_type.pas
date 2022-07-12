@@ -83,11 +83,6 @@ type
             {^ error:non-ordinal-type }
     end;
 
-    recordWithNonOrdinalCaseConstant = record
-        case boolean of 1.1: ();
-                       {^ error:non-ordinal-type }
-    end;
-
     tagType = 1..2;
 
     recordWithIncompatibleCaseConstant = record
