@@ -45,4 +45,13 @@ begin
 
     with k do;
         {^ error:non-record-type }
+
+    if 0 then;
+      {^ error:non-boolean-type }
+
+    repeat until 0;
+                {^ error:non-boolean-type }
+
+    while 0 do;
+         {^ error:non-boolean-type }
 end.

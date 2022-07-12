@@ -1465,21 +1465,38 @@ public:
         return std::make_unique<sem::StatementEmpty>();
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveCondition(sem::Scope &scope, const nodes::Expression &expression_node) {
+        auto condition = resolveExpression(scope, expression_node);
+        const auto &condition_type = condition->type(scope);
+        const auto &condition_type_promoted = condition_type.promoted();
+        if (&condition_type_promoted != &sem::TypeBoolean::instance()) {
+            reporter_.err(expression_node.view.data(),
+                "non-boolean-type",
+                "condition has non-boolean type \"{}\"", condition_type_promoted.str());
+
+            return std::make_unique<sem::ExpressionConstant>(
+                staticPtr(sem::ConstantBoolean::instanceFalse()));
+        }
+
+        return condition;
+    }
+
     std::unique_ptr<sem::StatementIf>
     resolveUnlabeledStatement(
         sem::Scope &scope, const nodes::IfStatement &if_statement_node
     ) {
-        // TODO: resolve the expression; make sure it is of type boolean
-
         // These variables shouldn't be inlined in the `make_unique` call,
         // because we need to make sure that the true branch is resolved before
         // the false branch (and thus the error messages from it are emitted first).
+        auto condition = resolveCondition(scope, if_statement_node.condition);
         auto true_branch = resolveStatement(scope, if_statement_node.true_branch);
         auto false_branch = if_statement_node.false_branch
             ? resolveStatement(scope, *if_statement_node.false_branch)
             : nullptr;
 
         return std::make_unique<sem::StatementIf>(
+            std::move(condition),
             std::move(true_branch), std::move(false_branch));
     }
 
@@ -1502,19 +1519,21 @@ public:
             statements.push_back(resolveStatement(scope, statement_node));
         }
 
-        // TODO: resolve expression; check type
+        auto condition = resolveCondition(scope, repeat_statement_node.condition);
 
-        return std::make_unique<sem::StatementRepeat>(std::move(statements));
+        return std::make_unique<sem::StatementRepeat>(
+            std::move(statements), std::move(condition));
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope, const nodes::WhileStatement &while_statement_node
     ) {
-        // TODO: resolve expression; check type
+        auto condition = resolveCondition(scope, while_statement_node.condition);
+        auto body = resolveStatement(scope, while_statement_node.body);
 
         return std::make_unique<sem::StatementWhile>(
-            resolveStatement(scope, while_statement_node.body));
+            std::move(condition), std::move(body));
     }
 
     std::unique_ptr<sem::Statement>

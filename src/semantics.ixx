@@ -927,14 +927,17 @@ private:
 class StatementIf final : public Statement {
 public:
     StatementIf(
+        std::unique_ptr<Expression> &&condition,
         std::unique_ptr<Statement> &&true_branch,
         std::unique_ptr<Statement> &&false_branch
     )
-        : true_branch_(std::move(true_branch))
+        : condition_(std::move(condition))
+        , true_branch_(std::move(true_branch))
         , false_branch_(std::move(false_branch))
     {}
 
 private:
+    std::unique_ptr<Expression> condition_;
     std::unique_ptr<Statement> true_branch_;
     std::unique_ptr<Statement> false_branch_;
 };
@@ -951,22 +954,30 @@ private:
 
 class StatementRepeat final : public Statement {
 public:
-    StatementRepeat(std::vector<std::unique_ptr<Statement>> &&statements)
-        : statements_(std::move(statements)) {}
+    StatementRepeat(
+        std::vector<std::unique_ptr<Statement>> &&statements,
+        std::unique_ptr<Expression> &&condition
+    )
+        : statements_(std::move(statements))
+        , condition_(std::move(condition))
+    {}
 
 private:
     std::vector<std::unique_ptr<Statement>> statements_;
+    std::unique_ptr<Expression> condition_;
 };
 
 class StatementWhile final : public Statement {
 public:
     StatementWhile(
+        std::unique_ptr<Expression> &&condition,
         std::unique_ptr<Statement> &&body
     )
-        : body_(std::move(body))
+        : condition_(std::move(condition)), body_(std::move(body))
     {}
 
 private:
+    std::unique_ptr<Expression> condition_;
     std::unique_ptr<Statement> body_;
 };
 
