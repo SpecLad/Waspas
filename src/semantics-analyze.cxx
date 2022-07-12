@@ -1321,7 +1321,18 @@ public:
     resolveUnlabeledStatement(
         sem::Scope &scope, const nodes::CaseStatement &case_statement_node
     ) {
-        // TODO: resolve case index; verify that the type is ordinal
+        auto case_index = resolveExpression(scope, case_statement_node.case_index);
+        const auto &case_index_type = case_index->type(scope);
+        const auto &case_index_type_promoted = case_index_type.promoted();
+
+        if (!dynamic_cast<const sem::TypeOrdinal *>(&case_index_type_promoted)) {
+            reporter_.err(case_statement_node.case_index.view.data(),
+                "non-ordinal-type",
+                "case index has non-ordinal type \"{}\"",
+                case_index_type_promoted.str());
+
+            return std::make_unique<sem::StatementEmpty>();
+        }
 
         std::vector<sem::CaseListElement> case_list_elements;
 
@@ -1334,15 +1345,19 @@ public:
                 auto constant = resolveConstant(scope, *constant_node);
                 if (!constant) continue;
 
-                auto ordinal_constant
-                    = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
-                if (!ordinal_constant) {
-                    reporter_.err(constant_node->view.data(), "non-ordinal-type",
-                        "case constant has non-ordinal type \"{}\"", constant->type()->str());
+                auto constant_type = constant->type();
+
+                if (constant_type.get() != &case_index_type_promoted) {
+                    reporter_.err(constant_node->view.data(), "type-mismatch",
+                        "case constant has type \"{}\","
+                            " which is different from the type of the case index (\"{}\")",
+                        constant_type->str(), case_index_type_promoted.str());
                     continue;
                 }
 
-                // TODO: check that the constant has the same type as the index
+                auto ordinal_constant
+                    = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
+                assert(ordinal_constant); // the type check above guarantees this
 
                 auto ordinal = ordinal_constant->ordinalNumber();
 

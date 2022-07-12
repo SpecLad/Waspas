@@ -35,9 +35,12 @@ begin
     goto 2;
         {^ error:undefined-label }
 
+    case 1.1 of 1.1: ; end;
+        {^ error:non-ordinal-type }
+
     case 0 of
         1.1: ;
-       {^ error:non-ordinal-type }
+       {^ error:type-mismatch }
 
         0,       0: ;
        {^ note }{^ error:duplicate-case }
