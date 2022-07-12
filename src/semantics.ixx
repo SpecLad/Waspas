@@ -52,6 +52,11 @@ public:
     // be treated as having, according to Pascal rules.
     virtual const DynamicType &
     promoted() const { return *this; }
+
+    virtual bool
+    isCompatibleWith(const DynamicType &other) const {
+        return this == &other;
+    }
 };
 
 export
@@ -66,8 +71,10 @@ public:
     using ptr_t = std::shared_ptr<const TypeOrdinal>;
 
     bool
-    isCompatibleWith(const TypeOrdinal &other) const {
-        return &fullRange() == &other.fullRange();
+    isCompatibleWith(const DynamicType &other) const override {
+        if (auto *other_ordinal = dynamic_cast<const TypeOrdinal *>(&other))
+            return &fullRange() == &other_ordinal->fullRange();
+        return Type::isCompatibleWith(other);
     }
 
     const TypeOrdinal &
@@ -271,6 +278,28 @@ public:
     bool
     canBeFileComponent() const override {
         return component_type_->canBeFileComponent();
+    }
+
+    bool
+    isString() const {
+        auto index_type_subrange
+            = std::dynamic_pointer_cast<const TypeSubrange>(index_type_);
+
+        return is_packed_ && index_type_subrange
+            && index_type_subrange->hostType().get() == &sem::TypeInteger::instance()
+            && index_type_subrange->smallestOrdinal() == 1
+            && index_type_subrange->largestOrdinal() > 1
+            && component_type_.get() == &sem::TypeChar::instance();
+    }
+
+    bool
+    isCompatibleWith(const DynamicType &other) const override {
+        if (isString())
+            if (auto *other_array = dynamic_cast<const TypeArray *>(&other))
+                return other_array->isString()
+                    && index_type_->largestOrdinal()
+                        == other_array->index_type_->largestOrdinal();
+        return Type::isCompatibleWith(other);
     }
 
 private:
@@ -488,6 +517,14 @@ public:
         */
 
         return host_type_set_ ? *host_type_set_ : *this;
+    }
+
+    bool
+    isCompatibleWith(const DynamicType &other) const override {
+        if (auto *other_set = dynamic_cast<const TypeSet *>(&other))
+            return is_packed_ == other_set->is_packed_
+                && base_type_->isCompatibleWith(*other_set->base_type_);
+        return Type::isCompatibleWith(other);
     }
 
 private:
