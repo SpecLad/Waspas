@@ -935,17 +935,23 @@ class StatementFor final : public Statement {
 public:
     StatementFor(
         const std::string &control_variable,
+        std::unique_ptr<Expression> &&initial_value,
         nodes::RangeDirection direction,
+        std::unique_ptr<Expression> &&final_value,
         std::unique_ptr<Statement> &&body
     )
         : control_variable_(control_variable)
+        , initial_value_(std::move(initial_value))
         , direction_(direction)
+        , final_value_(std::move(final_value))
         , body_(std::move(body))
     {}
 
 private:
     std::string control_variable_;
+    std::unique_ptr<Expression> initial_value_;
     nodes::RangeDirection direction_;
+    std::unique_ptr<Expression> final_value_;
     std::unique_ptr<Statement> body_;
 };
 

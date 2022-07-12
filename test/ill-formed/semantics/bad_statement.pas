@@ -32,6 +32,12 @@ begin
         for f := 1 to 10 do;
            {^ error:wrong-identifier-kind }
 
+    for k := 1.1 to 10 do;
+            {^ error:type-mismatch }
+
+    for k := 1 to 1.1 do;
+                 {^ error:type-mismatch }
+
     goto 2;
         {^ error:undefined-label }
 

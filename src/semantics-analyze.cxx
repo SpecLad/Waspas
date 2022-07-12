@@ -1441,12 +1441,36 @@ public:
             return std::make_unique<sem::StatementEmpty>();
         }
 
-        // TODO: resolve the initial and final value expressions; check their types
+        auto initial_value = resolveExpression(scope, for_statement_node.initial_value);
+        const auto &initial_value_type = initial_value->type(scope);
+        if (!initial_value_type.promoted().isCompatibleWith(*control_variable_type)) {
+            reporter_.err(for_statement_node.initial_value.view.data(),
+                "type-mismatch",
+                "initial value type \"{}\" is incompatible"
+                    " with the control variable type \"{}\"",
+                initial_value_type.promoted().str(), control_variable_type->str());
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
+        auto final_value = resolveExpression(scope, for_statement_node.final_value);
+        const auto &final_value_type = final_value->type(scope);
+
+        if (!final_value_type.promoted().isCompatibleWith(*control_variable_type)) {
+            reporter_.err(for_statement_node.final_value.view.data(),
+                "type-mismatch",
+                "final value type \"{}\" is incompatible"
+                    " with the control variable type \"{}\"",
+                final_value_type.promoted().str(), control_variable_type->str());
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
         // TODO: check for threatening statements
 
         return std::make_unique<sem::StatementFor>(
             control_variable,
+            std::move(initial_value),
             for_statement_node.direction,
+            std::move(final_value),
             resolveStatement(scope, for_statement_node.body));
     }
 
