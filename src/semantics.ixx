@@ -86,7 +86,7 @@ public:
     virtual constexpr
     ~Constant() = default;
 
-    virtual const Type &
+    virtual Type::ptr_t
     type() const = 0;
 };
 
@@ -95,8 +95,11 @@ class ConstantOrdinal : public Constant {
 public:
     using ptr_t = std::shared_ptr<const ConstantOrdinal>;
 
-    const TypeOrdinal &
-    type() const override = 0;
+    Type::ptr_t
+    type() const override final { return typeOrdinal(); }
+
+    virtual TypeOrdinal::ptr_t
+    typeOrdinal() const = 0;
 
     virtual std::string
     str() const = 0;
@@ -180,10 +183,12 @@ private:
 class ConstantEnumerated;
 
 export
-class TypeEnumerated final : public TypeOrdinal {
+class TypeEnumerated final
+    : public TypeOrdinal, public std::enable_shared_from_this<TypeEnumerated>
+{
 public:
-    explicit
-    TypeEnumerated(std::span<const std::string> constant_names);
+    static std::shared_ptr<const TypeEnumerated>
+    make(std::span<const std::string> constant_names);
 
     std::span<const std::shared_ptr<const ConstantEnumerated>>
     constants() const { return constants_; }
@@ -198,6 +203,9 @@ public:
     largestOrdinal() const override { return constants_.size() - 1; }
 
 private:
+    explicit
+    TypeEnumerated(std::span<const std::string> constant_names);
+
     std::vector<std::shared_ptr<const ConstantEnumerated>> constants_;
 };
 
@@ -217,9 +225,9 @@ public:
     const TypeOrdinal &
     fullRange() const override {
         // It shouldn't be possible to form subranges of subranges,
-        // so `smallest_value_->type()` should be sufficient, but
+        // so `*smallest_value_->typeOrdinal()` should be sufficient, but
         // just in case, we also call `fullRange` on that.
-        return smallest_value_->type().fullRange();
+        return smallest_value_->typeOrdinal()->fullRange();
     }
 
     pascal_integer_t
@@ -535,8 +543,8 @@ private:
     ConstantBoolean(bool value) : ConstantImpl(value) {}
 
 public:
-    const TypeBoolean &
-    type() const override { return TypeBoolean::instance(); }
+    TypeOrdinal::ptr_t
+    typeOrdinal() const override { return staticPtr(TypeBoolean::instance()); }
 
     std::string
     str() const override { return value_ ? "true"s : "false"s; }
@@ -564,8 +572,8 @@ class ConstantInteger final
 public:
     using ConstantImpl::ConstantImpl;
 
-    const TypeInteger &
-    type() const override { return TypeInteger::instance(); }
+    TypeOrdinal::ptr_t
+    typeOrdinal() const override { return staticPtr(TypeInteger::instance()); }
 
     std::string
     str() const override { return std::to_string(value_); }
@@ -586,8 +594,8 @@ class ConstantReal final
 {
     using ConstantImpl::ConstantImpl;
 
-    const TypeReal &
-    type() const override { return TypeReal::instance(); }
+    Type::ptr_t
+    type() const override { return staticPtr(TypeReal::instance()); }
 };
 
 export
@@ -596,8 +604,8 @@ class ConstantChar final
 {
     using ConstantImpl::ConstantImpl;
 
-    const TypeChar &
-    type() const override { return TypeChar::instance(); }
+    TypeOrdinal::ptr_t
+    typeOrdinal() const override { return staticPtr(TypeChar::instance()); }
 
     std::string
     str() const override {
@@ -619,33 +627,33 @@ public:
     explicit
     ConstantString(const std::string &value)
         : ConstantImpl(value)
-        , type_(
+        , type_(std::make_shared<TypeArray>(
             std::make_shared<TypeSubrange>(
                 std::make_shared<ConstantInteger>(1),
                 std::make_shared<ConstantInteger>(pascal_integer_t(value.size()))
             ),
             staticPtr(TypeChar::instance()),
             true
-        )
+        ))
     {
         assert(value.size() <= std::size_t(PASCAL_INTEGER_MAX));
     }
 
-    const TypeArray &
+    Type::ptr_t
     type() const override {
         return type_;
     }
 
 private:
-    TypeArray type_;
+    std::shared_ptr<const TypeArray> type_;
 };
 
 export
 class ConstantEnumerated final : public ConstantOrdinal
 {
 public:
-    const TypeEnumerated &
-    type() const override { return type_; }
+    TypeOrdinal::ptr_t
+    typeOrdinal() const override { return type_.shared_from_this(); }
 
     std::string
     str() const override { return name_; }
@@ -688,7 +696,7 @@ public:
         : constant_(constant) {}
 
     const DynamicType &
-    type(const Scope &) const override { return constant_->type(); }
+    type(const Scope &) const override { return *constant_->type(); }
 
 private:
     Constant::ptr_t constant_;

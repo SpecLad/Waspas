@@ -73,7 +73,7 @@ public:
         }
         else {
             reporter_.err(location, "type-mismatch",
-                "a sign cannot be applied to a constant of type \"{}\"", v->type().str());
+                "a sign cannot be applied to a constant of type \"{}\"", v->type()->str());
         }
     }
 
@@ -465,14 +465,14 @@ public:
                         = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
                     if (!ordinal_constant) {
                         reporter_.err(constant_node->view.data(), "non-ordinal-type",
-                            "case constant has non-ordinal type \"{}\"", constant->type().str());
+                            "case constant has non-ordinal type \"{}\"", constant->type()->str());
                         return field_list;
                     }
 
-                    if (!ordinal_constant->type().isCompatibleWith(*tag_type_ordinal)) {
+                    if (!ordinal_constant->typeOrdinal()->isCompatibleWith(*tag_type_ordinal)) {
                         reporter_.err(constant_node->view.data(), "type-mismatch",
                             "case constant type (\"{}\") is incompatible with tag type (\"{}\")",
-                            ordinal_constant->type().str(), tag_type_ordinal->str());
+                            ordinal_constant->type()->str(), tag_type_ordinal->str());
                         return field_list;
                     }
 
@@ -585,8 +585,7 @@ public:
         if (constant_names.empty())
             return nullptr;
 
-        auto enumerated_type
-            = std::make_shared<sem::TypeEnumerated>(constant_names);
+        auto enumerated_type = sem::TypeEnumerated::make(constant_names);
 
         for (const auto &constant : enumerated_type->constants())
             scope.closestContainingBlock().constants_.emplace(constant->str(), constant);
@@ -682,16 +681,16 @@ public:
         if (!smallest_ordinal) {
             reporter_.err(subrange_type_node.smallest->view.data(),
                 "non-ordinal-type",
-                "subrange bound has non-ordinal type \"{}\"", smallest->type().str());
+                "subrange bound has non-ordinal type \"{}\"", smallest->type()->str());
             return nullptr;
         }
 
-        if (&largest->type() != &smallest->type()) {
+        if (largest->type() != smallest->type()) {
             reporter_.err(subrange_type_node.largest->view.data(),
                 "type-mismatch",
                 "largest subrange value has different type (\"{}\") "
                     "from smallest value type (\"{}\")",
-                largest->type().str(), smallest->type().str());
+                largest->type()->str(), smallest->type()->str());
             return nullptr;
         }
 
@@ -1339,7 +1338,7 @@ public:
                     = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
                 if (!ordinal_constant) {
                     reporter_.err(constant_node->view.data(), "non-ordinal-type",
-                        "case constant has non-ordinal type \"{}\"", constant->type().str());
+                        "case constant has non-ordinal type \"{}\"", constant->type()->str());
                     continue;
                 }
 

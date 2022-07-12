@@ -34,6 +34,11 @@ sem::VariantPart::addVariant(
     });
 }
 
+std::shared_ptr<const sem::TypeEnumerated>
+sem::TypeEnumerated::make(std::span<const std::string> constant_names) {
+    return std::shared_ptr<sem::TypeEnumerated>(new TypeEnumerated(constant_names));
+}
+
 sem::TypeEnumerated::TypeEnumerated(
     std::span<const std::string> constant_names
 ) {
