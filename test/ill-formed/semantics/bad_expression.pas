@@ -18,6 +18,9 @@ function f(aa: array [m..n: integer] of integer): pint;
         f^ := 0;
         {^ error:invalid-component-access }
 
+        i := m^;
+             {^ error:invalid-component-access }
+
         aa := aa[1.1];
                 {^ error:type-mismatch }
     end;
@@ -28,6 +31,9 @@ begin
    {^ error:wrong-identifier-kind }
     f := nil;
    {^ error:wrong-identifier-kind }
+
+    i := c^;
+         {^ error:invalid-component-access }
 
     i := i.a;
          {^ error:non-record-type }

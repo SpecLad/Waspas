@@ -1088,6 +1088,26 @@ public:
         return nullptr;
     }
 
+    static std::unique_ptr<sem::Expression>
+    resolveVariableFdConstantOrBoundIdentifier(
+        sem::Scope &scope, sem::Scope::LookupResult &lr, const std::string &name
+    ) {
+        if (auto access = resolveVariableOrFdIdentifier(scope, lr, name))
+            return access;
+
+        if (auto *block = lr.scope->block()) {
+            if (auto it = block->constants_.find(name); it != block->constants_.end())
+                return std::make_unique<sem::ExpressionConstant>(it->second);
+
+            if (auto *subroutine = block->containingSubroutine()) {
+                if (subroutine->signature().hasBound(name))
+                    return std::make_unique<sem::ExpressionBound>(name, lr.scope_index);
+            }
+        }
+
+        return nullptr;
+    }
+
     static std::unique_ptr<sem::VariableAccess>
     resolveVariableFdOrCurrentFunctionIdentifier(
         sem::Scope &scope, sem::Scope::LookupResult &lr, const std::string &name
@@ -1138,43 +1158,13 @@ public:
         return index;
     }
 
-    std::unique_ptr<sem::VariableAccess>
-    resolveVariableAccess(
+    void
+    applyComponentAccess(
         sem::Scope &scope,
-        const nodes::VariableAccess &access_node,
-        std::unique_ptr<sem::VariableAccess> (*resolve_identifier)(
-            sem::Scope &, sem::Scope::LookupResult &, const std::string &),
-        std::string_view identifier_kind_str
+        std::unique_ptr<sem::VariableAccess> &access,
+        const std::vector<std::unique_ptr<nodes::VariableModifier>> &modifier_nodes
     ) {
-        const auto &name = access_node.variable.spelling;
-
-        auto lookup_result = scope.lookup(name);
-
-        if (!lookup_result) {
-            reporter_.err(access_node.variable.view.data(), "undefined-identifier",
-                "undefined identifier \"{}\"", name);
-            return nullptr;
-        }
-
-        auto access = resolve_identifier(scope, *lookup_result, name);
-
-        if (!access) {
-            reporter_.err(access_node.variable.view.data(), "wrong-identifier-kind",
-                "identifier \"{}\" is not a {} identifier", name, identifier_kind_str);
-            return nullptr;
-        }
-
-        if (
-            !access_node.modifiers.empty()
-            && dynamic_cast<sem::VariableAccessActivationResult *>(access.get())
-        ) {
-            reporter_.err(access_node.modifiers[0]->view.data(),
-                "invalid-component-access",
-                "accessing component of a function activation result");
-            return nullptr;
-        }
-
-        for (auto &modifier_node : access_node.modifiers) {
+        for (auto &modifier_node : modifier_nodes) {
             const auto &access_type = access->type(scope);
 
             visit(*modifier_node, overloaded{
@@ -1258,8 +1248,54 @@ public:
                 },
             });
         }
+    }
 
-        return access;
+    template <typename T>
+    std::unique_ptr<T>
+    resolveVariableAccess(
+        sem::Scope &scope,
+        const nodes::VariableAccess &access_node,
+        std::unique_ptr<T> (*resolve_identifier)(
+            sem::Scope &, sem::Scope::LookupResult &, const std::string &),
+        std::string_view identifier_kind_str
+    ) requires std::is_base_of_v<sem::Expression, T> {
+        const auto &name = access_node.variable.spelling;
+
+        auto lookup_result = scope.lookup(name);
+
+        if (!lookup_result) {
+            reporter_.err(access_node.variable.view.data(), "undefined-identifier",
+                "undefined identifier \"{}\"", name);
+            return nullptr;
+        }
+
+        auto value = resolve_identifier(scope, *lookup_result, name);
+
+        if (!value) {
+            reporter_.err(access_node.variable.view.data(), "wrong-identifier-kind",
+                "identifier \"{}\" is not a {} identifier", name, identifier_kind_str);
+            return nullptr;
+        }
+
+        if (!access_node.modifiers.empty()) {
+            if (auto access_raw = dynamic_cast<sem::VariableAccess *>(value.get()))
+                if (!dynamic_cast<sem::VariableAccessActivationResult *>(access_raw))
+                {
+                    std::unique_ptr<sem::VariableAccess> access(access_raw);
+                    value.release();
+
+                    applyComponentAccess(scope, access, access_node.modifiers);
+                    return access;
+                }
+
+            reporter_.err(access_node.modifiers[0]->view.data(),
+                "invalid-component-access",
+                "accessing component of a value of an identifier"
+                    " that is not a variable access");
+            return nullptr;
+        }
+
+        return value;
     }
 
     std::unique_ptr<sem::Expression>
@@ -1297,10 +1333,11 @@ public:
         sem::Scope &scope,
         nodes::VariableAccess &variable_access_node
     ) {
-        // TODO: support constant, bound and function identifiers
-        std::unique_ptr<sem::Expression> access = resolveVariableAccess(
+        // TODO: support function identifiers
+        auto access = resolveVariableAccess(
             scope, variable_access_node,
-            resolveVariableOrFdIdentifier, "variable or field designator");
+            resolveVariableFdConstantOrBoundIdentifier,
+            "variable, field designator, constant or bound");
 
         if (!access)
             access = std::make_unique<sem::ExpressionConstant>(

@@ -626,6 +626,12 @@ public:
         return component_type_->canBeFileComponent();
     }
 
+    const std::string &
+    smallestBound() const { return smallest_bound_; }
+
+    const std::string &
+    largestBound() const { return largest_bound_; }
+
     TypeOrdinal::ptr_t
     boundType() const { return bound_type_; }
 
@@ -810,6 +816,32 @@ public:
     type(const Scope &scope) const = 0;
 };
 
+export // export to work around VC++ ICE
+template <typename Base = Expression>
+class ExpressionId : public Base {
+public:
+    ExpressionId(const std::string &id, std::size_t scope_index)
+        : id_(id), scope_index_(scope_index) {}
+
+    const std::string &
+    id() const { return id_; }
+
+    std::size_t
+    scopeIndex() const { return scope_index_; }
+
+private:
+    std::string id_;
+    std::size_t scope_index_;
+};
+
+class ExpressionBound final : public ExpressionId<> {
+public:
+    using ExpressionId::ExpressionId;
+
+    const DynamicType &
+    type(const Scope &scope) const override;
+};
+
 class ExpressionConstant final : public Expression {
 public:
     explicit
@@ -834,49 +866,33 @@ public:
 class VariableAccess : public Expression {
 };
 
-class VariableAccessId : public VariableAccess {
+class VariableAccessActivationResult final : public ExpressionId<VariableAccess> {
 public:
-    VariableAccessId(const std::string &id, std::size_t scope_index)
-        : id_(id), scope_index_(scope_index) {}
-
-    const std::string &
-    id() const { return id_; }
-
-    std::size_t
-    scopeIndex() const { return scope_index_; }
-
-private:
-    std::string id_;
-    std::size_t scope_index_;
-};
-
-class VariableAccessActivationResult final : public VariableAccessId {
-public:
-    using VariableAccessId::VariableAccessId;
+    using ExpressionId::ExpressionId;
 
     const DynamicType &
     type(const Scope &scope) const override;
 };
 
-class VariableAccessFieldDesignatorId final : public VariableAccessId {
+class VariableAccessFieldDesignatorId final : public ExpressionId<VariableAccess> {
 public:
-    using VariableAccessId::VariableAccessId;
+    using ExpressionId::ExpressionId;
 
     const DynamicType &
     type(const Scope &scope) const override;
 };
 
-class VariableAccessParameterId final : public VariableAccessId {
+class VariableAccessParameterId final : public ExpressionId<VariableAccess> {
 public:
-    using VariableAccessId::VariableAccessId;
+    using ExpressionId::ExpressionId;
 
     const DynamicType &
     type(const Scope &scope) const override;
 };
 
-class VariableAccessVariableId final : public VariableAccessId {
+class VariableAccessVariableId final : public ExpressionId<VariableAccess> {
 public:
-    using VariableAccessId::VariableAccessId;
+    using ExpressionId::ExpressionId;
 
     const DynamicType &
     type(const Scope &scope) const override;
@@ -1342,9 +1358,20 @@ public:
         return regular_parameter_types_.at(name);
     }
 
+    bool
+    hasBound(const std::string &name) const {
+        return bound_types_.contains(name);
+    }
+
+    TypeOrdinal::ptr_t
+    boundType(const std::string &name) const {
+        return bound_types_.at(name);
+    }
+
 private:
     std::vector<FormalParameterSection> parameters_;
     std::unordered_map<std::string, DynamicType::ptr_t> regular_parameter_types_;
+    std::unordered_map<std::string, TypeOrdinal::ptr_t> bound_types_;
     Type::ptr_t result_type_;
 };
 

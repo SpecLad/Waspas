@@ -128,10 +128,31 @@ sem::Signature::Signature(
     , result_type_(result_type)
 {
     for (const auto &parameter : parameters_) {
-        if (auto *rps = std::get_if<RegularParameterSection>(&parameter.v))
+        if (auto *rps = std::get_if<RegularParameterSection>(&parameter.v)) {
             for (const auto &name : rps->names())
                 regular_parameter_types_.try_emplace(name, rps->type());
+
+            auto type = rps->type();
+
+            while (
+                auto schema
+                    = std::dynamic_pointer_cast<const ConformantArraySchema>(type)
+            ) {
+                bound_types_.try_emplace(schema->smallestBound(), schema->boundType());
+                bound_types_.try_emplace(schema->largestBound(), schema->boundType());
+                type = schema->componentType();
+            }
+        }
     }
+}
+
+const sem::DynamicType &
+sem::ExpressionBound::type(const Scope &scope) const {
+    auto *block = scope.parent(scopeIndex()).block();
+    assert(block);
+    auto *subroutine = block->containingSubroutine();
+    assert(subroutine);
+    return *subroutine->signature().boundType(id());
 }
 
 // this is only defined out-of-line because TypeBuiltin::instance is.
