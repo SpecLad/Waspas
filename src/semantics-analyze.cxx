@@ -1315,6 +1315,11 @@ public:
         return std::make_unique<sem::ExpressionNil>();
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveFactor(sem::Scope &scope, nodes::Parenthetical &parenthetical_node) {
+        return resolveExpression(scope, parenthetical_node.inner_expression);
+    }
+
     template <typename T>
     std::unique_ptr<sem::Expression>
     resolveFactor(
