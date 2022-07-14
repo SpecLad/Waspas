@@ -1129,7 +1129,8 @@ public:
         if (!index_type_promoted.isAssignmentCompatibleWith(expected_index_type)) {
             reporter_.err(index_expression_node.view.data(),
                 "type-mismatch",
-                "index type \"{}\" does not match the expected type \"{}\"",
+                "index expression type \"{}\" is not assignment-compatible"
+                    " with the array index type \"{}\"",
                 index_type_promoted.str(), expected_index_type.str());
             return nullptr;
         }
