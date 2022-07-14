@@ -1295,6 +1295,23 @@ public:
     std::unique_ptr<sem::Expression>
     resolveFactor(
         sem::Scope &scope,
+        nodes::VariableAccess &variable_access_node
+    ) {
+        // TODO: support constant, bound and function identifiers
+        std::unique_ptr<sem::Expression> access = resolveVariableAccess(
+            scope, variable_access_node,
+            resolveVariableOrFdIdentifier, "variable or field designator");
+
+        if (!access)
+            access = std::make_unique<sem::ExpressionConstant>(
+                std::make_shared<sem::ConstantInteger>(0));
+
+        return access;
+    }
+
+    std::unique_ptr<sem::Expression>
+    resolveFactor(
+        sem::Scope &scope,
         auto &factor_node
     ) {
         reporter_.err(factor_node.view.data(), "unsupported-feature",
