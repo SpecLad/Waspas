@@ -1116,6 +1116,27 @@ public:
         return nullptr;
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveIndex(
+        sem::Scope &scope,
+        const sem::TypeOrdinal &expected_index_type,
+        const nodes::Expression &index_expression_node
+    ) {
+        auto index = resolveExpression(scope, index_expression_node);
+        const auto &index_type = index->type(scope);
+        const auto &index_type_promoted = index_type.promoted();
+
+        if (!index_type_promoted.isAssignmentCompatibleWith(expected_index_type)) {
+            reporter_.err(index_expression_node.view.data(),
+                "type-mismatch",
+                "index type \"{}\" does not match the expected type \"{}\"",
+                index_type_promoted.str(), expected_index_type.str());
+            return nullptr;
+        }
+
+        return index;
+    }
+
     std::unique_ptr<sem::VariableAccess>
     resolveVariableAccess(
         sem::Scope &scope,
@@ -1200,8 +1221,39 @@ public:
                         std::move(access), field_mod_node.field.spelling);
                 },
                 [&](nodes::IndexingModifier &indexing_mod_node) {
-                    reporter_.err(indexing_mod_node.view.data(),
-                        "unsupported-feature", "indexing is not supported");
+                    auto *current_access_type = &access_type;
+
+                    for (auto &index_node : indexing_mod_node.indices) {
+                        sem::TypeOrdinal::ptr_t expected_index_type;
+
+                        if (
+                            auto *array_type
+                                = dynamic_cast<const sem::TypeArray *>(current_access_type)
+                        ) {
+                            auto index = resolveIndex(scope, *array_type->indexType(), index_node);
+                            if (!index) return;
+                            access = std::make_unique<sem::VariableAccessIndexed>(
+                                std::move(access), std::move(index));
+                        }
+                        else if (
+                            auto *schema
+                                = dynamic_cast<const sem::ConformantArraySchema *>(current_access_type)
+                        ) {
+                            auto index = resolveIndex(scope, *schema->boundType(), index_node);
+                            if (!index) return;
+                            access = std::make_unique<sem::VariableAccessIndexedDynamic>(
+                                std::move(access), std::move(index));
+                        }
+                        else {
+                            reporter_.err(index_node.view.data(),
+                                "non-array-type",
+                                "indexing a value of a non-array type \"{}\"",
+                                current_access_type->str());
+                            return;
+                        }
+
+                        current_access_type = &access->type(scope);
+                    }
                 },
             });
         }

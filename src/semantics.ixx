@@ -311,6 +311,12 @@ public:
         return Type::isCompatibleWith(other);
     }
 
+    TypeOrdinal::ptr_t
+    indexType() const { return index_type_; }
+
+    Type::ptr_t
+    componentType() const { return component_type_; }
+
 private:
     TypeOrdinal::ptr_t index_type_;
     Type::ptr_t component_type_;
@@ -603,6 +609,12 @@ public:
         return component_type_->canBeFileComponent();
     }
 
+    TypeOrdinal::ptr_t
+    boundType() const { return bound_type_; }
+
+    DynamicType::ptr_t
+    componentType() const { return component_type_; }
+
 private:
     std::string smallest_bound_;
     std::string largest_bound_;
@@ -886,6 +898,36 @@ public:
 private:
     std::unique_ptr<VariableAccess> record_;
     std::string field_name_;
+};
+
+class VariableAccessIndexed final : public VariableAccess {
+public:
+    VariableAccessIndexed(
+        std::unique_ptr<VariableAccess> &&array,
+        std::unique_ptr<Expression> &&index
+    ) : array_(std::move(array)), index_(std::move(index)) {}
+
+    const DynamicType &
+    type(const Scope &scope) const override;
+
+private:
+    std::unique_ptr<VariableAccess> array_;
+    std::unique_ptr<Expression> index_;
+};
+
+class VariableAccessIndexedDynamic final : public VariableAccess {
+public:
+    VariableAccessIndexedDynamic(
+        std::unique_ptr<VariableAccess> &&dynamic_array,
+        std::unique_ptr<Expression> &&index
+    ) : dynamic_array_(std::move(dynamic_array)), index_(std::move(index)) {}
+
+    const DynamicType &
+    type(const Scope &scope) const override;
+
+private:
+    std::unique_ptr<VariableAccess> dynamic_array_;
+    std::unique_ptr<Expression> index_;
 };
 
 class Statement {

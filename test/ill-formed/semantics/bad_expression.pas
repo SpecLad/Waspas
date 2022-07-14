@@ -7,7 +7,8 @@ type
 var
     i: integer;
     r: rec;
-function f(a: array[m..n: integer] of integer): pint;
+    a: array [1..10] of integer;
+function f(aa: array [m..n: integer] of integer): pint;
     begin
         f := nil;
 
@@ -16,6 +17,9 @@ function f(a: array[m..n: integer] of integer): pint;
 
         f^ := 0;
         {^ error:invalid-component-access }
+
+        i := aa[1.1];
+               {TODO: error:type-mismatch }
     end;
 begin
     undefined := 0;
@@ -32,4 +36,10 @@ begin
 
     i := i^;
          {TODO: error:type-mismatch }
+
+    i := i[0];
+          {TODO: error:non-array-type }
+
+    i := a[1.1];
+          {TODO: error:type-mismatch }
 end.

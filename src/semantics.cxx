@@ -188,6 +188,22 @@ sem::VariableAccessField::type(const Scope &scope) const {
     return *record_type.fieldList().fieldType(field_name_);
 }
 
+const sem::DynamicType &
+sem::VariableAccessIndexed::type(const Scope &scope) const {
+    const auto &array_type = dynamic_cast<const TypeArray &>(
+        array_->type(scope));
+
+    return *array_type.componentType();
+}
+
+const sem::DynamicType &
+sem::VariableAccessIndexedDynamic::type(const Scope &scope) const {
+    const auto &schema = dynamic_cast<const ConformantArraySchema &>(
+        dynamic_array_->type(scope));
+
+    return *schema.componentType();
+}
+
 sem::Block builtin_block(nullptr);
 
 sem::Program::Program() : block_(&builtin_block) {}
