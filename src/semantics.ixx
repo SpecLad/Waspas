@@ -57,6 +57,12 @@ public:
     isCompatibleWith(const DynamicType &other) const {
         return this == &other;
     }
+
+    virtual bool
+    isAssignmentCompatibleWith(const DynamicType &other) const {
+        if (this == &other && canBeFileComponent()) return true;
+        return isCompatibleWith(other);
+    }
 };
 
 export
@@ -176,6 +182,9 @@ public:
 
     pascal_integer_t
     largestOrdinal() const override { return PASCAL_INTEGER_MAX; }
+
+    bool
+    isAssignmentCompatibleWith(const DynamicType &other) const override;
 
 private:
     TypeInteger() = default;

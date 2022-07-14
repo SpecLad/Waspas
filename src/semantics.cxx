@@ -22,6 +22,12 @@ sem::TypeBuiltin<T, Base>::instance() {
     return t;
 }
 
+bool
+sem::TypeInteger::isAssignmentCompatibleWith(const DynamicType &other) const {
+    if (&other == &TypeReal::instance()) return true;
+    return Type::isAssignmentCompatibleWith(other);
+}
+
 void
 sem::VariantPart::addVariant(
     std::span<ConstantOrdinal::ptr_t> case_constants,
