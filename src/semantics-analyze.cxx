@@ -1383,9 +1383,23 @@ public:
             "variable, field designator or current function");
         if (!access)
             return std::make_unique<sem::StatementEmpty>();
+        const auto &access_type = access->type(scope);
 
-        // TODO: resolve the right hand side; verify assignment compatibility
-        return std::make_unique<sem::StatementAssignment>(std::move(access));
+        auto expression = resolveExpression(scope, assignment_statement_node.expression);
+        const auto &expression_type = expression->type(scope);
+        const auto &expression_type_promoted = expression_type.promoted();
+
+        if (!expression_type_promoted.isAssignmentCompatibleWith(access_type)) {
+            reporter_.err(assignment_statement_node.expression.view.data(),
+                "type-mismatch",
+                "right-hand side expression type \"{}\" is assignment-incompatible"
+                    " with left-hand side type \"{}\"",
+                expression_type_promoted.str(), access_type.str());
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
+        return std::make_unique<sem::StatementAssignment>(
+            std::move(access), std::move(expression));
     }
 
     std::unique_ptr<sem::Statement>

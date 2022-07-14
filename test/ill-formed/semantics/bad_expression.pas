@@ -18,8 +18,8 @@ function f(aa: array [m..n: integer] of integer): pint;
         f^ := 0;
         {^ error:invalid-component-access }
 
-        i := aa[1.1];
-               {TODO: error:type-mismatch }
+        aa := aa[1.1];
+                {^ error:type-mismatch }
     end;
 begin
     undefined := 0;
@@ -30,16 +30,16 @@ begin
    {^ error:wrong-identifier-kind }
 
     i := i.a;
-        {TODO: error:non-record-type }
-    i := r.a;
-          {TODO: error:undefined-identifier }
+         {^ error:non-record-type }
+    r := r.a;
+          {^ error:undefined-identifier }
 
     i := i^;
-         {TODO: error:type-mismatch }
+         {^ error:type-mismatch }
 
     i := i[0];
-          {TODO: error:non-array-type }
+          {^ error:non-array-type }
 
-    i := a[1.1];
-          {TODO: error:type-mismatch }
+    a := a[1.1];
+          {^ error:type-mismatch }
 end.

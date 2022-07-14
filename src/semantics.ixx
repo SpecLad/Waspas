@@ -962,11 +962,14 @@ public:
 
 class StatementAssignment final : public Statement {
 public:
-    StatementAssignment(std::unique_ptr<VariableAccess> &&access)
-        : access_(std::move(access)) {}
+    StatementAssignment(
+        std::unique_ptr<VariableAccess> &&access,
+        std::unique_ptr<Expression> &&expression
+    ) : access_(std::move(access)), expression_(std::move(expression)) {}
 
 private:
     std::unique_ptr<VariableAccess> access_;
+    std::unique_ptr<Expression> expression_;
 };
 
 class CaseListElement {
