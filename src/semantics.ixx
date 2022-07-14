@@ -574,6 +574,23 @@ private:
     std::string domain_type_name_;
 };
 
+// A synthetic type created to be the type of the `nil` expression.
+export
+class TypePointerAny final : public TypeBuiltin<TypePointerAny> {
+public:
+    static inline constexpr std::string_view NAME = "^<???>"sv;
+
+    bool
+    isAssignmentCompatibleWith(const DynamicType &other) const override {
+        if (dynamic_cast<const TypePointer *>(&other)) return true;
+        return Type::isAssignmentCompatibleWith(other);
+    }
+
+private:
+    TypePointerAny() = default;
+    friend class TypeBuiltin;
+};
+
 export
 class ConformantArraySchema final : public DynamicType {
 public:
@@ -804,6 +821,14 @@ public:
 
 private:
     Constant::ptr_t constant_;
+};
+
+class ExpressionNil final : public Expression {
+public:
+    ExpressionNil() = default;
+
+    const DynamicType &
+    type(const Scope &) const override;
 };
 
 class VariableAccess : public Expression {

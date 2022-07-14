@@ -1274,6 +1274,11 @@ public:
         return std::make_unique<sem::ExpressionConstant>(constant);
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveFactor(sem::Scope &, nodes::Nil &nil_node) {
+        return std::make_unique<sem::ExpressionNil>();
+    }
+
     template <typename T>
     std::unique_ptr<sem::Expression>
     resolveFactor(

@@ -134,6 +134,12 @@ sem::Signature::Signature(
     }
 }
 
+// this is only defined out-of-line because TypeBuiltin::instance is.
+const sem::DynamicType &
+sem::ExpressionNil::type(const Scope &) const {
+    return TypePointerAny::instance();
+}
+
 const sem::DynamicType &
 sem::VariableAccessActivationResult::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
