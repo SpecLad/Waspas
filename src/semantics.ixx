@@ -60,7 +60,7 @@ public:
 
     virtual bool
     isAssignmentCompatibleWith(const DynamicType &other) const {
-        if (this == &other && canBeFileComponent()) return true;
+        if (this == &other) return canBeFileComponent();
         return isCompatibleWith(other);
     }
 };
