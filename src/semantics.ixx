@@ -1316,6 +1316,9 @@ public:
     Type::ptr_t
     variableType(const std::string &name) const { return variables_.at(name); }
 
+    Subroutine &
+    subroutine(const std::string &name) { return subroutines_.at(name); }
+
     const Subroutine &
     subroutine(const std::string &name) const { return subroutines_.at(name); }
 
@@ -1437,6 +1440,7 @@ public:
         : last_declaration_location_(declaration_location)
         , signature_(signature)
         , block_(&parent_block, this)
+        , contains_result_assignment_(false)
     {}
 
     const Signature &
@@ -1450,6 +1454,8 @@ private:
 
     Signature signature_;
     Block block_;
+
+    bool contains_result_assignment_;
 
     friend class ProgramBuilder;
 };

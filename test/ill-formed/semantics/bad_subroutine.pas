@@ -40,4 +40,6 @@ procedure disallowedValueConformantArray(a: array [m..n: integer] of text); begi
 procedure nonOrdinalBoundType(a: array [m..n: real] of integer); begin end;
                                              {^ error:non-ordinal-type }
 
+function missingResultAssignment: integer; begin end;
+                                          {^ error:missing-result-assignment }
 begin end.

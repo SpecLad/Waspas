@@ -1041,8 +1041,15 @@ public:
 
             if (subr_decl_node.block) {
                 buildBlock(*subr_decl_node.block, subroutine->block_);
-                // TODO: check that the function contains at least one
-                // assignment to the function identifier.
+                if (
+                    subroutine->signature_.resultType()
+                    && !subroutine->contains_result_assignment_
+                )
+                    reporter_.err(subr_decl_node.block->view.data(),
+                        "missing-result-assignment",
+                        "function block does not contain an assignment"
+                            " to the function identifier \"{}\"",
+                        subr_name);
             }
             else {
                 forward_declarations.insert(subr_name);
@@ -1438,6 +1445,16 @@ public:
                     " with left-hand side type \"{}\"",
                 expression_type_promoted.str(), access_type.str());
             return std::make_unique<sem::StatementEmpty>();
+        }
+
+        if (
+            auto *result_access
+                = dynamic_cast<sem::VariableAccessActivationResult *>(access.get())
+        ) {
+            auto *defining_block = scope.parent(result_access->scopeIndex()).block();
+            assert(defining_block);
+            auto &function = defining_block->subroutine(result_access->id());
+            function.contains_result_assignment_ = true;
         }
 
         return std::make_unique<sem::StatementAssignment>(
