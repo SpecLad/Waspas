@@ -744,7 +744,7 @@ public:
                 if (checkDuplicateIdentifier(block.scope_, var_name_node))
                     continue;
 
-                block.variables_.insert_or_assign(var_name_node.spelling, type);
+                block.variables_.try_emplace(var_name_node.spelling, type);
             }
         }
     }
@@ -1423,6 +1423,23 @@ public:
         return expression;
     }
 
+    void
+    threatenVariable(sem::Scope &scope, const sem::VariableAccess &access, const char *location) {
+        auto *variable_id_access
+            = dynamic_cast<const sem::VariableAccessVariableId *>(&access);
+        if (!variable_id_access) return;
+
+        auto &closest_block = scope.closestContainingBlock();
+        auto &variable_block
+            = *scope.parent(variable_id_access->scopeIndex()).block();
+
+        if (&variable_block != &closest_block) {
+            auto &var = variable_block.variables_.at(variable_id_access->id());
+            if (!var.subroutine_threat_location)
+                var.subroutine_threat_location = location;
+        }
+    }
+
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope, const nodes::AssignmentStatement &assignment_statement_node
@@ -1433,6 +1450,8 @@ public:
         if (!access)
             return std::make_unique<sem::StatementEmpty>();
         const auto &access_type = access->type(scope);
+
+        threatenVariable(scope, *access, assignment_statement_node.access.view.data());
 
         auto expression = resolveExpression(scope, assignment_statement_node.expression);
         const auto &expression_type = expression->type(scope);
@@ -1580,13 +1599,22 @@ public:
         }
 
         auto control_variable_type
-            = std::dynamic_pointer_cast<const sem::TypeOrdinal>(it->second);
+            = std::dynamic_pointer_cast<const sem::TypeOrdinal>(it->second.type);
 
         if (!control_variable_type) {
             reporter_.err(for_statement_node.control_variable.view.data(),
                 "non-ordinal-type",
-                "control variable has non-ordinal type \"{}\"", it->second->str());
+                "control variable has non-ordinal type \"{}\"", it->second.type->str());
             return std::make_unique<sem::StatementEmpty>();
+        }
+
+        if (it->second.subroutine_threat_location) {
+            reporter_.err(for_statement_node.control_variable.view.data(),
+                "threatened-control-variable",
+                "control variable is threatened by a statement in a procedure or function");
+            reporter_.note(it->second.subroutine_threat_location,
+                "location of threat");
+            // This error doesn't interfere with analysis, so we won't abort here.
         }
 
         auto initial_value = resolveExpression(scope, for_statement_node.initial_value);
@@ -1612,7 +1640,7 @@ public:
             return std::make_unique<sem::StatementEmpty>();
         }
 
-        // TODO: check for threatening statements
+        // TODO: check for threatening statements in the body
 
         return std::make_unique<sem::StatementFor>(
             control_variable,
@@ -1857,7 +1885,7 @@ public:
 
             if (parameter_name == "input"sv || parameter_name == "output"sv) {
                 program.block_.scope_.add(parameter_node);
-                program.block_.variables_.insert_or_assign(
+                program.block_.variables_.try_emplace(
                     parameter_name,
                     staticPtr(sem::TypeText::instance()));
             }

@@ -1314,7 +1314,7 @@ public:
     type(const std::string &name) const { return types_.at(name); }
 
     Type::ptr_t
-    variableType(const std::string &name) const { return variables_.at(name); }
+    variableType(const std::string &name) const { return variables_.at(name).type; }
 
     Subroutine &
     subroutine(const std::string &name) { return subroutines_.at(name); }
@@ -1326,10 +1326,15 @@ private:
     Scope scope_;
     container_t container_;
 
+    struct Variable {
+        Type::ptr_t type;
+        const char *subroutine_threat_location = nullptr;
+    };
+
     std::unordered_map<pascal_integer_t, Label> labels_;
     std::unordered_map<std::string, Constant::ptr_t> constants_;
     std::unordered_map<std::string, Type::ptr_t> types_;
-    std::unordered_map<std::string, Type::ptr_t> variables_;
+    std::unordered_map<std::string, Variable> variables_;
     std::unordered_map<std::string, Subroutine> subroutines_;
 
     std::unique_ptr<StatementCompound> statement_;

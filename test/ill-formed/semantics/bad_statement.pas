@@ -9,10 +9,15 @@ var
     j: real;
     k: integer;
     r: rec;
+
+    threatenedInProcedure: integer;
 procedure p;
     begin
         for k := 1 to 10 do;
            {^ error:undefined-identifier }
+
+        threatenedInProcedure := 0;
+       {^ note }
     end;
 begin
     1: ;
@@ -37,6 +42,9 @@ begin
 
     for k := 1 to 1.1 do;
                  {^ error:type-mismatch }
+
+    for threatenedInProcedure := 1 to 10 do;
+       {^ error:threatened-control-variable }
 
     goto 2;
         {^ error:undefined-label }
