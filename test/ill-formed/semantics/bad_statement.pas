@@ -1,5 +1,5 @@
 program badstmt;
-label 1, 3;
+label 1, 3, 4;
         {^ error:unused-label }
 type
     rec = record
@@ -18,6 +18,9 @@ procedure p;
 
         threatenedInProcedure := 0;
        {^ note }
+
+        goto 4;
+            {^ error:disallowed-goto-target }
     end;
 begin
     1: ;
@@ -48,6 +51,11 @@ begin
 
     goto 2;
         {^ error:undefined-label }
+
+    goto 4;
+        {^ error:disallowed-goto-target }
+
+    begin 4: end;
 
     case 1.1 of 1.1: ; end;
         {^ error:non-ordinal-type }

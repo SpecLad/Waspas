@@ -933,10 +933,13 @@ public:
         };
     }
 
+    using label_set_t = std::unordered_set<pascal_integer_t>;
+
     void
     analyzeSubroutineDeclarations(
         const nodes::Block &block_node,
-        sem::Block &block
+        sem::Block &block,
+        const label_set_t &allowed_goto_targets
     ) {
         std::unordered_set<std::string> forward_declarations;
 
@@ -1040,7 +1043,9 @@ public:
             if (!subroutine) continue;
 
             if (subr_decl_node.block) {
-                buildBlock(*subr_decl_node.block, subroutine->block_);
+                buildBlock(
+                    *subr_decl_node.block, subroutine->block_, allowed_goto_targets);
+
                 if (
                     subroutine->signature_.resultType()
                     && !subroutine->contains_result_assignment_
@@ -1423,6 +1428,10 @@ public:
         return expression;
     }
 
+    struct StatementAnalysisContext {
+        linked_list_ptr_t<label_set_t> allowed_goto_targets;
+    };
+
     void
     threatenVariable(sem::Scope &scope, const sem::VariableAccess &access, const char *location) {
         auto *variable_id_access
@@ -1442,7 +1451,9 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::AssignmentStatement &assignment_statement_node
+        sem::Scope &scope,
+        const nodes::AssignmentStatement &assignment_statement_node,
+        const StatementAnalysisContext &
     ) {
         auto access = resolveVariableAccess(scope, assignment_statement_node.access,
             &resolveVariableFdOrCurrentFunctionIdentifier,
@@ -1482,7 +1493,9 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::CaseStatement &case_statement_node
+        sem::Scope &scope,
+        const nodes::CaseStatement &case_statement_node,
+        const StatementAnalysisContext &context
     ) {
         auto case_index = resolveExpression(scope, case_statement_node.case_index);
         const auto &case_index_type = case_index->type(scope);
@@ -1535,7 +1548,7 @@ public:
                 case_constants.push_back(ordinal_constant);
             }
 
-            auto statement = resolveStatement(scope, element_node.statement);
+            auto statement = resolveStatement(scope, element_node.statement, context);
 
             if (!case_constants.empty())
                 case_list_elements.emplace_back(case_constants, std::move(statement));
@@ -1549,12 +1562,22 @@ public:
 
     std::unique_ptr<sem::StatementCompound>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::CompoundStatement &compound_statement_node
+        sem::Scope &scope,
+        const nodes::CompoundStatement &compound_statement_node,
+        const StatementAnalysisContext &context
     ) {
         std::vector<std::unique_ptr<sem::Statement>> statements;
+        LinkedListNode<label_set_t> new_allowed_targets(context.allowed_goto_targets);
+
+        for (auto &statement_node : compound_statement_node.statements)
+            if (statement_node.label)
+                new_allowed_targets.value.insert(statement_node.label->value);
+
+        const auto &new_context = new_allowed_targets.value.empty()
+            ? context : StatementAnalysisContext{&new_allowed_targets};
 
         for (auto &statement_node : compound_statement_node.statements) {
-            statements.push_back(resolveStatement(scope, statement_node));
+            statements.push_back(resolveStatement(scope, statement_node, new_context));
         }
 
         return std::make_unique<sem::StatementCompound>(std::move(statements));
@@ -1562,14 +1585,16 @@ public:
 
     std::unique_ptr<sem::StatementEmpty>
     resolveUnlabeledStatement(
-        sem::Scope &, const nodes::EmptyStatement &
+        sem::Scope &, const nodes::EmptyStatement &, const StatementAnalysisContext &
     ) {
         return std::make_unique<sem::StatementEmpty>();
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::ForStatement &for_statement_node
+        sem::Scope &scope,
+        const nodes::ForStatement &for_statement_node,
+        const StatementAnalysisContext &context
     ) {
         const std::string &control_variable
             = for_statement_node.control_variable.spelling;
@@ -1647,12 +1672,14 @@ public:
             std::move(initial_value),
             for_statement_node.direction,
             std::move(final_value),
-            resolveStatement(scope, for_statement_node.body));
+            resolveStatement(scope, for_statement_node.body, context));
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::GotoStatement &goto_statement_node
+        sem::Scope &scope,
+        const nodes::GotoStatement &goto_statement_node,
+        const StatementAnalysisContext &context
     ) {
         pascal_integer_t label = goto_statement_node.label.value;
         std::size_t scope_index = 0;
@@ -1665,8 +1692,14 @@ public:
             if (sem::Block *block = lookup_scope->block()) {
                 auto it = block->labels_.find(label);
                 if (it != block->labels_.end()) {
-                    // TODO: check goto target requirements
-                    return std::make_unique<sem::StatementGoto>(label, scope_index);
+                    for (const auto &allowed_targets : context.allowed_goto_targets)
+                        if (allowed_targets.contains(label))
+                            return std::make_unique<sem::StatementGoto>(label, scope_index);
+
+                    reporter_.err(goto_statement_node.label.view.data(),
+                        "disallowed-goto-target",
+                        "disallowed target label for this goto statement");
+                    return std::make_unique<sem::StatementEmpty>();
                 }
             }
         }
@@ -1695,15 +1728,18 @@ public:
 
     std::unique_ptr<sem::StatementIf>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::IfStatement &if_statement_node
+        sem::Scope &scope,
+        const nodes::IfStatement &if_statement_node,
+        const StatementAnalysisContext &context
     ) {
         // These variables shouldn't be inlined in the `make_unique` call,
         // because we need to make sure that the true branch is resolved before
         // the false branch (and thus the error messages from it are emitted first).
         auto condition = resolveCondition(scope, if_statement_node.condition);
-        auto true_branch = resolveStatement(scope, if_statement_node.true_branch);
+        auto true_branch = resolveStatement(
+            scope, if_statement_node.true_branch, context);
         auto false_branch = if_statement_node.false_branch
-            ? resolveStatement(scope, *if_statement_node.false_branch)
+            ? resolveStatement(scope, *if_statement_node.false_branch, context)
             : nullptr;
 
         return std::make_unique<sem::StatementIf>(
@@ -1713,7 +1749,9 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::ProcedureStatement &procedure_statement_node
+        sem::Scope &scope,
+        const nodes::ProcedureStatement &procedure_statement_node,
+        const StatementAnalysisContext &
     ) {
         reporter_.err(procedure_statement_node.view.data(), "unsupported-feature",
             "procedure statements are not supported");
@@ -1722,12 +1760,22 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::RepeatStatement &repeat_statement_node
+        sem::Scope &scope,
+        const nodes::RepeatStatement &repeat_statement_node,
+        const StatementAnalysisContext &context
     ) {
         std::vector<std::unique_ptr<sem::Statement>> statements;
+        LinkedListNode<label_set_t> new_allowed_targets(context.allowed_goto_targets);
+
+        for (auto &statement_node : repeat_statement_node.statements)
+            if (statement_node.label)
+                new_allowed_targets.value.insert(statement_node.label->value);
+
+        const auto &new_context = new_allowed_targets.value.empty()
+            ? context : StatementAnalysisContext{&new_allowed_targets};
 
         for (auto &statement_node : repeat_statement_node.statements) {
-            statements.push_back(resolveStatement(scope, statement_node));
+            statements.push_back(resolveStatement(scope, statement_node, new_context));
         }
 
         auto condition = resolveCondition(scope, repeat_statement_node.condition);
@@ -1738,10 +1786,12 @@ public:
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::WhileStatement &while_statement_node
+        sem::Scope &scope,
+        const nodes::WhileStatement &while_statement_node,
+        const StatementAnalysisContext &context
     ) {
         auto condition = resolveCondition(scope, while_statement_node.condition);
-        auto body = resolveStatement(scope, while_statement_node.body);
+        auto body = resolveStatement(scope, while_statement_node.body, context);
 
         return std::make_unique<sem::StatementWhile>(
             std::move(condition), std::move(body));
@@ -1751,10 +1801,11 @@ public:
     resolveWithStatementHelper(
         sem::Scope &scope,
         const nodes::WithStatement &with_statement_node,
-        std::size_t variable_index
+        std::size_t variable_index,
+        const StatementAnalysisContext &context
     ) {
         if (variable_index == with_statement_node.variables.size())
-            return resolveStatement(scope, with_statement_node.body);
+            return resolveStatement(scope, with_statement_node.body, context);
 
         auto &variable_node = with_statement_node.variables[variable_index];
         auto variable = resolveVariableAccess(scope, variable_node,
@@ -1782,23 +1833,27 @@ public:
         }
 
         with_statement->setBody(resolveWithStatementHelper(
-            with_scope, with_statement_node, variable_index + 1));
+            with_scope, with_statement_node, variable_index + 1, context));
 
         return with_statement;
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
-        sem::Scope &scope, const nodes::WithStatement &with_statement_node
+        sem::Scope &scope,
+        const nodes::WithStatement &with_statement_node,
+        const StatementAnalysisContext &context
     ) {
-        return resolveWithStatementHelper(scope, with_statement_node, 0);
+        return resolveWithStatementHelper(scope, with_statement_node, 0, context);
     }
 
     std::unique_ptr<sem::Statement>
     resolveStatement(
-        sem::Scope &scope, const nodes::Statement &statement_node
+        sem::Scope &scope,
+        const nodes::Statement &statement_node,
+        const StatementAnalysisContext &context
     ) {
-        std::optional<pascal_integer_t> label_value_opt;
+        LinkedListNode<label_set_t> new_allowed_targets(context.allowed_goto_targets);
 
         if (statement_node.label) {
             pascal_integer_t label_value = statement_node.label->value;
@@ -1818,7 +1873,7 @@ public:
                 }
                 else {
                     it->second.prefixing_occurrence = new_prefixing_occurrence;
-                    label_value_opt = label_value;
+                    new_allowed_targets.value.insert(label_value);
                 }
             }
             else {
@@ -1829,29 +1884,48 @@ public:
 
         auto statement = visit(*statement_node.unlabeled,
             [&](auto &node) -> std::unique_ptr<sem::Statement> {
-                return resolveUnlabeledStatement(scope, node);
+                const auto &new_context = new_allowed_targets.value.empty()
+                    ? context : StatementAnalysisContext{&new_allowed_targets};
+                return resolveUnlabeledStatement(scope, node, new_context);
             });
 
-        if (label_value_opt)
+        if (!new_allowed_targets.value.empty())
             statement = std::make_unique<sem::StatementLabeled>(
-                *label_value_opt, std::move(statement));
+                *new_allowed_targets.value.begin(), std::move(statement));
 
         return statement;
     }
 
     void
-    buildBlock(const nodes::Block &block_node, sem::Block &block) {
+    buildBlock(
+        const nodes::Block &block_node,
+        sem::Block &block,
+        const label_set_t &allowed_outer_targets
+    ) {
         analyzeLabelDeclarations(block_node, block);
+
+        LinkedListNode<label_set_t> allowed_goto_targets(
+            nullptr, allowed_outer_targets);
+
+        // remove labels shadowed by labels from this block
+        for (const auto kv : block.labels_)
+            allowed_goto_targets.value.erase(kv.first);
+
+        // add top-level labels from this block
+        for (auto &statement_node : block_node.statement.statements)
+            if (statement_node.label)
+                allowed_goto_targets.value.insert(statement_node.label->value);
 
         collectDefiningOccurrencesInBlock(block.scope_, block_node);
 
         analyzeConstantDefinitions(block_node, block);
         analyzeTypeDefinitions(block_node, block);
         analyzeVariableDeclarations(block_node, block);
-        analyzeSubroutineDeclarations(block_node, block);
+        analyzeSubroutineDeclarations(block_node, block, allowed_goto_targets.value);
 
         block.statement_ = resolveUnlabeledStatement(
-            block.scope_, block_node.statement);
+            block.scope_, block_node.statement,
+            StatementAnalysisContext{&allowed_goto_targets});
 
         std::vector<const char *> nonprefixing_label_locations;
 
@@ -1891,7 +1965,7 @@ public:
             }
         }
 
-        buildBlock(program_node.block, program.block_);
+        buildBlock(program_node.block, program.block_, label_set_t{});
 
         for (const auto &[parameter_name, parameter_location] : program.parameters_) {
             auto it = program.block_.variables_.find(parameter_name);
