@@ -14,11 +14,13 @@ import parsing;
 
 namespace sem {
 
+export
 class Statement {
 public:
     virtual ~Statement() = default;
 };
 
+export
 class StatementAssignment final : public Statement {
 public:
     StatementAssignment(
@@ -31,6 +33,7 @@ private:
     std::unique_ptr<Expression> expression_;
 };
 
+export
 class CaseListElement {
 public:
     CaseListElement(
@@ -46,6 +49,7 @@ private:
     std::unique_ptr<Statement> statement_;
 };
 
+export
 class StatementCase final : public Statement {
 public:
     explicit
@@ -56,6 +60,7 @@ private:
     std::vector<CaseListElement> cases_;
 };
 
+export
 class StatementCompound final : public Statement {
 public:
     explicit
@@ -66,9 +71,11 @@ private:
     std::vector<std::unique_ptr<Statement>> statements_;
 };
 
+export
 class StatementEmpty final : public Statement {
 };
 
+export
 class StatementFor final : public Statement {
 public:
     StatementFor(
@@ -93,6 +100,7 @@ private:
     std::unique_ptr<Statement> body_;
 };
 
+export
 class StatementGoto final : public Statement {
 public:
     StatementGoto(
@@ -105,6 +113,7 @@ private:
     std::size_t scope_index_;
 };
 
+export
 class StatementIf final : public Statement {
 public:
     StatementIf(
@@ -123,6 +132,7 @@ private:
     std::unique_ptr<Statement> false_branch_;
 };
 
+export
 class StatementLabeled final : public Statement {
 public:
     StatementLabeled(pascal_integer_t label, std::unique_ptr<Statement> &&unlabeled)
@@ -133,6 +143,7 @@ private:
     std::unique_ptr<Statement> unlabeled_;
 };
 
+export
 class StatementRepeat final : public Statement {
 public:
     StatementRepeat(
@@ -148,6 +159,7 @@ private:
     std::unique_ptr<Expression> condition_;
 };
 
+export
 class StatementWhile final : public Statement {
 public:
     StatementWhile(
