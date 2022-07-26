@@ -30,11 +30,6 @@ struct BuiltinBlockInitializer;
 
 namespace sem {
 
-struct Label {
-    const char *defining_occurrence;
-    const char *prefixing_occurrence;
-};
-
 class Subroutine;
 
 export
@@ -79,6 +74,11 @@ public:
 private:
     Scope scope_;
     container_t container_;
+
+    struct Label {
+        const char *defining_occurrence;
+        const char *prefixing_occurrence;
+    };
 
     struct Variable {
         Type::ptr_t type;
