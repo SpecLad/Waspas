@@ -1428,12 +1428,41 @@ public:
         return expression;
     }
 
+    struct ControlVariable {
+        std::string name;
+        const char *location;
+    };
+
     struct StatementAnalysisContext {
+        StatementAnalysisContext(
+            linked_list_ptr_t<label_set_t> allowed_goto_targets,
+            linked_list_ptr_t<ControlVariable> used_control_variables
+        )
+            : allowed_goto_targets(allowed_goto_targets)
+            , used_control_variables(used_control_variables)
+        {}
+
+        StatementAnalysisContext
+        withNewAllowedGotoTargets(linked_list_ptr_t<label_set_t> new_targets) const {
+            return StatementAnalysisContext(new_targets, used_control_variables);
+        }
+
+        StatementAnalysisContext
+        withNewUsedControlVariable(linked_list_ptr_t<ControlVariable> new_variable) const {
+            return StatementAnalysisContext(allowed_goto_targets, new_variable);
+        }
+
         linked_list_ptr_t<label_set_t> allowed_goto_targets;
+        linked_list_ptr_t<ControlVariable> used_control_variables;
     };
 
     void
-    threatenVariable(sem::Scope &scope, const sem::VariableAccess &access, const char *location) {
+    threatenVariable(
+        sem::Scope &scope,
+        const sem::VariableAccess &access,
+        const char *location,
+        linked_list_ptr_t<ControlVariable> used_control_variables
+    ) {
         auto *variable_id_access
             = dynamic_cast<const sem::VariableAccessVariableId *>(&access);
         if (!variable_id_access) return;
@@ -1442,7 +1471,21 @@ public:
         auto &variable_block
             = *scope.parent(variable_id_access->scopeIndex()).block();
 
-        if (&variable_block != &closest_block) {
+        if (&variable_block == &closest_block) {
+            for (const auto &used_control_variable : used_control_variables)
+                if (variable_id_access->id() == used_control_variable.name) {
+                    reporter_.err(location,
+                        "threatened-control-variable",
+                        "variable access threatens a control variable of a for loop");
+                    reporter_.note(used_control_variable.location,
+                        "use of \"{}\" as a control variable",
+                        used_control_variable.name);
+                    // This error doesn't interfere with analysis,
+                    // so we don't need to report it to the caller.
+                    break;
+                }
+        }
+        else {
             auto &var = variable_block.variables_.at(variable_id_access->id());
             if (!var.subroutine_threat_location)
                 var.subroutine_threat_location = location;
@@ -1453,7 +1496,7 @@ public:
     resolveUnlabeledStatement(
         sem::Scope &scope,
         const nodes::AssignmentStatement &assignment_statement_node,
-        const StatementAnalysisContext &
+        const StatementAnalysisContext &context
     ) {
         auto access = resolveVariableAccess(scope, assignment_statement_node.access,
             &resolveVariableFdOrCurrentFunctionIdentifier,
@@ -1462,7 +1505,10 @@ public:
             return std::make_unique<sem::StatementEmpty>();
         const auto &access_type = access->type(scope);
 
-        threatenVariable(scope, *access, assignment_statement_node.access.view.data());
+        threatenVariable(
+            scope,
+            *access, assignment_statement_node.access.view.data(),
+            context.used_control_variables);
 
         auto expression = resolveExpression(scope, assignment_statement_node.expression);
         const auto &expression_type = expression->type(scope);
@@ -1574,7 +1620,7 @@ public:
                 new_allowed_targets.value.insert(statement_node.label->value);
 
         const auto &new_context = new_allowed_targets.value.empty()
-            ? context : StatementAnalysisContext{&new_allowed_targets};
+            ? context : context.withNewAllowedGotoTargets(&new_allowed_targets);
 
         for (auto &statement_node : compound_statement_node.statements) {
             statements.push_back(resolveStatement(scope, statement_node, new_context));
@@ -1596,28 +1642,32 @@ public:
         const nodes::ForStatement &for_statement_node,
         const StatementAnalysisContext &context
     ) {
-        const std::string &control_variable
-            = for_statement_node.control_variable.spelling;
+        LinkedListNode<ControlVariable> control_variable(
+            context.used_control_variables,
+            for_statement_node.control_variable.spelling,
+            for_statement_node.control_variable.view.data());
 
         sem::Scope *lookup_scope = &scope;
+        std::size_t scope_index = 0;
         while (!lookup_scope->block()) {
-            if (lookup_scope->containsShallow(control_variable)) {
-                reporter_.err(for_statement_node.control_variable.view.data(),
+            if (lookup_scope->containsShallow(control_variable.value.name)) {
+                reporter_.err(control_variable.value.location,
                     "wrong-identifier-kind",
                     "identifier \"{}\" is not a variable identifier",
-                    control_variable);
+                    control_variable.value.name);
                 return std::make_unique<sem::StatementEmpty>();
             }
 
             lookup_scope = lookup_scope->parent();
             assert(lookup_scope);
+            ++scope_index;
         }
 
         auto &block = *lookup_scope->block();
-        auto it = block.variables_.find(control_variable);
+        auto it = block.variables_.find(control_variable.value.name);
 
         if (it == block.variables_.end()) {
-            reporter_.err(for_statement_node.control_variable.view.data(),
+            reporter_.err(control_variable.value.location,
                 "undefined-identifier",
                 "undefined variable identifier");
             return std::make_unique<sem::StatementEmpty>();
@@ -1627,20 +1677,25 @@ public:
             = std::dynamic_pointer_cast<const sem::TypeOrdinal>(it->second.type);
 
         if (!control_variable_type) {
-            reporter_.err(for_statement_node.control_variable.view.data(),
+            reporter_.err(control_variable.value.location,
                 "non-ordinal-type",
                 "control variable has non-ordinal type \"{}\"", it->second.type->str());
             return std::make_unique<sem::StatementEmpty>();
         }
 
         if (it->second.subroutine_threat_location) {
-            reporter_.err(for_statement_node.control_variable.view.data(),
+            reporter_.err(control_variable.value.location,
                 "threatened-control-variable",
                 "control variable is threatened by a statement in a procedure or function");
             reporter_.note(it->second.subroutine_threat_location,
                 "location of threat");
             // This error doesn't interfere with analysis, so we won't abort here.
         }
+
+        threatenVariable(scope,
+            sem::VariableAccessVariableId(control_variable.value.name, scope_index),
+            control_variable.value.location,
+            context.used_control_variables);
 
         auto initial_value = resolveExpression(scope, for_statement_node.initial_value);
         const auto &initial_value_type = initial_value->type(scope);
@@ -1665,14 +1720,13 @@ public:
             return std::make_unique<sem::StatementEmpty>();
         }
 
-        // TODO: check for threatening statements in the body
-
         return std::make_unique<sem::StatementFor>(
-            control_variable,
+            control_variable.value.name,
             std::move(initial_value),
             for_statement_node.direction,
             std::move(final_value),
-            resolveStatement(scope, for_statement_node.body, context));
+            resolveStatement(scope, for_statement_node.body,
+                context.withNewUsedControlVariable(&control_variable)));
     }
 
     std::unique_ptr<sem::Statement>
@@ -1772,7 +1826,7 @@ public:
                 new_allowed_targets.value.insert(statement_node.label->value);
 
         const auto &new_context = new_allowed_targets.value.empty()
-            ? context : StatementAnalysisContext{&new_allowed_targets};
+            ? context : context.withNewAllowedGotoTargets(&new_allowed_targets);
 
         for (auto &statement_node : repeat_statement_node.statements) {
             statements.push_back(resolveStatement(scope, statement_node, new_context));
@@ -1885,7 +1939,7 @@ public:
         auto statement = visit(*statement_node.unlabeled,
             [&](auto &node) -> std::unique_ptr<sem::Statement> {
                 const auto &new_context = new_allowed_targets.value.empty()
-                    ? context : StatementAnalysisContext{&new_allowed_targets};
+                    ? context : context.withNewAllowedGotoTargets(&new_allowed_targets);
                 return resolveUnlabeledStatement(scope, node, new_context);
             });
 
@@ -1925,7 +1979,7 @@ public:
 
         block.statement_ = resolveUnlabeledStatement(
             block.scope_, block_node.statement,
-            StatementAnalysisContext{&allowed_goto_targets});
+            StatementAnalysisContext{&allowed_goto_targets, nullptr});
 
         std::vector<const char *> nonprefixing_label_locations;
 

@@ -10,7 +10,7 @@ var
     k: integer;
     r: rec;
 
-    threatenedInProcedure: integer;
+    threatenedInProcedure, threatenedInBody: integer;
 procedure p;
     begin
         for k := 1 to 10 do;
@@ -48,6 +48,11 @@ begin
 
     for threatenedInProcedure := 1 to 10 do;
        {^ error:threatened-control-variable }
+
+    for threatenedInBody := 1 to 10 do
+       {^ note }
+        for threatenedInBody := 1 to 10 do;
+           {^ error:threatened-control-variable }
 
     goto 2;
         {^ error:undefined-label }
