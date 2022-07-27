@@ -343,7 +343,7 @@ lex(std::string_view source, Reporter &reporter) {
 
             if (previous_required_separation && current_requires_separation
                     && !had_separation) {
-                reporter.err(&*it, "missing-separator",
+                reporter.err(&*it, ec::MISSING_SEPARATOR,
                     "a token of type {} must not directly follow {}",
                     token->humanRepresentation(), tokens.back()->humanRepresentation());
             }
@@ -355,9 +355,9 @@ lex(std::string_view source, Reporter &reporter) {
         }
         else {
             if (std::isprint(*it))
-                reporter.err(&*it, "invalid-token", "invalid token: {}", *it);
+                reporter.err(&*it, ec::INVALID_TOKEN, "invalid token: {}", *it);
             else
-                reporter.err(&*it, "invalid-token",
+                reporter.err(&*it, ec::INVALID_TOKEN,
                     "invalid token with character code {:#x}", (unsigned char)*it);
 
             ++it;

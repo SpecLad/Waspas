@@ -192,7 +192,7 @@ main(int, char **argv) {
             [](char c) { return (unsigned char)c >= 0x80; });
 
         if (non_ascii_it != source_text.end()) {
-            reporter.err(&*non_ascii_it, "non-ascii-char",
+            reporter.err(&*non_ascii_it, ec::NON_ASCII_CHAR,
                 "non-ASCII character (first byte is {:#x})", (unsigned char)*non_ascii_it);
             return 1;
         }

@@ -42,7 +42,7 @@ public:
                 label_node.value, label_location, nullptr);
 
             if (!success) {
-                reporter_.err(label_location, "duplicate-label",
+                reporter_.err(label_location, ec::DUPLICATE_LABEL,
                     "label \"{}\" already defined", label_node.value);
                 reporter_.note(it->second.defining_occurrence,
                     "defining point of \"{}\"", label_node.value);
@@ -60,7 +60,7 @@ public:
                     // It should be impossible to reach this, since integer constants can only
                     // be defined with unsigned literals and negations, which can't produce
                     // the lowest integer. But just in case, we'll handle it anyway.
-                    reporter_.err(location, "invalid-negation",
+                    reporter_.err(location, ec::INVALID_NEGATION,
                         "can't negate the lowest possible integer");
                 }
 
@@ -72,7 +72,7 @@ public:
                 v = std::make_shared<sem::ConstantReal>(-p_real_value->value());
         }
         else {
-            reporter_.err(location, "type-mismatch",
+            reporter_.err(location, ec::TYPE_MISMATCH,
                 "a sign cannot be applied to a constant of type \"{}\"", v->type()->str());
         }
     }
@@ -167,7 +167,7 @@ public:
         const auto &occurrence = scope.lookupShallowUnsafe(id_node.spelling);
 
         if (occurrence.location != id_node.view.data()) {
-            reporter_.err(id_node.view.data(), "duplicate-identifier",
+            reporter_.err(id_node.view.data(), ec::DUPLICATE_IDENTIFIER,
                 "identifier \"{}\" already defined", id_node.spelling);
             reporter_.note(occurrence.location,
                 "defining point of \"{}\"", id_node.spelling);
@@ -190,7 +190,7 @@ public:
 
         auto generic_result = scope.lookup(spelling);
         if (!generic_result) {
-            reporter_.err(applied_occurrence_location, "undefined-identifier",
+            reporter_.err(applied_occurrence_location, ec::UNDEFINED_IDENTIFIER,
                 "undefined {} identifier \"{}\"", identifier_kind_str, spelling);
             return nullptr;
         }
@@ -214,11 +214,11 @@ public:
             applied_occurrence_location
             && defining_occurrence.location > applied_occurrence_location
         ) {
-            reporter_.err(applied_occurrence_location, "use-before-definition",
+            reporter_.err(applied_occurrence_location, ec::USE_BEFORE_DEFINITION,
                 "identifier \"{}\" used before it was defined", spelling);
         }
         else {
-            reporter_.err(applied_occurrence_location, "wrong-identifier-kind",
+            reporter_.err(applied_occurrence_location, ec::WRONG_IDENTIFIER_KIND,
                 "identifier \"{}\" is not a {} identifier",
                 spelling, identifier_kind_str);
         }
@@ -270,7 +270,7 @@ public:
         if (!ref_constant) return nullptr;
 
         if (!*ref_constant) {
-            reporter_.err(id_node.view.data(), "circular-definition",
+            reporter_.err(id_node.view.data(), ec::CIRCULAR_DEFINITION,
                 "constant \"{}\" used in its own definition", id_node.spelling);
             return nullptr;
         }
@@ -302,7 +302,7 @@ public:
                     constant = std::make_shared<sem::ConstantString>(
                         cs_node.value);
                 else
-                    reporter_.err(cs_node.view.data(), "too-many-elements",
+                    reporter_.err(cs_node.view.data(), ec::TOO_MANY_ELEMENTS,
                         "character string length ({}) greater than maxint ({})",
                         cs_node.value.size(), PASCAL_INTEGER_MAX);
             }
@@ -349,7 +349,7 @@ public:
                 = std::dynamic_pointer_cast<const sem::TypeOrdinal>(index_type);
 
             if (!index_type_ordinal) {
-                reporter_.err(index_type_node->view.data(), "non-ordinal-type",
+                reporter_.err(index_type_node->view.data(), ec::NON_ORDINAL_TYPE,
                     "array index type is non-ordinal");
                 return nullptr;
             }
@@ -375,7 +375,7 @@ public:
 
         if (!component_type->canBeFileComponent()) {
             reporter_.err(file_type_node.component_type->view.data(),
-                "disallowed-file-component",
+                ec::DISALLOWED_FILE_COMPONENT,
                 "disallowed type used as file component");
             return nullptr;
         }
@@ -432,7 +432,7 @@ public:
             auto tag_type_ordinal
                 = std::dynamic_pointer_cast<const sem::TypeOrdinal>(tag_type);
             if (!tag_type_ordinal) {
-                reporter_.err(tag_type_node.view.data(), "non-ordinal-type",
+                reporter_.err(tag_type_node.view.data(), ec::NON_ORDINAL_TYPE,
                     "variant part tag type is not ordinal");
                 return field_list;
             }
@@ -462,7 +462,7 @@ public:
                     if (!constant) return field_list;
 
                     if (!constant->type()->isCompatibleWith(*tag_type_ordinal)) {
-                        reporter_.err(constant_node->view.data(), "type-mismatch",
+                        reporter_.err(constant_node->view.data(), ec::TYPE_MISMATCH,
                             "case constant type (\"{}\") is incompatible with tag type (\"{}\")",
                             constant->type()->str(), tag_type_ordinal->str());
                         return field_list;
@@ -474,13 +474,13 @@ public:
 
                     auto ordinal = ordinal_constant->ordinalNumber();
                     if (!(tag_smallest_ordinal <= ordinal && ordinal <= tag_largest_ordinal)) {
-                        reporter_.err(constant_node->view.data(), "out-of-range",
+                        reporter_.err(constant_node->view.data(), ec::OUT_OF_RANGE,
                             "case constant is not within the range of values of the tag type");
                         return field_list;
                     }
 
                     if (auto it = used_ordinals.find(ordinal); it != used_ordinals.end()) {
-                        reporter_.err(constant_node->view.data(), "duplicate-case",
+                        reporter_.err(constant_node->view.data(), ec::DUPLICATE_CASE,
                             "case constant already used");
                         reporter_.note(it->second, "previous occurrence of the case constant");
                         return field_list;
@@ -514,7 +514,7 @@ public:
             assert(counter_overflowed || counter != tag_smallest_ordinal);
 
             if (tag_largest_ordinal != (counter_overflowed ? counter : counter - 1)) {
-                reporter_.err(variant_part_node->view.data(), "missing-case",
+                reporter_.err(variant_part_node->view.data(), ec::MISSING_CASE,
                     "at least one value of the tag type is not covered by a case constant");
                 return field_list;
             }
@@ -548,7 +548,7 @@ public:
             = std::dynamic_pointer_cast<const sem::TypeOrdinal>(base_type);
         if (!base_type_ordinal) {
             reporter_.err(set_type_node.base_type->view.data(),
-                "non-ordinal-type", "set base type is non-ordinal");
+                ec::NON_ORDINAL_TYPE, "set base type is non-ordinal");
             return nullptr;
         }
 
@@ -562,7 +562,7 @@ public:
         if (enumerated_type_node.constants.size()
             > std::size_t(PASCAL_INTEGER_MAX) + 1
         ) {
-            reporter_.err(enumerated_type_node.view.data(), "too-many-elements",
+            reporter_.err(enumerated_type_node.view.data(), ec::TOO_MANY_ELEMENTS,
                 "number of constants ({}) greater than maximum allowed ({})",
                 enumerated_type_node.constants.size(),
                 std::size_t(PASCAL_INTEGER_MAX) + 1);
@@ -597,7 +597,7 @@ public:
         if (!ref_type) return nullptr;
 
         if (!*ref_type) {
-            reporter_.err(id_node.view.data(), "circular-definition",
+            reporter_.err(id_node.view.data(), ec::CIRCULAR_DEFINITION,
                 "type \"{}\" used in its own definition", id_node.spelling);
             return nullptr;
         }
@@ -622,7 +622,7 @@ public:
         auto lookup_result = scope.lookup(domain_type_name);
         if (!lookup_result) {
             reporter_.err(pointer_type_node.domain_type.view.data(),
-                "undefined-identifier",
+                ec::UNDEFINED_IDENTIFIER,
                 "undefined type identifier \"{}\"", domain_type_name);
             return nullptr;
         }
@@ -632,7 +632,7 @@ public:
 
         if (defining_occurrence.kind != sem::DefiningOccurrence::TYPE) {
             reporter_.err(pointer_type_node.domain_type.view.data(),
-                "wrong-identifier-kind",
+                ec::WRONG_IDENTIFIER_KIND,
                 "identifier \"{}\" is not a type identifier",
                 domain_type_name);
 
@@ -676,14 +676,14 @@ public:
 
         if (!smallest_ordinal) {
             reporter_.err(subrange_type_node.smallest->view.data(),
-                "non-ordinal-type",
+                ec::NON_ORDINAL_TYPE,
                 "subrange bound has non-ordinal type \"{}\"", smallest->type()->str());
             return nullptr;
         }
 
         if (largest->type() != smallest->type()) {
             reporter_.err(subrange_type_node.largest->view.data(),
-                "type-mismatch",
+                ec::TYPE_MISMATCH,
                 "largest subrange value has different type (\"{}\") "
                     "from smallest value type (\"{}\")",
                 largest->type()->str(), smallest->type()->str());
@@ -699,7 +699,7 @@ public:
 
         if (largest_ordinal->ordinalNumber() < smallest_ordinal->ordinalNumber()) {
             reporter_.err(subrange_type_node.largest->view.data(),
-                "inverted-subrange-bounds",
+                ec::INVERTED_SUBRANGE_BOUNDS,
                 "largest subrange value is less than smallest value");
             return nullptr;
         }
@@ -794,7 +794,7 @@ public:
                         = std::dynamic_pointer_cast<const sem::TypeOrdinal>(bound_type);
 
                     if (!bound_type_ordinal) {
-                        reporter_.err(index_type_node.bound_type.view.data(), "non-ordinal-type",
+                        reporter_.err(index_type_node.bound_type.view.data(), ec::NON_ORDINAL_TYPE,
                             "bound type is non-ordinal");
                         return nullptr;
                     }
@@ -888,7 +888,7 @@ public:
 
                     if (type && !rps_node.is_variable && !type->canBeFileComponent()) {
                         reporter_.err(rps_node.parameter_type->view.data(),
-                            "disallowed-parameter-type",
+                            ec::DISALLOWED_PARAMETER_TYPE,
                             "disallowed type \"{}\" used as value parameter type",
                             type->str());
                         type = nullptr;
@@ -915,7 +915,7 @@ public:
                 }
                 else {
                     reporter_.err(result_type_node->view.data(),
-                        "disallowed-result-type",
+                        ec::DISALLOWED_RESULT_TYPE,
                         "result type \"{}\" is neither a simple nor a pointer type",
                         type->str());
                 }
@@ -1003,12 +1003,12 @@ public:
                     if (!forward_declarations.contains(subr_name)) {
                         if (it == block.subroutines_.end()) {
                             reporter_.err(subr_name_node.view.data(),
-                                "missing-forward-declaration",
+                                ec::MISSING_FORWARD_DECLARATION,
                                 "delayed declaration with no preceding forward declaration");
                         }
                         else {
                             reporter_.err(subr_name_node.view.data(),
-                                "duplicate-subroutine-declaration",
+                                ec::DUPLICATE_SUBROUTINE_DECLARATION,
                                 "duplicate declaration for \"{}\"", subr_name);
                             reporter_.note(it->second.last_declaration_location_,
                                 "last declaration of \"{}\"", subr_name);
@@ -1024,7 +1024,7 @@ public:
 
                     if (previous_subroutine_type != subr_type) {
                         reporter_.err(subr_name_node.view.data(),
-                            "mismatched-subroutine-declaration",
+                            ec::MISMATCHED_SUBROUTINE_DECLARATION,
                             "\"{}\" declared as a {} when it had previously been declared as a {}",
                             subr_name,
                             SUBROUTINE_TYPE_STRS[subr_type],
@@ -1051,7 +1051,7 @@ public:
                     && !subroutine->contains_result_assignment_
                 )
                     reporter_.err(subr_decl_node.block->view.data(),
-                        "missing-result-assignment",
+                        ec::MISSING_RESULT_ASSIGNMENT,
                         "function block does not contain an assignment"
                             " to the function identifier \"{}\"",
                         subr_name);
@@ -1069,7 +1069,7 @@ public:
         std::ranges::sort(missing_declaration_locations);
 
         for (const char *error_location : missing_declaration_locations)
-            reporter_.err(error_location, "missing-delayed-declaration",
+            reporter_.err(error_location, ec::MISSING_DELAYED_DECLARATION,
                 "forward declaration with no following delayed declaration");
     }
 
@@ -1160,7 +1160,7 @@ public:
 
         if (!index_type_promoted.isAssignmentCompatibleWith(expected_index_type)) {
             reporter_.err(index_expression_node.view.data(),
-                "type-mismatch",
+                ec::TYPE_MISMATCH,
                 "index expression type \"{}\" is not assignment-compatible"
                     " with the array index type \"{}\"",
                 index_type_promoted.str(), expected_index_type.str());
@@ -1194,7 +1194,7 @@ public:
                     }
 
                     reporter_.err(deref_mod_node.view.data(),
-                        "type-mismatch",
+                        ec::TYPE_MISMATCH,
                         "dereferenced value of non-pointer, non-file type \"{}\"",
                         access_type.str());
                 },
@@ -1204,7 +1204,7 @@ public:
 
                     if (!record_type) {
                         reporter_.err(field_mod_node.view.data(),
-                            "non-record-type",
+                            ec::NON_RECORD_TYPE,
                             "accessing a field of a value of a non-record type \"{}\"",
                             access_type.str());
                         return;
@@ -1214,7 +1214,7 @@ public:
 
                     if (!record_type->fieldList().hasField(field_name)) {
                         reporter_.err(field_mod_node.field.view.data(),
-                            "undefined-identifier",
+                            ec::UNDEFINED_IDENTIFIER,
                             "type \"{}\" has no field named \"{}\"",
                             record_type->str(), field_name);
                         return;
@@ -1249,7 +1249,7 @@ public:
                         }
                         else {
                             reporter_.err(index_node.view.data(),
-                                "non-array-type",
+                                ec::NON_ARRAY_TYPE,
                                 "indexing a value of a non-array type \"{}\"",
                                 current_access_type->str());
                             return;
@@ -1276,7 +1276,7 @@ public:
         auto lookup_result = scope.lookup(name);
 
         if (!lookup_result) {
-            reporter_.err(access_node.variable.view.data(), "undefined-identifier",
+            reporter_.err(access_node.variable.view.data(), ec::UNDEFINED_IDENTIFIER,
                 "undefined identifier \"{}\"", name);
             return nullptr;
         }
@@ -1284,7 +1284,7 @@ public:
         auto value = resolve_identifier(scope, *lookup_result, name);
 
         if (!value) {
-            reporter_.err(access_node.variable.view.data(), "wrong-identifier-kind",
+            reporter_.err(access_node.variable.view.data(), ec::WRONG_IDENTIFIER_KIND,
                 "identifier \"{}\" is not a {} identifier", name, identifier_kind_str);
             return nullptr;
         }
@@ -1301,7 +1301,7 @@ public:
                 }
 
             reporter_.err(access_node.modifiers[0]->view.data(),
-                "invalid-component-access",
+                ec::INVALID_COMPONENT_ACCESS,
                 "accessing component of a value of an identifier"
                     " that is not a variable access");
             return nullptr;
@@ -1368,7 +1368,7 @@ public:
         sem::Scope &scope,
         auto &factor_node
     ) {
-        reporter_.err(factor_node.view.data(), "unsupported-feature",
+        reporter_.err(factor_node.view.data(), ec::UNSUPPORTED_FEATURE,
             "factor type not supported");
         return std::make_unique<sem::ExpressionConstant>(
             std::make_shared<sem::ConstantInteger>(0));
@@ -1387,7 +1387,7 @@ public:
 
         if (!term_node.modifiers.empty())
             reporter_.err(term_node.modifiers[0].view.data(),
-                "unsupported-feature",
+                ec::UNSUPPORTED_FEATURE,
                 "operators are not supported");
 
         return expression;
@@ -1400,14 +1400,14 @@ public:
     ) {
         if (simple_expression_node.sign != nodes::Sign::NONE)
             reporter_.err(simple_expression_node.view.data(),
-                "unsupported-feature",
+                ec::UNSUPPORTED_FEATURE,
                 "operators are not supported");
 
         auto expression = resolveTerm(scope, simple_expression_node.operand);
 
         if (!simple_expression_node.modifiers.empty())
             reporter_.err(simple_expression_node.modifiers[0].view.data(),
-                "unsupported-feature",
+                ec::UNSUPPORTED_FEATURE,
                 "operators are not supported");
 
         return expression;
@@ -1422,7 +1422,7 @@ public:
 
         if (expression_node.modifier)
             reporter_.err(expression_node.modifier->view.data(),
-                "unsupported-feature",
+                ec::UNSUPPORTED_FEATURE,
                 "operators are not supported");
 
         return expression;
@@ -1475,7 +1475,7 @@ public:
             for (const auto &used_control_variable : used_control_variables)
                 if (variable_id_access->id() == used_control_variable.name) {
                     reporter_.err(location,
-                        "threatened-control-variable",
+                        ec::THREATENED_CONTROL_VARIABLE,
                         "variable access threatens a control variable of a for loop");
                     reporter_.note(used_control_variable.location,
                         "use of \"{}\" as a control variable",
@@ -1516,7 +1516,7 @@ public:
 
         if (!expression_type_promoted.isAssignmentCompatibleWith(access_type)) {
             reporter_.err(assignment_statement_node.expression.view.data(),
-                "type-mismatch",
+                ec::TYPE_MISMATCH,
                 "right-hand side expression type \"{}\" is assignment-incompatible"
                     " with left-hand side type \"{}\"",
                 expression_type_promoted.str(), access_type.str());
@@ -1549,7 +1549,7 @@ public:
 
         if (!dynamic_cast<const sem::TypeOrdinal *>(&case_index_type_promoted)) {
             reporter_.err(case_statement_node.case_index.view.data(),
-                "non-ordinal-type",
+                ec::NON_ORDINAL_TYPE,
                 "case index has non-ordinal type \"{}\"",
                 case_index_type_promoted.str());
 
@@ -1570,7 +1570,7 @@ public:
                 auto constant_type = constant->type();
 
                 if (constant_type.get() != &case_index_type_promoted) {
-                    reporter_.err(constant_node->view.data(), "type-mismatch",
+                    reporter_.err(constant_node->view.data(), ec::TYPE_MISMATCH,
                         "case constant has type \"{}\","
                             " which is different from the type of the case index (\"{}\")",
                         constant_type->str(), case_index_type_promoted.str());
@@ -1584,7 +1584,7 @@ public:
                 auto ordinal = ordinal_constant->ordinalNumber();
 
                 if (auto it = used_ordinals.find(ordinal); it != used_ordinals.end()) {
-                    reporter_.err(constant_node->view.data(), "duplicate-case",
+                    reporter_.err(constant_node->view.data(), ec::DUPLICATE_CASE,
                         "case constant already used");
                     reporter_.note(it->second, "previous occurrence of the case constant");
                     continue;
@@ -1652,7 +1652,7 @@ public:
         while (!lookup_scope->block()) {
             if (lookup_scope->containsShallow(control_variable.value.name)) {
                 reporter_.err(control_variable.value.location,
-                    "wrong-identifier-kind",
+                    ec::WRONG_IDENTIFIER_KIND,
                     "identifier \"{}\" is not a variable identifier",
                     control_variable.value.name);
                 return std::make_unique<sem::StatementEmpty>();
@@ -1668,7 +1668,7 @@ public:
 
         if (it == block.variables_.end()) {
             reporter_.err(control_variable.value.location,
-                "undefined-identifier",
+                ec::UNDEFINED_IDENTIFIER,
                 "undefined variable identifier");
             return std::make_unique<sem::StatementEmpty>();
         }
@@ -1678,14 +1678,14 @@ public:
 
         if (!control_variable_type) {
             reporter_.err(control_variable.value.location,
-                "non-ordinal-type",
+                ec::NON_ORDINAL_TYPE,
                 "control variable has non-ordinal type \"{}\"", it->second.type->str());
             return std::make_unique<sem::StatementEmpty>();
         }
 
         if (it->second.subroutine_threat_location) {
             reporter_.err(control_variable.value.location,
-                "threatened-control-variable",
+                ec::THREATENED_CONTROL_VARIABLE,
                 "control variable is threatened by a statement in a procedure or function");
             reporter_.note(it->second.subroutine_threat_location,
                 "location of threat");
@@ -1701,7 +1701,7 @@ public:
         const auto &initial_value_type = initial_value->type(scope);
         if (!initial_value_type.promoted().isCompatibleWith(*control_variable_type)) {
             reporter_.err(for_statement_node.initial_value.view.data(),
-                "type-mismatch",
+                ec::TYPE_MISMATCH,
                 "initial value type \"{}\" is incompatible"
                     " with the control variable type \"{}\"",
                 initial_value_type.promoted().str(), control_variable_type->str());
@@ -1713,7 +1713,7 @@ public:
 
         if (!final_value_type.promoted().isCompatibleWith(*control_variable_type)) {
             reporter_.err(for_statement_node.final_value.view.data(),
-                "type-mismatch",
+                ec::TYPE_MISMATCH,
                 "final value type \"{}\" is incompatible"
                     " with the control variable type \"{}\"",
                 final_value_type.promoted().str(), control_variable_type->str());
@@ -1751,7 +1751,7 @@ public:
                             return std::make_unique<sem::StatementGoto>(label, scope_index);
 
                     reporter_.err(goto_statement_node.label.view.data(),
-                        "disallowed-goto-target",
+                        ec::DISALLOWED_GOTO_TARGET,
                         "disallowed target label for this goto statement");
                     return std::make_unique<sem::StatementEmpty>();
                 }
@@ -1759,7 +1759,7 @@ public:
         }
 
         reporter_.err(goto_statement_node.label.view.data(),
-            "undefined-label", "undefined label");
+            ec::UNDEFINED_LABEL, "undefined label");
         return std::make_unique<sem::StatementEmpty>();
     }
 
@@ -1770,7 +1770,7 @@ public:
         const auto &condition_type_promoted = condition_type.promoted();
         if (&condition_type_promoted != &sem::TypeBoolean::instance()) {
             reporter_.err(expression_node.view.data(),
-                "non-boolean-type",
+                ec::NON_BOOLEAN_TYPE,
                 "condition has non-boolean type \"{}\"", condition_type_promoted.str());
 
             return std::make_unique<sem::ExpressionConstant>(
@@ -1815,7 +1815,7 @@ public:
             // TODO: handle builtin procedures
 
             reporter_.err(procedure_statement_node.procedure.view.data(),
-                "undefined-identifier",
+                ec::UNDEFINED_IDENTIFIER,
                 "undefined procedure identifier \"{}\"", procedure_name);
             return std::make_unique<sem::StatementEmpty>();
         }
@@ -1830,13 +1830,13 @@ public:
 
         if (!procedure || procedure->signature().resultType()) {
             reporter_.err(procedure_statement_node.procedure.view.data(),
-                "wrong-identifier-kind",
+                ec::WRONG_IDENTIFIER_KIND,
                 "identifier \"{}\" is not a procedure identifier",
                 procedure_name);
             return std::make_unique<sem::StatementEmpty>();
         }
 
-        reporter_.err(procedure_statement_node.view.data(), "unsupported-feature",
+        reporter_.err(procedure_statement_node.view.data(), ec::UNSUPPORTED_FEATURE,
             "procedure statements are not supported");
         return std::make_unique<sem::StatementProcedure>(
             procedure_name, lookup_result->scope_index);
@@ -1902,7 +1902,7 @@ public:
             &variable_type);
         if (!record_type) {
             reporter_.err(variable_node.view.data(),
-                "non-record-type",
+                ec::NON_RECORD_TYPE,
                 "variable has non-record type \"{}\"", variable_type.str());
             return std::make_unique<sem::StatementEmpty>();
         }
@@ -1950,7 +1950,7 @@ public:
 
                 if (it->second.prefixing_occurrence) {
                     reporter_.err(new_prefixing_occurrence,
-                        "ambiguous-label",
+                        ec::AMBIGUOUS_LABEL,
                         "multiple statements prefixed by label {}", label_value);
                     reporter_.note(it->second.prefixing_occurrence,
                         "first statement prefixed by label {}", label_value);
@@ -1962,7 +1962,7 @@ public:
             }
             else {
                 reporter_.err(statement_node.label->view.data(),
-                    "undefined-label", "undefined label");
+                    ec::UNDEFINED_LABEL, "undefined label");
             }
         }
 
@@ -2021,7 +2021,7 @@ public:
         std::ranges::sort(nonprefixing_label_locations);
 
         for (const auto location : nonprefixing_label_locations)
-            reporter_.err(location, "unused-label",
+            reporter_.err(location, ec::UNUSED_LABEL,
                 "label that does not prefix a statement");
     }
 
@@ -2035,7 +2035,7 @@ public:
                 parameter_name, parameter_location);
 
             if (!success) {
-                reporter_.err(parameter_location, "duplicate-program-parameter",
+                reporter_.err(parameter_location, ec::DUPLICATE_PROGRAM_PARAMETER,
                     "program parameter \"{}\" already defined", parameter_name);
                 reporter_.note(it->second, "defining point of \"{}\"", parameter_name);
                 continue;
@@ -2054,7 +2054,7 @@ public:
         for (const auto &[parameter_name, parameter_location] : program.parameters_) {
             auto it = program.block_.variables_.find(parameter_name);
             if (it == program.block_.variables_.end())
-                reporter_.err(parameter_location, "missing-program-parameter-variable",
+                reporter_.err(parameter_location, ec::MISSING_PROGRAM_PARAMETER_VARIABLE,
                     "program parameter \"{}\" has no corresponding variable",
                     parameter_name);
         }

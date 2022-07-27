@@ -10,6 +10,62 @@ export module reporting;
 
 import io;
 
+using namespace std::literals;
+
+struct ErrorCode {
+    std::string_view str;
+};
+
+export
+namespace ec {
+
+constexpr ErrorCode AMBIGUOUS_LABEL{"ambiguous-label"sv};
+constexpr ErrorCode CIRCULAR_DEFINITION{"circular-definition"sv};
+constexpr ErrorCode DISALLOWED_FILE_COMPONENT{"disallowed-file-component"sv};
+constexpr ErrorCode DISALLOWED_GOTO_TARGET{"disallowed-goto-target"sv};
+constexpr ErrorCode DISALLOWED_PARAMETER_TYPE{"disallowed-parameter-type"sv};
+constexpr ErrorCode DISALLOWED_RESULT_TYPE{"disallowed-result-type"sv};
+constexpr ErrorCode DUPLICATE_CASE{"duplicate-case"sv};
+constexpr ErrorCode DUPLICATE_IDENTIFIER{"duplicate-identifier"sv};
+constexpr ErrorCode DUPLICATE_LABEL{"duplicate-label"sv};
+constexpr ErrorCode DUPLICATE_PROGRAM_PARAMETER{"duplicate-program-parameter"sv};
+constexpr ErrorCode DUPLICATE_SUBROUTINE_DECLARATION{"duplicate-subroutine-declaration"sv};
+constexpr ErrorCode INVALID_COMPONENT_ACCESS{"invalid-component-access"sv};
+constexpr ErrorCode INVALID_DIRECTIVE{"invalid-directive"sv};
+constexpr ErrorCode INVALID_INTEGER{"invalid-integer"sv};
+constexpr ErrorCode INVALID_LABEL{"invalid-label"sv};
+constexpr ErrorCode INVALID_NEGATION{"invalid-negation"sv};
+constexpr ErrorCode INVALID_REAL{"invalid-real"sv};
+constexpr ErrorCode INVALID_TOKEN{"invalid-token"sv};
+constexpr ErrorCode INVERTED_SUBRANGE_BOUNDS{"inverted-subrange-bounds"sv};
+constexpr ErrorCode MISMATCHED_SUBROUTINE_DECLARATION{"mismatched-subroutine-declaration"sv};
+constexpr ErrorCode MISSING_CASE{"missing-case"sv};
+constexpr ErrorCode MISSING_DELAYED_DECLARATION{"missing-delayed-declaration"sv};
+constexpr ErrorCode MISSING_FORWARD_DECLARATION{"missing-forward-declaration"sv};
+constexpr ErrorCode MISSING_PROGRAM_PARAMETER_VARIABLE{"missing-program-parameter-variable"sv};
+constexpr ErrorCode MISSING_RESULT_ASSIGNMENT{"missing-result-assignment"sv};
+constexpr ErrorCode MISSING_SEPARATOR{"missing-separator"sv};
+constexpr ErrorCode NON_ARRAY_TYPE{"non-array-type"sv};
+constexpr ErrorCode NON_ASCII_CHAR{"non-ascii-char"sv};
+constexpr ErrorCode NON_BOOLEAN_TYPE{"non-boolean-type"sv};
+constexpr ErrorCode NON_ORDINAL_TYPE{"non-ordinal-type"sv};
+constexpr ErrorCode NON_RECORD_TYPE{"non-record-type"sv};
+constexpr ErrorCode OUT_OF_RANGE{"out-of-range"sv};
+constexpr ErrorCode THREATENED_CONTROL_VARIABLE{"threatened-control-variable"sv};
+constexpr ErrorCode TOO_MANY_ELEMENTS{"too-many-elements"sv};
+constexpr ErrorCode TYPE_MISMATCH{"type-mismatch"sv};
+constexpr ErrorCode UNDEFINED_IDENTIFIER{"undefined-identifier"sv};
+constexpr ErrorCode UNDEFINED_LABEL{"undefined-label"sv};
+constexpr ErrorCode UNEXPECTED_TOKEN{"unexpected-token"sv};
+constexpr ErrorCode UNUSED_LABEL{"unused-label"sv};
+constexpr ErrorCode USE_BEFORE_DEFINITION{"use-before-definition"sv};
+constexpr ErrorCode WRONG_IDENTIFIER_KIND{"wrong-identifier-kind"sv};
+
+// should never be used in the final version
+constexpr ErrorCode UNSUPPORTED_FEATURE{"unsupported-feature"sv};
+
+}
+
 export class Locus {
 public:
     Locus(std::size_t line, std::size_t column)
@@ -71,9 +127,9 @@ public:
 
     template <typename ...Args>
     void
-    err(const char *location, std::string_view error_code,
+    err(const char *location, ErrorCode error_code,
             std::string_view error_message_format, Args &&...error_message_args) {
-        errRaw(location, error_code,
+        errRaw(location, error_code.str,
             std::vformat(error_message_format,
                 std::make_format_args(std::forward<Args>(error_message_args)...)));
     }

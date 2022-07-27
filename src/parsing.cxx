@@ -41,7 +41,7 @@ public:
 
             auto *p_token = (*reader_.unexpected_token_it_).get();
 
-            reporter.err(p_token->view().data(), "unexpected-token",
+            reporter.err(p_token->view().data(), ec::UNEXPECTED_TOKEN,
                 "expected a token of type {}, got {} instead",
                 reader_.buildExpectedRepresentationsString(), p_token->humanRepresentation());
         }
@@ -60,7 +60,7 @@ public:
         report(Reporter &reporter) {
             auto *p_token = (*reader_.tokens_it_).get();
 
-            reporter.err(p_token->view().data(), "invalid-directive",
+            reporter.err(p_token->view().data(), ec::INVALID_DIRECTIVE,
                 "expected directive \"{}\"; got \"{}\" instead",
                 expected_directive_, p_token->view());
         }
@@ -77,7 +77,7 @@ public:
         report(Reporter &reporter) {
             auto *p_token = (*reader_.tokens_it_).get();
 
-            reporter.err(p_token->view().data(), "invalid-label",
+            reporter.err(p_token->view().data(), ec::INVALID_LABEL,
                 "label value {} is too large; maximum is {}",
                 p_token->view(), MAX_LABEL_VALUE);
         }
@@ -91,7 +91,7 @@ public:
         report(Reporter &reporter) {
             auto *p_token = (*reader_.tokens_it_).get();
 
-            reporter.err(p_token->view().data(), "invalid-integer",
+            reporter.err(p_token->view().data(), ec::INVALID_INTEGER,
                 "integer value {} is too large; maximum is {}",
                 p_token->view(), PASCAL_INTEGER_MAX);
         }
@@ -105,7 +105,7 @@ public:
         report(Reporter &reporter) {
             auto *p_token = (*reader_.tokens_it_).get();
 
-            reporter.err(p_token->view().data(), "invalid-real",
+            reporter.err(p_token->view().data(), ec::INVALID_REAL,
                 "real value {} is not in the representable range; minimum is {}, maximum is {}",
                 p_token->view(),
                 std::numeric_limits<pascal_real_t>::denorm_min(),
