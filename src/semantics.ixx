@@ -65,6 +65,9 @@ public:
     Type::ptr_t
     variableType(const std::string &name) const { return variables_.at(name).type; }
 
+    bool
+    hasSubroutine(const std::string &name) const { return subroutines_.contains(name); }
+
     Subroutine &
     subroutine(const std::string &name) { return subroutines_.at(name); }
 

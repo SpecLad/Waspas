@@ -144,6 +144,18 @@ private:
 };
 
 export
+class StatementProcedure final : public Statement {
+public:
+    StatementProcedure(const std::string &id, std::size_t scope_index)
+        : id_(id), scope_index_(scope_index)
+    {}
+
+private:
+    std::string id_;
+    std::size_t scope_index_;
+};
+
+export
 class StatementRepeat final : public Statement {
 public:
     StatementRepeat(

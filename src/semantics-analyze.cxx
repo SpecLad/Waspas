@@ -1807,9 +1807,39 @@ public:
         const nodes::ProcedureStatement &procedure_statement_node,
         const StatementAnalysisContext &
     ) {
+        const std::string &procedure_name = procedure_statement_node.procedure.spelling;
+
+        auto lookup_result = scope.lookup(procedure_name);
+
+        if (!lookup_result) {
+            // TODO: handle builtin procedures
+
+            reporter_.err(procedure_statement_node.procedure.view.data(),
+                "undefined-identifier",
+                "undefined procedure identifier \"{}\"", procedure_name);
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
+        sem::Subroutine *procedure = nullptr;
+
+        if (auto *block = lookup_result->scope->block())
+            if (block->hasSubroutine(procedure_name))
+                procedure = &block->subroutine(procedure_name);
+
+        // TODO: handle procedural parameters
+
+        if (!procedure || procedure->signature().resultType()) {
+            reporter_.err(procedure_statement_node.procedure.view.data(),
+                "wrong-identifier-kind",
+                "identifier \"{}\" is not a procedure identifier",
+                procedure_name);
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
         reporter_.err(procedure_statement_node.view.data(), "unsupported-feature",
             "procedure statements are not supported");
-        return std::make_unique<sem::StatementEmpty>();
+        return std::make_unique<sem::StatementProcedure>(
+            procedure_name, lookup_result->scope_index);
     }
 
     std::unique_ptr<sem::Statement>

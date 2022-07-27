@@ -22,6 +22,7 @@ procedure p;
         goto 4;
             {^ error:disallowed-goto-target }
     end;
+function f: integer; begin f := 0 end;
 begin
     1: ;
    {^ note }
@@ -84,4 +85,11 @@ begin
 
     while 0 do;
          {^ error:non-boolean-type }
+
+    unknown;
+   {^ error:undefined-identifier }
+    j;
+   {^ error:wrong-identifier-kind }
+    f;
+   {^ error:wrong-identifier-kind }
 end.
