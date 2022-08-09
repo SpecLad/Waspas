@@ -18,6 +18,9 @@ public:
     type(const Scope &scope) const = 0;
 };
 
+export
+class ActualParameterSection {}; // TODO
+
 export // export to work around VC++ ICE
 template <typename Base = Expression>
 class ExpressionId : public Base {

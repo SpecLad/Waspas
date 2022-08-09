@@ -1801,6 +1801,60 @@ public:
             std::move(true_branch), std::move(false_branch));
     }
 
+    std::vector<sem::ActualParameterSection>
+    resolveActualParameters(
+        sem::Scope &scope,
+        const sem::Signature &signature,
+        const std::vector<nodes::ActualParameter> &actual_parameter_nodes,
+        const char *parameter_list_end_location
+    ) {
+        std::vector<sem::ActualParameterSection> actual_parameters;
+
+        auto node_it = actual_parameter_nodes.begin();
+
+        for (const auto &parameter_section : signature.parameters()) {
+            bool enough_actual_parameters = std::visit(overloaded{
+                [&](const sem::RegularParameterSection &rps) {
+                    if (actual_parameter_nodes.end() - node_it < rps.names().size()) {
+                        reporter_.err(parameter_list_end_location,
+                            ec::PARAMETER_COUNT_MISMATCH,
+                            "no actual parameter corresponding to formal parameter \"{}\"",
+                            rps.names()[actual_parameter_nodes.end() - node_it]);
+                        return false;
+                    }
+
+                    // TODO: process the actual parameters
+
+                    node_it += rps.names().size();
+                    return true;
+                },
+                [&](const sem::SubroutineParameterSpecification &sps) {
+                    if (node_it == actual_parameter_nodes.end()) {
+                        reporter_.err(parameter_list_end_location,
+                            ec::PARAMETER_COUNT_MISMATCH,
+                            "no actual parameter corresponding to formal parameter \"{}\"",
+                            sps.name());
+                        return false;
+                    }
+
+                    // TODO: process the actual parameter
+
+                    ++node_it;
+                    return true;
+                },
+            }, parameter_section.v);
+
+            if (!enough_actual_parameters)
+                return actual_parameters;
+        }
+
+        if (node_it != actual_parameter_nodes.end())
+            reporter_.err(node_it->view.data(),
+                ec::PARAMETER_COUNT_MISMATCH, "extraneous actual parameter");
+
+        return actual_parameters;
+    }
+
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
@@ -1836,10 +1890,19 @@ public:
             return std::make_unique<sem::StatementEmpty>();
         }
 
-        reporter_.err(procedure_statement_node.view.data(), ec::UNSUPPORTED_FEATURE,
-            "procedure statements are not supported");
+        auto actual_parameters = resolveActualParameters(
+            scope, procedure->signature(), procedure_statement_node.parameters,
+            procedure_statement_node.parameters.empty()
+                ? procedure_statement_node.procedure.view.data()
+                    + procedure_statement_node.procedure.view.size()
+                : procedure_statement_node.parameters.back().view.data()
+                    + procedure_statement_node.parameters.back().view.size());
+
+        // TODO: make sure the number of actual parameters matches the number
+        // of formal parameters
+
         return std::make_unique<sem::StatementProcedure>(
-            procedure_name, lookup_result->scope_index);
+            procedure_name, lookup_result->scope_index, std::move(actual_parameters));
     }
 
     std::unique_ptr<sem::Statement>

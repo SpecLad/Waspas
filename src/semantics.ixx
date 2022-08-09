@@ -133,6 +133,9 @@ public:
         return bound_types_.at(name);
     }
 
+    const std::vector<FormalParameterSection> &
+    parameters() const { return parameters_; }
+
 private:
     std::vector<FormalParameterSection> parameters_;
     std::unordered_map<std::string, DynamicType::ptr_t> regular_parameter_types_;
@@ -178,6 +181,9 @@ public:
     SubroutineParameterSpecification(
         const std::string &name, const Signature &signature
     ) : name_(name), signature_(signature) {}
+
+    const std::string &
+    name() const { return name_; }
 
 private:
     std::string name_;

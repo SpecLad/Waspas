@@ -146,13 +146,20 @@ private:
 export
 class StatementProcedure final : public Statement {
 public:
-    StatementProcedure(const std::string &id, std::size_t scope_index)
-        : id_(id), scope_index_(scope_index)
+    StatementProcedure(
+        const std::string &id,
+        std::size_t scope_index,
+        std::vector<sem::ActualParameterSection> &&actual_parameters
+    )
+        : id_(id)
+        , scope_index_(scope_index)
+        , actual_parameters_(std::move(actual_parameters))
     {}
 
 private:
     std::string id_;
     std::size_t scope_index_;
+    std::vector<sem::ActualParameterSection> actual_parameters_;
 };
 
 export
