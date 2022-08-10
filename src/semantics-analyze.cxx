@@ -1801,6 +1801,15 @@ public:
             std::move(true_branch), std::move(false_branch));
     }
 
+    void
+    checkNoFormattingSpecification(const nodes::ActualParameter &parameter_node) {
+        if (parameter_node.formatting_specification)
+            reporter_.err(parameter_node.formatting_specification->view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "total width specified in call to procedure "
+                    "other than \"write\" or \"writeln\"");
+    }
+
     std::vector<sem::actual_parameter_section_t>
     resolveActualParameters(
         sem::Scope &scope,
@@ -1828,7 +1837,8 @@ public:
                     for (const auto &parameter_node
                         : std::views::counted(node_it, rps.names().size())
                     ) {
-                        // TODO: check that there are no formatting parameters
+                        checkNoFormattingSpecification(parameter_node);
+
                         auto expression = resolveExpression(scope, parameter_node.value);
                         const auto &expression_type = expression->type(scope);
                         const auto &expression_type_promoted = expression_type.promoted();

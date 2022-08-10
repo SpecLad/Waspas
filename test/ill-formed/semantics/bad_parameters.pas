@@ -12,4 +12,7 @@ begin
 
     p(2.3, r);
      {^ error:type-mismatch }
+
+    p(1:10, r);
+      {^ error:disallowed-parameter-form }
 end.

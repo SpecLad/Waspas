@@ -24,6 +24,7 @@ inline constexpr ErrorCode AMBIGUOUS_LABEL{"ambiguous-label"sv};
 inline constexpr ErrorCode CIRCULAR_DEFINITION{"circular-definition"sv};
 inline constexpr ErrorCode DISALLOWED_FILE_COMPONENT{"disallowed-file-component"sv};
 inline constexpr ErrorCode DISALLOWED_GOTO_TARGET{"disallowed-goto-target"sv};
+inline constexpr ErrorCode DISALLOWED_PARAMETER_FORM{"disallowed-parameter-form"sv};
 inline constexpr ErrorCode DISALLOWED_PARAMETER_TYPE{"disallowed-parameter-type"sv};
 inline constexpr ErrorCode DISALLOWED_RESULT_TYPE{"disallowed-result-type"sv};
 inline constexpr ErrorCode DUPLICATE_CASE{"duplicate-case"sv};
