@@ -1801,14 +1801,14 @@ public:
             std::move(true_branch), std::move(false_branch));
     }
 
-    std::vector<sem::ActualParameterSection>
+    std::vector<sem::actual_parameter_section_t>
     resolveActualParameters(
         sem::Scope &scope,
         const sem::Signature &signature,
         const std::vector<nodes::ActualParameter> &actual_parameter_nodes,
         const char *parameter_list_end_location
     ) {
-        std::vector<sem::ActualParameterSection> actual_parameters;
+        std::vector<sem::actual_parameter_section_t> actual_parameters;
 
         auto node_it = actual_parameter_nodes.begin();
 
@@ -1823,7 +1823,31 @@ public:
                         return false;
                     }
 
-                    // TODO: process the actual parameters
+                    std::vector<std::unique_ptr<sem::Expression>> expressions;
+
+                    for (const auto &parameter_node
+                        : std::views::counted(node_it, rps.names().size())
+                    ) {
+                        // TODO: check that there are no formatting parameters
+                        auto expression = resolveExpression(scope, parameter_node.value);
+                        const auto &expression_type = expression->type(scope);
+                        const auto &expression_type_promoted = expression_type.promoted();
+                        if (!expression_type_promoted.isAssignmentCompatibleWith(*rps.type())) {
+                            reporter_.err(parameter_node.value.view.data(),
+                                ec::TYPE_MISMATCH,
+                                "type of actual parameter (\"{}\") is assignment-incompatible"
+                                    " with type of formal parameter (\"{}\")",
+                                expression_type_promoted.str(), rps.type()->str());
+                            continue;
+                        }
+
+                        expressions.push_back(std::move(expression));
+                    }
+
+                    // TODO: variable parameters, conformant array bounds
+
+                    actual_parameters.emplace_back(
+                        sem::ActualParameterSectionValues(std::move(expressions)));
 
                     node_it += rps.names().size();
                     return true;

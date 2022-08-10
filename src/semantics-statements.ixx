@@ -149,7 +149,7 @@ public:
     StatementProcedure(
         const std::string &id,
         std::size_t scope_index,
-        std::vector<sem::ActualParameterSection> &&actual_parameters
+        std::vector<sem::actual_parameter_section_t> &&actual_parameters
     )
         : id_(id)
         , scope_index_(scope_index)
@@ -159,7 +159,7 @@ public:
 private:
     std::string id_;
     std::size_t scope_index_;
-    std::vector<sem::ActualParameterSection> actual_parameters_;
+    std::vector<sem::actual_parameter_section_t> actual_parameters_;
 };
 
 export

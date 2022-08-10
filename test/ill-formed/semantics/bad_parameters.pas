@@ -9,4 +9,7 @@ begin
       {^ error:parameter-count-mismatch }
     p(1, r, 1);
            {^ error:parameter-count-mismatch }
+
+    p(2.3, r);
+     {^ error:type-mismatch }
 end.
