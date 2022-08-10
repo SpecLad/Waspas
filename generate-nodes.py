@@ -315,8 +315,7 @@ ENUMERATIONS = (
 NODE_TYPES = (
     NodeType('ActualParameter', fields=(
         NodeField('value', 'Expression'),
-        OptionalNodeField('total_width', 'Expression'),
-        OptionalNodeField('frac_digits', 'Expression'),
+        OptionalNodeField('formatting_specification', 'FormattingSpecification'),
     )),
 
     NodeType('ArrayType', bases=('UnpackedStructuredType',), fields=(
@@ -418,6 +417,11 @@ NODE_TYPES = (
     NodeType('FormalParameterSection', abstract=True),
 
     NodeType('FormalParameterTypeOrSchema', abstract=True),
+
+    NodeType('FormattingSpecification', fields=(
+        NodeField('total_width', 'Expression'),
+        OptionalNodeField('frac_digits', 'Expression'),
+    )),
 
     NodeType('FunctionDesignator', bases=('Factor',), fields=(
         NodeField('function', 'Identifier'),
