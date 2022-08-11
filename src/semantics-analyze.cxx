@@ -1844,7 +1844,14 @@ public:
 
             if (rps_schema) {
                 if (expressions.empty()) {
-                    // TODO: check that type is conformable
+                    if (!expression_type.isConformableWith(*rps_schema)) {
+                        reporter_.err(parameter_node.value.view.data(),
+                            ec::TYPE_MISMATCH,
+                            "type of actual parameter (\"{}\") is not conformable "
+                                "with schema of formal parameter (\"{}\")",
+                            expression_type.str(), rps_schema->str());
+                        continue;
+                    }
                 }
                 else {
                     const auto &first_parameter_type = expressions.front()->type(scope);

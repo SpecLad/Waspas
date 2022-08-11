@@ -47,6 +47,15 @@ public:
         if (this == &other) return canBeFileComponent();
         return isCompatibleWith(other);
     }
+
+    // The relation of conformance is only formally defined when the second
+    // element is a schema, but for implementation convenience we extend it
+    // to types, as well. We consider two types conformant with each other
+    // iff they are the same type.
+    virtual bool
+    isConformableWith(const DynamicType &type_or_schema) const {
+        return this == &type_or_schema;
+    }
 };
 
 export

@@ -86,6 +86,27 @@ sem::TypeEnumerated::largestOrdinal() const {
     return constants_.size() - 1;
 }
 
+bool
+sem::TypeArray::isConformableWith(const DynamicType &type_or_schema) const {
+    if (auto *schema = dynamic_cast<const ConformantArraySchema *>(&type_or_schema)) {
+        auto schema_bound_type = schema->boundType();
+
+        if (!index_type_->isCompatibleWith(*schema_bound_type)) return false;
+
+        if (index_type_->smallestOrdinal() < schema_bound_type->smallestOrdinal())
+            return false;
+
+        if (index_type_->largestOrdinal() > schema_bound_type->largestOrdinal())
+            return false;
+
+        if (is_packed_ != schema->isPacked()) return false;
+
+        return component_type_->isConformableWith(*schema->componentType());
+    }
+
+    return Type::isConformableWith(type_or_schema);
+}
+
 std::vector<std::string>
 sem::FieldList::fieldNames() const {
     auto keys = std::views::keys(field_types_);
@@ -123,6 +144,22 @@ sem::FieldList::canBeFileComponent() const {
 sem::Type::ptr_t
 sem::TypePointer::domainType() const {
     return domain_type_block_.type(domain_type_name_);
+}
+
+bool
+sem::ConformantArraySchema::isConformableWith(const DynamicType &type_or_schema) const {
+    if (auto *other_schema = dynamic_cast<const ConformantArraySchema *>(&type_or_schema)) {
+        if (!bound_type_->isCompatibleWith(*other_schema->bound_type_)) return false;
+
+        // We can't check the index type's smallest/largest values, because
+        // they aren't known at compile time. This has to be a runtime check.
+
+        if (is_packed_ != other_schema->is_packed_) return false;
+
+        return component_type_->isConformableWith(*other_schema->component_type_);
+    }
+
+    return false;
 }
 
 sem::Signature::Signature(

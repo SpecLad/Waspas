@@ -206,6 +206,9 @@ public:
         return Type::isCompatibleWith(other);
     }
 
+    bool
+    isConformableWith(const DynamicType &type_or_schema) const override;
+
     TypeOrdinal::ptr_t
     indexType() const { return index_type_; }
 
@@ -519,6 +522,9 @@ public:
         return component_type_->canBeFileComponent();
     }
 
+    bool
+    isConformableWith(const DynamicType &type_or_schema) const override;
+
     const std::string &
     smallestBound() const { return smallest_bound_; }
 
@@ -530,6 +536,9 @@ public:
 
     DynamicType::ptr_t
     componentType() const { return component_type_; }
+
+    bool
+    isPacked() const { return is_packed_; }
 
 private:
     std::string smallest_bound_;
