@@ -1317,6 +1317,8 @@ public:
         nodes::CharacterString &character_string_node
     ) {
         auto constant = resolveConstant(scope, character_string_node);
+
+        // apply fallback
         if (!constant)
             constant = std::make_shared<sem::ConstantString>("???");
 
@@ -1340,6 +1342,8 @@ public:
         T &signable_constant_node
     ) requires std::is_base_of_v<nodes::SignableConstant, T> {
         auto constant = resolveSignableConstant(scope, signable_constant_node);
+
+        // apply fallback
         if (!constant)
             constant = std::make_shared<sem::ConstantInteger>(0);
 
@@ -1357,6 +1361,7 @@ public:
             resolveVariableFdConstantOrBoundIdentifier,
             "variable, field designator, constant or bound");
 
+        // apply fallback
         if (!access)
             access = std::make_unique<sem::ExpressionConstant>(
                 std::make_shared<sem::ConstantInteger>(0));
