@@ -21,19 +21,9 @@ public:
 };
 
 export
-class ActualParameterSectionValues {
-public:
-    ActualParameterSectionValues(
-        std::vector<std::unique_ptr<Expression>> &&expressions
-    ) : expressions_(std::move(expressions)) {}
-
-private:
-    // TODO: conformant array bounds
-    std::vector<std::unique_ptr<Expression>> expressions_;
-};
-
-export
-using actual_parameter_section_t = std::variant<ActualParameterSectionValues>;
+using actual_parameter_section_t = std::variant<
+    std::vector<std::unique_ptr<Expression>>
+>;
 
 export // export to work around VC++ ICE
 template <typename Base = Expression>

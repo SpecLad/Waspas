@@ -1887,8 +1887,7 @@ public:
 
         actual_parameter_it += rps.names().size();
 
-        return sem::actual_parameter_section_t(
-            sem::ActualParameterSectionValues(std::move(expressions)));
+        return sem::actual_parameter_section_t(std::move(expressions));
     }
 
     std::optional<sem::actual_parameter_section_t>
@@ -1910,8 +1909,7 @@ public:
         // TODO: process the actual parameter
 
         ++actual_parameter_it;
-        return sem::actual_parameter_section_t(
-            sem::ActualParameterSectionValues({}));
+        return sem::actual_parameter_section_t({});
     }
 
     std::vector<sem::actual_parameter_section_t>
