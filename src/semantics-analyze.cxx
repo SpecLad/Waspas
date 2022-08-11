@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -1810,76 +1811,131 @@ public:
                     "other than \"write\" or \"writeln\"");
     }
 
+    std::optional<sem::actual_parameter_section_t>
+    resolveActualParameterSection(
+        sem::Scope &scope,
+        const sem::RegularParameterSection &rps,
+        std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_it,
+        const std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_end,
+        const char *actual_parameter_end_location
+    ) {
+        if (actual_parameter_end - actual_parameter_it < rps.names().size()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "no actual parameter corresponding to formal parameter \"{}\"",
+                rps.names()[actual_parameter_end - actual_parameter_it]);
+            return std::nullopt;
+        }
+
+        std::vector<std::unique_ptr<sem::Expression>> expressions;
+        const nodes::ActualParameter *first_good_parameter_node = nullptr;
+
+        auto rps_schema
+            = std::dynamic_pointer_cast<const sem::ConformantArraySchema>(
+                rps.type());
+
+        for (const auto &parameter_node
+            : std::views::counted(actual_parameter_it, rps.names().size())
+        ) {
+            checkNoFormattingSpecification(parameter_node);
+
+            auto expression = resolveExpression(scope, parameter_node.value);
+            const auto &expression_type = expression->type(scope);
+
+            if (rps_schema) {
+                if (expressions.empty()) {
+                    // TODO: check that type is conformable
+                }
+                else {
+                    const auto &first_parameter_type = expressions.front()->type(scope);
+                    if (&expression_type != &first_parameter_type) {
+                        reporter_.err(parameter_node.value.view.data(),
+                            ec::TYPE_MISMATCH,
+                            "type of actual parameter (\"{}\") is different "
+                            "from type of a previous parameter (\"{}\")",
+                            expression_type.str(), first_parameter_type.str());
+                        reporter_.note(first_good_parameter_node->view.data(),
+                            "location of previous parameter");
+                        continue;
+                    }
+                }
+
+                if (dynamic_cast<const sem::ConformantArraySchema *>(&expression_type)) {
+                    reporter_.err(parameter_node.value.view.data(),
+                        ec::DISALLOWED_PARAMETER_FORM,
+                        "conformant array used directly as a value parameter");
+                    continue;
+                }
+            }
+            else {
+                const auto &expression_type_promoted = expression_type.promoted();
+                if (!expression_type_promoted.isAssignmentCompatibleWith(*rps.type())) {
+                    reporter_.err(parameter_node.value.view.data(),
+                        ec::TYPE_MISMATCH,
+                        "type of actual parameter (\"{}\") is assignment-incompatible"
+                        " with type of formal parameter (\"{}\")",
+                        expression_type_promoted.str(), rps.type()->str());
+                    continue;
+                }
+            }
+
+            if (expressions.empty()) first_good_parameter_node = &parameter_node;
+            expressions.push_back(std::move(expression));
+        }
+
+        // TODO: variable parameters
+
+        actual_parameter_it += rps.names().size();
+
+        return sem::actual_parameter_section_t(
+            sem::ActualParameterSectionValues(std::move(expressions)));
+    }
+
+    std::optional<sem::actual_parameter_section_t>
+    resolveActualParameterSection(
+        sem::Scope &scope,
+        const sem::SubroutineParameterSpecification &sps,
+        std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_it,
+        const std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_end,
+        const char *actual_parameter_end_location
+    ) {
+        if (actual_parameter_it == actual_parameter_end) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "no actual parameter corresponding to formal parameter \"{}\"",
+                sps.name());
+            return std::nullopt;
+        }
+
+        // TODO: process the actual parameter
+
+        ++actual_parameter_it;
+        return sem::actual_parameter_section_t(
+            sem::ActualParameterSectionValues({}));
+    }
+
     std::vector<sem::actual_parameter_section_t>
     resolveActualParameters(
         sem::Scope &scope,
         const sem::Signature &signature,
         const std::vector<nodes::ActualParameter> &actual_parameter_nodes,
-        const char *parameter_list_end_location
+        const char *actual_parameter_end_location
     ) {
         std::vector<sem::actual_parameter_section_t> actual_parameters;
 
         auto node_it = actual_parameter_nodes.begin();
 
         for (const auto &parameter_section : signature.parameters()) {
-            bool enough_actual_parameters = std::visit(overloaded{
-                [&](const sem::RegularParameterSection &rps) {
-                    if (actual_parameter_nodes.end() - node_it < rps.names().size()) {
-                        reporter_.err(parameter_list_end_location,
-                            ec::PARAMETER_COUNT_MISMATCH,
-                            "no actual parameter corresponding to formal parameter \"{}\"",
-                            rps.names()[actual_parameter_nodes.end() - node_it]);
-                        return false;
-                    }
-
-                    std::vector<std::unique_ptr<sem::Expression>> expressions;
-
-                    for (const auto &parameter_node
-                        : std::views::counted(node_it, rps.names().size())
-                    ) {
-                        checkNoFormattingSpecification(parameter_node);
-
-                        auto expression = resolveExpression(scope, parameter_node.value);
-                        const auto &expression_type = expression->type(scope);
-                        const auto &expression_type_promoted = expression_type.promoted();
-                        if (!expression_type_promoted.isAssignmentCompatibleWith(*rps.type())) {
-                            reporter_.err(parameter_node.value.view.data(),
-                                ec::TYPE_MISMATCH,
-                                "type of actual parameter (\"{}\") is assignment-incompatible"
-                                    " with type of formal parameter (\"{}\")",
-                                expression_type_promoted.str(), rps.type()->str());
-                            continue;
-                        }
-
-                        expressions.push_back(std::move(expression));
-                    }
-
-                    // TODO: variable parameters, conformant array bounds
-
-                    actual_parameters.emplace_back(
-                        sem::ActualParameterSectionValues(std::move(expressions)));
-
-                    node_it += rps.names().size();
-                    return true;
-                },
-                [&](const sem::SubroutineParameterSpecification &sps) {
-                    if (node_it == actual_parameter_nodes.end()) {
-                        reporter_.err(parameter_list_end_location,
-                            ec::PARAMETER_COUNT_MISMATCH,
-                            "no actual parameter corresponding to formal parameter \"{}\"",
-                            sps.name());
-                        return false;
-                    }
-
-                    // TODO: process the actual parameter
-
-                    ++node_it;
-                    return true;
-                },
+            auto actual_parameter_section = std::visit([&](const auto &s) {
+                return resolveActualParameterSection(
+                    scope, s, node_it, actual_parameter_nodes.end(),
+                    actual_parameter_end_location);
             }, parameter_section.v);
 
-            if (!enough_actual_parameters)
+            if (!actual_parameter_section)
                 return actual_parameters;
+
+            actual_parameters.push_back(std::move(*actual_parameter_section));
         }
 
         if (node_it != actual_parameter_nodes.end())
