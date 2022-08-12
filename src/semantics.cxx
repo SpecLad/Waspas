@@ -109,7 +109,7 @@ sem::TypeArray::isConformableWith(const DynamicType &type_or_schema) const {
 
 std::vector<std::string>
 sem::FieldList::fieldNames() const {
-    auto keys = std::views::keys(field_types_);
+    auto keys = std::views::keys(field_descriptions_);
     return std::vector<std::string>(keys.begin(), keys.end());
 }
 
@@ -119,18 +119,18 @@ sem::FieldList::setVariantPart(const VariantPart &variant_part) {
     variant_part_ = variant_part;
 
     if (auto &tag_field = variant_part_->tagField())
-        field_types_.emplace(*tag_field, variant_part_->tagType());
+        field_descriptions_.try_emplace(*tag_field, variant_part_->tagType(), true);
 
     for (auto &variant : variant_part_->variants())
-        field_types_.insert(
-            variant.fields.field_types_.begin(),
-            variant.fields.field_types_.end());
+        field_descriptions_.insert(
+            variant.fields.field_descriptions_.begin(),
+            variant.fields.field_descriptions_.end());
 }
 
 bool
 sem::FieldList::canBeFileComponent() const {
-    for (const auto &field : field_types_)
-        if (!field.second->canBeFileComponent())
+    for (const auto &field : field_descriptions_)
+        if (!field.second.type->canBeFileComponent())
             return false;
 
     if (variant_part_)

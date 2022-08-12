@@ -1964,8 +1964,20 @@ public:
                     }
                 }
 
+                if (auto *field_access
+                    = dynamic_cast<sem::VariableAccessField *>(access.get())
+                ) {
+                    const auto &record_type = dynamic_cast<const sem::TypeRecord &>(
+                        field_access->record().type(scope));
+
+                    if (record_type.fieldList().fieldIsTag(field_access->fieldName())) {
+                        reporter_.err(parameter_node.value.view.data(),
+                            ec::DISALLOWED_PARAMETER_FORM,
+                            "tag field used as a variable parameter");
+                        continue;
+                    }
+                }
                 // TODO: check legality of variable access:
-                // * must not be the selector of a variant part
                 // * must not be a component of a packed type
 
                 if (accesses.empty()) {

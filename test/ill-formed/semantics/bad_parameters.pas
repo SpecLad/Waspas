@@ -1,6 +1,12 @@
 program badparams;
 type
     acceptableBound = -10..10;
+    tag = 0..1;
+
+    rec = record
+        case t: tag of
+            0: (); 1: ();
+    end;
 var
     goodArray: array [1..10] of integer;
     arrayWithDifferentBounds: array [-10..-1] of integer;
@@ -11,10 +17,11 @@ var
     packedArray: packed array [1..10] of integer;
 
     intVar: integer;
-    realVar: real;
+    tagVar: tag;
+    recVar: rec;
 procedure p(i: integer; procedure r);
     begin end;
-procedure pvar(var r: real);
+procedure pvar(var i: tag);
     begin end;
 procedure q(a, b: array[m..n: acceptableBound] of integer);
     begin
@@ -42,19 +49,22 @@ begin
     pvar(intVar);
         {^ error:type-mismatch }
 
-    pvar(realVar = 0);
-                {^ error:disallowed-parameter-form }
-    pvar(+realVar);
+    pvar(tagVar = 0);
+               {^ error:disallowed-parameter-form }
+    pvar(+tagVar);
         {^ error:disallowed-parameter-form }
-    pvar(realVar + 1);
-                {^ error:disallowed-parameter-form }
-    pvar(realVar * 2);
-                {^ error:disallowed-parameter-form }
-    pvar(1.1);
+    pvar(tagVar + 1);
+               {^ error:disallowed-parameter-form }
+    pvar(tagVar * 2);
+               {^ error:disallowed-parameter-form }
+    pvar(1);
         {^ error:disallowed-parameter-form }
 
-    pvar(realVar:10:3);
-               {^ error:disallowed-parameter-form }
+    pvar(recVar.t);
+        {^ error:disallowed-parameter-form }
+
+    pvar(tagVar:10);
+              {^ error:disallowed-parameter-form }
 
     q(goodArray, arrayWithDifferentBounds);
      {^ note }  {^ error:type-mismatch }

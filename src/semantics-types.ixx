@@ -320,18 +320,23 @@ public:
 
     bool
     hasField(const std::string &name) const {
-        return field_types_.contains(name);
+        return field_descriptions_.contains(name);
     }
 
     Type::ptr_t
     fieldType(const std::string &name) const {
-        return field_types_.at(name);
+        return field_descriptions_.at(name).type;
+    }
+
+    bool
+    fieldIsTag(const std::string &name) const {
+        return field_descriptions_.at(name).is_tag;
     }
 
     void
     addField(const std::string &name, Type::ptr_t type) {
         own_field_names_.push_back(name);
-        field_types_.emplace(name, type);
+        field_descriptions_.emplace(name, type);
     }
 
     const std::optional<VariantPart> &
@@ -344,8 +349,13 @@ public:
     canBeFileComponent() const;
 
 private:
+    struct FieldDescription {
+        Type::ptr_t type;
+        bool is_tag = false;
+    };
+
     std::vector<std::string> own_field_names_;
-    std::unordered_map<std::string, Type::ptr_t> field_types_;
+    std::unordered_map<std::string, FieldDescription> field_descriptions_;
     std::optional<VariantPart> variant_part_;
 };
 

@@ -140,6 +140,12 @@ public:
     const DynamicType &
     type(const Scope &scope) const override;
 
+    const VariableAccess &
+    record() const { return *record_; }
+
+    const std::string &
+    fieldName() const { return field_name_; }
+
 private:
     std::unique_ptr<VariableAccess> record_;
     std::string field_name_;
