@@ -1265,7 +1265,7 @@ public:
 
     template <typename T>
     std::unique_ptr<T>
-    resolveVariableAccess(
+    resolveVariableAccessLike(
         sem::Scope &scope,
         const nodes::VariableAccess &access_node,
         std::unique_ptr<T> (*resolve_identifier)(
@@ -1309,6 +1309,14 @@ public:
         }
 
         return value;
+    }
+
+    std::unique_ptr<sem::VariableAccess>
+    resolveVariableAccess(
+        sem::Scope &scope, const nodes::VariableAccess &access_node
+    ) {
+        return resolveVariableAccessLike(scope, access_node,
+            resolveVariableOrFdIdentifier, "variable or field designator");
     }
 
     std::unique_ptr<sem::Expression>
@@ -1356,7 +1364,7 @@ public:
         nodes::VariableAccess &variable_access_node
     ) {
         // TODO: support function identifiers
-        auto access = resolveVariableAccess(
+        auto access = resolveVariableAccessLike(
             scope, variable_access_node,
             resolveVariableFdConstantOrBoundIdentifier,
             "variable, field designator, constant or bound");
@@ -1504,7 +1512,7 @@ public:
         const nodes::AssignmentStatement &assignment_statement_node,
         const StatementAnalysisContext &context
     ) {
-        auto access = resolveVariableAccess(scope, assignment_statement_node.access,
+        auto access = resolveVariableAccessLike(scope, assignment_statement_node.access,
             &resolveVariableFdOrCurrentFunctionIdentifier,
             "variable, field designator or current function");
         if (!access)
@@ -2055,8 +2063,7 @@ public:
             return resolveStatement(scope, with_statement_node.body, context);
 
         auto &variable_node = with_statement_node.variables[variable_index];
-        auto variable = resolveVariableAccess(scope, variable_node,
-            resolveVariableOrFdIdentifier, "variable or field designator");
+        auto variable = resolveVariableAccess(scope, variable_node);
         if (!variable)
             return std::make_unique<sem::StatementEmpty>();
 
