@@ -1824,6 +1824,89 @@ public:
                     "other than \"write\" or \"writeln\"");
     }
 
+    bool
+    checkActualParameterIsConformable(
+        const sem::DynamicType &expression_type,
+        const char *expression_location,
+        const sem::ConformantArraySchema &schema,
+        const sem::DynamicType *first_good_parameter_type,
+        const char *first_good_parameter_location
+    ) {
+        if (!first_good_parameter_type) {
+            if (!expression_type.isConformableWith(schema)) {
+                reporter_.err(expression_location,
+                    ec::TYPE_MISMATCH,
+                    "type of actual parameter (\"{}\") is not conformable "
+                    "with schema of formal parameter (\"{}\")",
+                    expression_type.str(), schema.str());
+                return false;
+            }
+        }
+        else {
+            if (&expression_type != first_good_parameter_type) {
+                reporter_.err(expression_location,
+                    ec::TYPE_MISMATCH,
+                    "type of actual parameter (\"{}\") is different "
+                    "from type of a previous parameter (\"{}\")",
+                    expression_type.str(), first_good_parameter_type->str());
+                reporter_.note(first_good_parameter_location,
+                    "location of previous parameter");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    std::unique_ptr<sem::VariableAccess>
+    resolveExpressionAsVariableAccess(
+        sem::Scope &scope, const nodes::Expression &expression_node
+    ) {
+        if (expression_node.modifier) {
+            reporter_.err(expression_node.modifier->view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "operator in variable access");
+            return nullptr;
+        }
+
+        auto &simple_expression_node = expression_node.operand;
+
+        if (simple_expression_node.sign != nodes::Sign::NONE) {
+            reporter_.err(simple_expression_node.view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "operator in variable access");
+            return nullptr;
+        }
+
+        if (!simple_expression_node.modifiers.empty()) {
+            reporter_.err(simple_expression_node.modifiers[0].view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "operator in variable access");
+            return nullptr;
+        }
+
+        auto &term_node = simple_expression_node.operand;
+
+        if (!term_node.modifiers.empty()) {
+            reporter_.err(term_node.modifiers[0].view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "operator in variable access");
+            return nullptr;
+        }
+
+        auto *variable_access_node = dynamic_cast<const nodes::VariableAccess *>(
+            term_node.operand.get());
+
+        if (!variable_access_node) {
+            reporter_.err(term_node.operand->view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "not a variable access");
+            return nullptr;
+        }
+
+        return resolveVariableAccess(scope, *variable_access_node);
+    }
+
     std::optional<sem::actual_parameter_section_t>
     resolveActualParameterSection(
         sem::Scope &scope,
@@ -1840,74 +1923,111 @@ public:
             return std::nullopt;
         }
 
-        std::vector<std::unique_ptr<sem::Expression>> expressions;
-        const nodes::ActualParameter *first_good_parameter_node = nullptr;
+        const sem::DynamicType *first_good_parameter_type = nullptr;
+        const char *first_good_parameter_location = nullptr;
 
         auto rps_schema
             = std::dynamic_pointer_cast<const sem::ConformantArraySchema>(
                 rps.type());
 
-        for (const auto &parameter_node
-            : std::views::counted(actual_parameter_it, rps.names().size())
-        ) {
-            checkNoFormattingSpecification(parameter_node);
+        std::optional<sem::actual_parameter_section_t> result;
 
-            auto expression = resolveExpression(scope, parameter_node.value);
-            const auto &expression_type = expression->type(scope);
+        if (rps.isVariable()) {
+            std::vector<std::unique_ptr<sem::VariableAccess>> accesses;
 
-            if (rps_schema) {
-                if (expressions.empty()) {
-                    if (!expression_type.isConformableWith(*rps_schema)) {
+            for (const auto &parameter_node
+                : std::views::counted(actual_parameter_it, rps.names().size())
+            ) {
+                checkNoFormattingSpecification(parameter_node);
+
+                auto access = resolveExpressionAsVariableAccess(
+                    scope, parameter_node.value);
+                if (!access) continue;
+                const auto &access_type = access->type(scope);
+
+                if (rps_schema) {
+                    if (!checkActualParameterIsConformable(
+                        access_type, parameter_node.value.view.data(),
+                        *rps_schema,
+                        first_good_parameter_type, first_good_parameter_location
+                    ))
+                        continue;
+                }
+                else {
+                    if (&access_type != rps.type().get()) {
                         reporter_.err(parameter_node.value.view.data(),
                             ec::TYPE_MISMATCH,
-                            "type of actual parameter (\"{}\") is not conformable "
-                                "with schema of formal parameter (\"{}\")",
-                            expression_type.str(), rps_schema->str());
+                            "type of actual parameter (\"{}\") is different"
+                                " from type of formal parameter (\"{}\")",
+                            access_type.str(), rps.type()->str());
+                        continue;
+                    }
+                }
+
+                // TODO: check legality of variable access:
+                // * must not be the selector of a variant part
+                // * must not be a component of a packed type
+
+                if (accesses.empty()) {
+                    first_good_parameter_type = &access_type;
+                    first_good_parameter_location = parameter_node.view.data();
+                }
+                accesses.push_back(std::move(access));
+            }
+
+            result.emplace(std::move(accesses));
+        }
+        else {
+            std::vector<std::unique_ptr<sem::Expression>> expressions;
+
+            for (const auto &parameter_node
+                : std::views::counted(actual_parameter_it, rps.names().size())
+            ) {
+                checkNoFormattingSpecification(parameter_node);
+
+                auto expression = resolveExpression(scope, parameter_node.value);
+                const auto &expression_type = expression->type(scope);
+
+                if (rps_schema) {
+                    if (!checkActualParameterIsConformable(
+                        expression_type, parameter_node.value.view.data(),
+                        *rps_schema,
+                        first_good_parameter_type, first_good_parameter_location
+                    ))
+                        continue;
+
+                    if (dynamic_cast<const sem::ConformantArraySchema *>(&expression_type)) {
+                        reporter_.err(parameter_node.value.view.data(),
+                            ec::DISALLOWED_PARAMETER_FORM,
+                            "conformant array used directly as a value parameter");
                         continue;
                     }
                 }
                 else {
-                    const auto &first_parameter_type = expressions.front()->type(scope);
-                    if (&expression_type != &first_parameter_type) {
+                    const auto &expression_type_promoted = expression_type.promoted();
+                    if (!expression_type_promoted.isAssignmentCompatibleWith(*rps.type())) {
                         reporter_.err(parameter_node.value.view.data(),
                             ec::TYPE_MISMATCH,
-                            "type of actual parameter (\"{}\") is different "
-                            "from type of a previous parameter (\"{}\")",
-                            expression_type.str(), first_parameter_type.str());
-                        reporter_.note(first_good_parameter_node->view.data(),
-                            "location of previous parameter");
+                            "type of actual parameter (\"{}\") is assignment-incompatible"
+                                " with type of formal parameter (\"{}\")",
+                            expression_type_promoted.str(), rps.type()->str());
                         continue;
                     }
                 }
 
-                if (dynamic_cast<const sem::ConformantArraySchema *>(&expression_type)) {
-                    reporter_.err(parameter_node.value.view.data(),
-                        ec::DISALLOWED_PARAMETER_FORM,
-                        "conformant array used directly as a value parameter");
-                    continue;
+                if (expressions.empty()) {
+                    first_good_parameter_type = &expression_type;
+                    first_good_parameter_location = parameter_node.view.data();
                 }
-            }
-            else {
-                const auto &expression_type_promoted = expression_type.promoted();
-                if (!expression_type_promoted.isAssignmentCompatibleWith(*rps.type())) {
-                    reporter_.err(parameter_node.value.view.data(),
-                        ec::TYPE_MISMATCH,
-                        "type of actual parameter (\"{}\") is assignment-incompatible"
-                        " with type of formal parameter (\"{}\")",
-                        expression_type_promoted.str(), rps.type()->str());
-                    continue;
-                }
+                expressions.push_back(std::move(expression));
             }
 
-            if (expressions.empty()) first_good_parameter_node = &parameter_node;
-            expressions.push_back(std::move(expression));
+            result.emplace(std::move(expressions));
         }
-
-        // TODO: variable parameters
 
         actual_parameter_it += rps.names().size();
 
-        return sem::actual_parameter_section_t(std::move(expressions));
+        return result;
     }
 
     std::optional<sem::actual_parameter_section_t>

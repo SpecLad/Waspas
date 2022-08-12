@@ -20,11 +20,6 @@ public:
     type(const Scope &scope) const = 0;
 };
 
-export
-using actual_parameter_section_t = std::variant<
-    std::vector<std::unique_ptr<Expression>>
->;
-
 export // export to work around VC++ ICE
 template <typename Base = Expression>
 class ExpressionId : public Base {
@@ -179,5 +174,11 @@ private:
     std::unique_ptr<VariableAccess> dynamic_array_;
     std::unique_ptr<Expression> index_;
 };
+
+export
+using actual_parameter_section_t = std::variant<
+    std::vector<std::unique_ptr<Expression>>, // value parameters
+    std::vector<std::unique_ptr<VariableAccess>> // variable parameters
+>;
 
 }

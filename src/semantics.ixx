@@ -158,6 +158,9 @@ public:
         assert(!names.empty());
     }
 
+    bool
+    isVariable() const { return is_variable_; }
+
     const std::vector<std::string> &
     names() const { return names_; }
 
