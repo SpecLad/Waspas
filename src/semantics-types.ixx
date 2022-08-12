@@ -215,6 +215,9 @@ public:
     Type::ptr_t
     componentType() const { return component_type_; }
 
+    bool
+    isPacked() const { return is_packed_; }
+
 private:
     TypeOrdinal::ptr_t index_type_;
     Type::ptr_t component_type_;
@@ -386,6 +389,9 @@ public:
 
     const FieldList &
     fieldList() const { return field_list_; }
+
+    bool
+    isPacked() const { return is_packed_; }
 
 private:
     FieldList field_list_;

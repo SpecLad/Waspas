@@ -7,28 +7,35 @@ type
         case t: tag of
             0: (); 1: ();
     end;
+    packedRec = packed record
+        t: tag;
+    end;
 var
-    goodArray: array [1..10] of integer;
-    arrayWithDifferentBounds: array [-10..-1] of integer;
-    arrayWithIncompatibleIndexType: array [boolean] of integer;
-    arrayWithBadLowerBound: array [-100..10] of integer;
-    arrayWithBadUpperBound: array [-10..100] of integer;
-    arrayWithNonconformableComponentType: array [1..10] of char;
-    packedArray: packed array [1..10] of integer;
+    goodArray: packed array [1..10] of tag;
+    arrayWithDifferentBounds: packed array [-10..-1] of tag;
+    arrayWithIncompatibleIndexType: packed array [boolean] of tag;
+    arrayWithBadLowerBound: packed array [-100..10] of tag;
+    arrayWithBadUpperBound: packed array [-10..100] of tag;
+    arrayWithNonconformableComponentType: packed array [1..10] of char;
+    unpackedArray: array [1..10] of tag;
 
     intVar: integer;
     tagVar: tag;
     recVar: rec;
+    packedRecVar: packedRec;
 procedure p(i: integer; procedure r);
     begin end;
 procedure pvar(var i: tag);
     begin end;
-procedure q(a, b: array[m..n: acceptableBound] of integer);
+procedure q(a, b: packed array[m..n: acceptableBound] of tag);
     begin
         q(a, goodArray);
          {^ error:disallowed-parameter-form }
+
+        pvar(a[m]);
+            {^ error:disallowed-parameter-form }
     end;
-procedure qvar(var a, b: array[m..n: acceptableBound] of integer);
+procedure qvar(var a, b: packed array[m..n: acceptableBound] of tag);
     begin end;
 procedure r; begin end;
 
@@ -63,6 +70,12 @@ begin
     pvar(recVar.t);
         {^ error:disallowed-parameter-form }
 
+    pvar(packedRecVar.t);
+        {^ error:disallowed-parameter-form }
+
+    pvar(goodArray[1]);
+        {^ error:disallowed-parameter-form }
+
     pvar(tagVar:10);
               {^ error:disallowed-parameter-form }
 
@@ -77,7 +90,7 @@ begin
      {^ error:type-mismatch }
     q(arrayWithNonconformableComponentType, goodArray);
      {^ error:type-mismatch }
-    q(packedArray, goodArray);
+    q(unpackedArray, goodArray);
      {^ error:type-mismatch }
 
     qvar(goodArray, arrayWithDifferentBounds);
@@ -91,6 +104,6 @@ begin
         {^ error:type-mismatch }
     qvar(arrayWithNonconformableComponentType, goodArray);
         {^ error:type-mismatch }
-    qvar(packedArray, goodArray);
+    qvar(unpackedArray, goodArray);
         {^ error:type-mismatch }
 end.

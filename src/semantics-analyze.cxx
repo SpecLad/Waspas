@@ -1970,6 +1970,13 @@ public:
                     const auto &record_type = dynamic_cast<const sem::TypeRecord &>(
                         field_access->record().type(scope));
 
+                    if (record_type.isPacked()) {
+                        reporter_.err(parameter_node.value.view.data(),
+                            ec::DISALLOWED_PARAMETER_FORM,
+                            "field of packed record used as a variable parameter");
+                        continue;
+                    }
+
                     if (record_type.fieldList().fieldIsTag(field_access->fieldName())) {
                         reporter_.err(parameter_node.value.view.data(),
                             ec::DISALLOWED_PARAMETER_FORM,
@@ -1977,8 +1984,32 @@ public:
                         continue;
                     }
                 }
-                // TODO: check legality of variable access:
-                // * must not be a component of a packed type
+                else if (auto *indexed_access
+                    = dynamic_cast<sem::VariableAccessIndexed *>(access.get())
+                ) {
+                    const auto &array_type = dynamic_cast<const sem::TypeArray &>(
+                        indexed_access->array().type(scope));
+
+                    if (array_type.isPacked()) {
+                        reporter_.err(parameter_node.value.view.data(),
+                            ec::DISALLOWED_PARAMETER_FORM,
+                            "component of packed array used as a variable parameter");
+                        continue;
+                    }
+                }
+                else if (auto *indexed_access
+                    = dynamic_cast<sem::VariableAccessIndexedDynamic *>(access.get())
+                ) {
+                    const auto &schema = dynamic_cast<const sem::ConformantArraySchema &>(
+                        indexed_access->dynamicArray().type(scope));
+
+                    if (schema.isPacked()) {
+                        reporter_.err(parameter_node.value.view.data(),
+                            ec::DISALLOWED_PARAMETER_FORM,
+                            "component of packed array used as a variable parameter");
+                        continue;
+                    }
+                }
 
                 if (accesses.empty()) {
                     first_good_parameter_type = &access_type;

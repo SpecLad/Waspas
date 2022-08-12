@@ -161,6 +161,9 @@ public:
     const DynamicType &
     type(const Scope &scope) const override;
 
+    const VariableAccess &
+    array() const { return *array_; }
+
 private:
     std::unique_ptr<VariableAccess> array_;
     std::unique_ptr<Expression> index_;
@@ -175,6 +178,9 @@ public:
 
     const DynamicType &
     type(const Scope &scope) const override;
+
+    const VariableAccess &
+    dynamicArray() const { return *dynamic_array_; }
 
 private:
     std::unique_ptr<VariableAccess> dynamic_array_;
