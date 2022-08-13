@@ -2194,6 +2194,8 @@ public:
         // TODO: make sure the number of actual parameters matches the number
         // of formal parameters
 
+        // TODO: threaten variables that are used as variable parameters
+
         return std::make_unique<sem::StatementProcedure>(
             ref, std::move(actual_parameters));
     }
