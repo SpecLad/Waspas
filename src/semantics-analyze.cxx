@@ -2126,6 +2126,47 @@ public:
         return actual_parameters;
     }
 
+    std::optional<std::pair<sem::SubroutineReference, const sem::Signature *>>
+    lookupSubroutineReference(
+        sem::Scope &scope, const nodes::Identifier &id_node, bool need_function
+    ) {
+        const auto &id = id_node.spelling;
+        auto lookup_result = scope.lookup(id);
+
+        if (!lookup_result) {
+            // TODO: handle builtin procedures
+
+            reporter_.err(id_node.view.data(),
+                ec::UNDEFINED_IDENTIFIER,
+                "undefined procedure identifier \"{}\"", id);
+            return std::nullopt;
+        }
+
+        const sem::Signature *signature = nullptr;
+        sem::SubroutineReference::Kind kind;
+
+        if (auto *block = lookup_result->scope->block())
+            if (block->hasSubroutine(id)) {
+                signature = &block->subroutine(id).signature();
+                kind = sem::SubroutineReference::REGULAR;
+            }
+
+        // TODO: handle procedural parameters
+
+        if (!signature || bool(signature->resultType()) != need_function) {
+            reporter_.err(id_node.view.data(),
+                ec::WRONG_IDENTIFIER_KIND,
+                "identifier \"{}\" is not a {} identifier",
+                id, need_function ? "function" : "procedure");
+            return std::nullopt;
+        }
+
+        return std::make_pair(
+            sem::SubroutineReference(id, lookup_result->scope_index, kind),
+            signature
+        );
+    }
+
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
@@ -2134,35 +2175,16 @@ public:
     ) {
         const std::string &procedure_name = procedure_statement_node.procedure.spelling;
 
-        auto lookup_result = scope.lookup(procedure_name);
+        auto lookup_result = lookupSubroutineReference(
+            scope, procedure_statement_node.procedure, false);
 
-        if (!lookup_result) {
-            // TODO: handle builtin procedures
-
-            reporter_.err(procedure_statement_node.procedure.view.data(),
-                ec::UNDEFINED_IDENTIFIER,
-                "undefined procedure identifier \"{}\"", procedure_name);
+        if (!lookup_result)
             return std::make_unique<sem::StatementEmpty>();
-        }
 
-        sem::Subroutine *procedure = nullptr;
-
-        if (auto *block = lookup_result->scope->block())
-            if (block->hasSubroutine(procedure_name))
-                procedure = &block->subroutine(procedure_name);
-
-        // TODO: handle procedural parameters
-
-        if (!procedure || procedure->signature().resultType()) {
-            reporter_.err(procedure_statement_node.procedure.view.data(),
-                ec::WRONG_IDENTIFIER_KIND,
-                "identifier \"{}\" is not a procedure identifier",
-                procedure_name);
-            return std::make_unique<sem::StatementEmpty>();
-        }
+        auto &[ref, signature] = *lookup_result;
 
         auto actual_parameters = resolveActualParameters(
-            scope, procedure->signature(), procedure_statement_node.parameters,
+            scope, *signature, procedure_statement_node.parameters,
             procedure_statement_node.parameters.empty()
                 ? procedure_statement_node.procedure.view.data()
                     + procedure_statement_node.procedure.view.size()
@@ -2173,7 +2195,7 @@ public:
         // of formal parameters
 
         return std::make_unique<sem::StatementProcedure>(
-            procedure_name, lookup_result->scope_index, std::move(actual_parameters));
+            ref, std::move(actual_parameters));
     }
 
     std::unique_ptr<sem::Statement>

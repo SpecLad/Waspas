@@ -188,6 +188,26 @@ private:
 };
 
 export
+class SubroutineReference {
+public:
+    enum Kind { REGULAR, PARAMETER };
+
+    SubroutineReference(const std::string &id, std::size_t scope_index, Kind kind)
+        : id_(id), scope_index_(scope_index), kind_(kind) {}
+
+    const std::string &
+    id() const { return id_; }
+
+    std::size_t
+    scopeIndex() const { return scope_index_; }
+
+private:
+    std::string id_;
+    std::size_t scope_index_;
+    Kind kind_;
+};
+
+export
 using actual_parameter_section_t = std::variant<
     std::vector<std::unique_ptr<Expression>>, // value parameters
     std::vector<std::unique_ptr<VariableAccess>> // variable parameters

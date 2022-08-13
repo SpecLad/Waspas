@@ -147,18 +147,15 @@ export
 class StatementProcedure final : public Statement {
 public:
     StatementProcedure(
-        const std::string &id,
-        std::size_t scope_index,
+        const SubroutineReference &reference,
         std::vector<sem::actual_parameter_section_t> &&actual_parameters
     )
-        : id_(id)
-        , scope_index_(scope_index)
+        : reference_(reference)
         , actual_parameters_(std::move(actual_parameters))
     {}
 
 private:
-    std::string id_;
-    std::size_t scope_index_;
+    SubroutineReference reference_;
     std::vector<sem::actual_parameter_section_t> actual_parameters_;
 };
 
