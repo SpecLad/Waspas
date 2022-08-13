@@ -11,7 +11,7 @@ var
     r: rec;
 
     threatenedInProcedure, threatenedInBody: integer;
-procedure p;
+procedure p(function fp: integer);
     begin
         for k := 1 to 10 do;
            {^ error:undefined-identifier }
@@ -21,6 +21,9 @@ procedure p;
 
         goto 4;
             {^ error:disallowed-goto-target }
+
+        fp;
+       {^ error:wrong-identifier-kind }
     end;
 function f: integer; begin f := 0 end;
 begin

@@ -133,6 +133,16 @@ public:
         return bound_types_.at(name);
     }
 
+    bool
+    hasSubroutineParameter(const std::string &name) const {
+        return subroutine_parameter_signatures_.contains(name);
+    }
+
+    const Signature &
+    subroutineParameterSignature(const std::string &name) const {
+        return *subroutine_parameter_signatures_.at(name);
+    }
+
     const std::vector<FormalParameterSection> &
     parameters() const { return parameters_; }
 
@@ -140,6 +150,7 @@ private:
     std::vector<FormalParameterSection> parameters_;
     std::unordered_map<std::string, DynamicType::ptr_t> regular_parameter_types_;
     std::unordered_map<std::string, TypeOrdinal::ptr_t> bound_types_;
+    std::unordered_map<std::string, const Signature *> subroutine_parameter_signatures_;
     Type::ptr_t result_type_;
 };
 
@@ -187,6 +198,9 @@ public:
 
     const std::string &
     name() const { return name_; }
+
+    const Signature &
+    signature() const { return signature_; }
 
 private:
     std::string name_;

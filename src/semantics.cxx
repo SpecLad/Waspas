@@ -170,21 +170,29 @@ sem::Signature::Signature(
     , result_type_(result_type)
 {
     for (const auto &parameter : parameters_) {
-        if (auto *rps = std::get_if<RegularParameterSection>(&parameter.v)) {
-            for (const auto &name : rps->names())
-                regular_parameter_types_.try_emplace(name, rps->type());
+        std::visit(overloaded{
+            [this](const RegularParameterSection &rps) {
+                for (const auto &name : rps.names())
+                    regular_parameter_types_.try_emplace(name, rps.type());
 
-            auto type = rps->type();
+                auto type = rps.type();
 
-            while (
-                auto schema
-                    = std::dynamic_pointer_cast<const ConformantArraySchema>(type)
-            ) {
-                bound_types_.try_emplace(schema->smallestBound(), schema->boundType());
-                bound_types_.try_emplace(schema->largestBound(), schema->boundType());
-                type = schema->componentType();
-            }
-        }
+                while (
+                    auto schema
+                        = std::dynamic_pointer_cast<const ConformantArraySchema>(type)
+                ) {
+                    bound_types_.try_emplace(
+                        schema->smallestBound(), schema->boundType());
+                    bound_types_.try_emplace(
+                        schema->largestBound(), schema->boundType());
+                    type = schema->componentType();
+                }
+            },
+            [this](const SubroutineParameterSpecification &sps) {
+                subroutine_parameter_signatures_.try_emplace(
+                    sps.name(), &sps.signature());
+            },
+        }, parameter.v);
     }
 }
 

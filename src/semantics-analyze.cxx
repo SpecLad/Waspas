@@ -2150,6 +2150,12 @@ public:
                 signature = &block->subroutine(id).signature();
                 kind = sem::SubroutineReference::REGULAR;
             }
+            else if (auto *container = block->containingSubroutine()) {
+                if (container->signature().hasSubroutineParameter(id)) {
+                    signature = &container->signature().subroutineParameterSignature(id);
+                    kind = sem::SubroutineReference::PARAMETER;
+                }
+            }
 
         // TODO: handle procedural parameters
 
