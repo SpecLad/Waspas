@@ -2024,7 +2024,8 @@ public:
                 accesses.push_back(std::move(access));
             }
 
-            result.emplace(std::move(accesses));
+            if (accesses.size() == rps.names().size())
+                result.emplace(std::move(accesses));
         }
         else {
             std::vector<std::unique_ptr<sem::Expression>> expressions;
@@ -2071,7 +2072,8 @@ public:
                 expressions.push_back(std::move(expression));
             }
 
-            result.emplace(std::move(expressions));
+            if (expressions.size() == rps.names().size())
+                result.emplace(std::move(expressions));
         }
 
         actual_parameter_it += rps.names().size();
@@ -2099,7 +2101,7 @@ public:
         // TODO: process the actual parameter
 
         ++actual_parameter_it;
-        return sem::actual_parameter_section_t({});
+        return std::nullopt;
     }
 
     std::vector<sem::actual_parameter_section_t>
@@ -2115,6 +2117,8 @@ public:
         auto node_it = actual_parameter_nodes.begin();
 
         for (const auto &parameter_section : signature.parameters()) {
+            auto node_it_prev = node_it;
+
             auto actual_parameter_section = std::visit([&](const auto &s) {
                 return resolveActualParameterSection(
                     scope, s, node_it, actual_parameter_nodes.end(),
@@ -2122,10 +2126,13 @@ public:
                     context);
             }, parameter_section.v);
 
-            if (!actual_parameter_section)
+            // This indicates that there weren't enough actual parameters
+            // to resolve the section, so we don't need to continue.
+            if (node_it_prev == node_it)
                 return actual_parameters;
 
-            actual_parameters.push_back(std::move(*actual_parameter_section));
+            if (actual_parameter_section)
+                actual_parameters.push_back(std::move(*actual_parameter_section));
         }
 
         if (node_it != actual_parameter_nodes.end())
