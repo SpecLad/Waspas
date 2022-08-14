@@ -2157,8 +2157,6 @@ public:
                 }
             }
 
-        // TODO: handle procedural parameters
-
         if (!signature || bool(signature->resultType()) != need_function) {
             reporter_.err(id_node.view.data(),
                 ec::WRONG_IDENTIFIER_KIND,
