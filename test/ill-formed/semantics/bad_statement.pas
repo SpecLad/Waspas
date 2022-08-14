@@ -26,6 +26,8 @@ procedure p(function fp: integer);
        {^ error:wrong-identifier-kind }
     end;
 function f: integer; begin f := 0 end;
+procedure writer(var i: integer);
+    begin end;
 begin
     1: ;
    {^ note }
@@ -57,6 +59,11 @@ begin
        {^ note }
         for threatenedInBody := 1 to 10 do;
            {^ error:threatened-control-variable }
+
+    for threatenedInBody := 1 to 10 do
+       {^ note }
+        writer(threatenedInBody);
+              {^ error:threatened-control-variable }
 
     goto 2;
         {^ error:undefined-label }

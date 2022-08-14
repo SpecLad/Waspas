@@ -1913,7 +1913,8 @@ public:
         const sem::RegularParameterSection &rps,
         std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_it,
         const std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_end,
-        const char *actual_parameter_end_location
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &context
     ) {
         if (actual_parameter_end - actual_parameter_it < rps.names().size()) {
             reporter_.err(actual_parameter_end_location,
@@ -2011,6 +2012,11 @@ public:
                     }
                 }
 
+                threatenVariable(
+                    scope,
+                    *access, parameter_node.value.view.data(),
+                    context.used_control_variables);
+
                 if (accesses.empty()) {
                     first_good_parameter_type = &access_type;
                     first_good_parameter_location = parameter_node.view.data();
@@ -2079,7 +2085,8 @@ public:
         const sem::SubroutineParameterSpecification &sps,
         std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_it,
         const std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_end,
-        const char *actual_parameter_end_location
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
     ) {
         if (actual_parameter_it == actual_parameter_end) {
             reporter_.err(actual_parameter_end_location,
@@ -2100,7 +2107,8 @@ public:
         sem::Scope &scope,
         const sem::Signature &signature,
         const std::vector<nodes::ActualParameter> &actual_parameter_nodes,
-        const char *actual_parameter_end_location
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &context
     ) {
         std::vector<sem::actual_parameter_section_t> actual_parameters;
 
@@ -2110,7 +2118,8 @@ public:
             auto actual_parameter_section = std::visit([&](const auto &s) {
                 return resolveActualParameterSection(
                     scope, s, node_it, actual_parameter_nodes.end(),
-                    actual_parameter_end_location);
+                    actual_parameter_end_location,
+                    context);
             }, parameter_section.v);
 
             if (!actual_parameter_section)
@@ -2175,7 +2184,7 @@ public:
     resolveUnlabeledStatement(
         sem::Scope &scope,
         const nodes::ProcedureStatement &procedure_statement_node,
-        const StatementAnalysisContext &
+        const StatementAnalysisContext &context
     ) {
         const std::string &procedure_name = procedure_statement_node.procedure.spelling;
 
@@ -2193,12 +2202,11 @@ public:
                 ? procedure_statement_node.procedure.view.data()
                     + procedure_statement_node.procedure.view.size()
                 : procedure_statement_node.parameters.back().view.data()
-                    + procedure_statement_node.parameters.back().view.size());
+                    + procedure_statement_node.parameters.back().view.size(),
+            context);
 
         // TODO: make sure the number of actual parameters matches the number
         // of formal parameters
-
-        // TODO: threaten variables that are used as variable parameters
 
         return std::make_unique<sem::StatementProcedure>(
             ref, std::move(actual_parameters));
