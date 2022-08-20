@@ -48,27 +48,33 @@ public:
         return isCompatibleWith(other);
     }
 
-    // The relation of conformance is only formally defined when the second
-    // element is a schema, but for implementation convenience we extend it
-    // to types, as well. We consider two types conformant with each other
-    // iff they are the same type.
     virtual bool
-    isConformableWith(const DynamicType &type_or_schema) const {
-        return this == &type_or_schema;
-    }
+    isConformableWith(const DynamicType &type_or_schema) const = 0;
 
-    // Similarly, equivalence is only defined for schemas, but for convenience
-    // we also consider a type equivalent to itself.
     virtual bool
-    isEquivalent(const DynamicType &type_or_schema) const {
-        return this == &type_or_schema;
-    }
+    isEquivalent(const DynamicType &type_or_schema) const = 0;
 };
 
 export
 class Type : public DynamicType {
 public:
     using ptr_t = std::shared_ptr<const Type>;
+
+    // The relation of conformance is only formally defined when the second
+    // element is a schema, but for implementation convenience we extend it
+    // to types, as well. We consider two types conformant with each other
+    // iff they are the same type.
+    bool
+    isConformableWith(const DynamicType &type_or_schema) const override {
+        return this == &type_or_schema;
+    }
+
+    // Similarly, equivalence is only defined for schemas, but for convenience
+    // we also consider a type equivalent to itself.
+    bool
+    isEquivalent(const DynamicType &type_or_schema) const override {
+        return this == &type_or_schema;
+    }
 };
 
 export
