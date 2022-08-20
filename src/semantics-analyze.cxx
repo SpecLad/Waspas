@@ -2275,8 +2275,8 @@ public:
                     + procedure_statement_node.parameters.back().view.size(),
             context);
 
-        // TODO: make sure the number of actual parameters matches the number
-        // of formal parameters
+        if (actual_parameters.size() != signature->parameters().size())
+            return std::make_unique<sem::StatementEmpty>();
 
         return std::make_unique<sem::StatementProcedure>(
             ref, std::move(actual_parameters));
