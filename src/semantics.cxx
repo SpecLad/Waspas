@@ -1,5 +1,6 @@
 module;
 
+#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <ranges>
@@ -162,6 +163,17 @@ sem::ConformantArraySchema::isConformableWith(const DynamicType &type_or_schema)
     return false;
 }
 
+bool
+sem::ConformantArraySchema::isEquivalent(const DynamicType &type_or_schema) const {
+    if (auto *other_schema = dynamic_cast<const ConformantArraySchema *>(&type_or_schema)) {
+        return bound_type_ == other_schema->bound_type_
+            && component_type_->isEquivalent(*other_schema->component_type_)
+            && is_packed_ == other_schema->is_packed_;
+    }
+
+    return false;
+}
+
 sem::Signature::Signature(
     std::span<FormalParameterSection> parameters,
     Type::ptr_t result_type
@@ -194,6 +206,38 @@ sem::Signature::Signature(
             },
         }, parameter.v);
     }
+}
+
+bool
+sem::Signature::isCongruousWith(const Signature &other) const {
+    if (parameters_.size() != other.parameters_.size())
+        return false;
+
+    return std::ranges::all_of(
+        std::views::iota(std::size_t(0), parameters_.size()), [&](size_t i) {
+            return parameters_[i].v.index() == other.parameters_[i].v.index()
+                && std::visit(overloaded{
+                    [&](const RegularParameterSection &rps) {
+                        auto &other_rps = std::get<RegularParameterSection>(
+                            other.parameters_[i].v);
+
+                        return rps.isVariable() == other_rps.isVariable()
+                            && rps.names().size() == other_rps.names().size()
+                            && rps.type()->isEquivalent(*other_rps.type());
+                    },
+                    [&](const SubroutineParameterSpecification &sps) {
+                        auto &other_sps = std::get<SubroutineParameterSpecification>(
+                            other.parameters_[i].v);
+
+                        return sps.signature().isCongruousWith(other_sps.signature())
+                            && sps.signature().resultType()
+                                == other_sps.signature().resultType();
+                    },
+                }, parameters_[i].v);
+        }
+    );
+
+    return true;
 }
 
 const sem::DynamicType &

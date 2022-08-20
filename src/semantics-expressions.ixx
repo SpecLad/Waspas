@@ -210,7 +210,8 @@ private:
 export
 using actual_parameter_section_t = std::variant<
     std::vector<std::unique_ptr<Expression>>, // value parameters
-    std::vector<std::unique_ptr<VariableAccess>> // variable parameters
+    std::vector<std::unique_ptr<VariableAccess>>, // variable parameters
+    SubroutineReference // procedure/function parameter
 >;
 
 }

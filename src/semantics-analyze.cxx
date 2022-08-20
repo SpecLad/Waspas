@@ -1858,14 +1858,15 @@ public:
         return true;
     }
 
-    std::unique_ptr<sem::VariableAccess>
-    resolveExpressionAsVariableAccess(
-        sem::Scope &scope, const nodes::Expression &expression_node
+    const nodes::VariableAccess *
+    checkExpressionIsVariableAccess(
+        const nodes::Expression &expression_node,
+        std::string_view expected_construct_str
     ) {
         if (expression_node.modifier) {
             reporter_.err(expression_node.modifier->view.data(),
                 ec::DISALLOWED_PARAMETER_FORM,
-                "operator in variable access");
+                "operator in {}", expected_construct_str);
             return nullptr;
         }
 
@@ -1874,14 +1875,14 @@ public:
         if (simple_expression_node.sign != nodes::Sign::NONE) {
             reporter_.err(simple_expression_node.view.data(),
                 ec::DISALLOWED_PARAMETER_FORM,
-                "operator in variable access");
+                "operator in {}", expected_construct_str);
             return nullptr;
         }
 
         if (!simple_expression_node.modifiers.empty()) {
             reporter_.err(simple_expression_node.modifiers[0].view.data(),
                 ec::DISALLOWED_PARAMETER_FORM,
-                "operator in variable access");
+                "operator in {}", expected_construct_str);
             return nullptr;
         }
 
@@ -1890,7 +1891,7 @@ public:
         if (!term_node.modifiers.empty()) {
             reporter_.err(term_node.modifiers[0].view.data(),
                 ec::DISALLOWED_PARAMETER_FORM,
-                "operator in variable access");
+                "operator in {}", expected_construct_str);
             return nullptr;
         }
 
@@ -1900,9 +1901,22 @@ public:
         if (!variable_access_node) {
             reporter_.err(term_node.operand->view.data(),
                 ec::DISALLOWED_PARAMETER_FORM,
-                "not a variable access");
+                "not a {}", expected_construct_str);
             return nullptr;
         }
+
+        return variable_access_node;
+    }
+
+    std::unique_ptr<sem::VariableAccess>
+    resolveExpressionAsVariableAccess(
+        sem::Scope &scope, const nodes::Expression &expression_node
+    ) {
+        auto *variable_access_node = checkExpressionIsVariableAccess(
+            expression_node, "variable access");
+
+        if (!variable_access_node)
+            return nullptr;
 
         return resolveVariableAccess(scope, *variable_access_node);
     }
@@ -2081,6 +2095,31 @@ public:
         return result;
     }
 
+    std::optional<std::pair<sem::SubroutineReference, const sem::Signature *>>
+    resolveExpressionAsSubroutineReference(
+        sem::Scope &scope,
+        const nodes::Expression &expression_node,
+        bool need_function
+    ) {
+        std::string_view expected_construct_str = need_function
+            ? "function identifier"sv : "procedure identifier"sv;
+
+        auto *variable_access_node = checkExpressionIsVariableAccess(
+            expression_node, expected_construct_str);
+
+        if (!variable_access_node) return std::nullopt;
+
+        if (!variable_access_node->modifiers.empty()) {
+            reporter_.err(variable_access_node->modifiers[0]->view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "accessing a component of a {}", expected_construct_str);
+            return std::nullopt;
+        }
+
+        return lookupSubroutineReference(
+            scope, variable_access_node->variable, need_function);
+    }
+
     std::optional<sem::actual_parameter_section_t>
     resolveActualParameterSection(
         sem::Scope &scope,
@@ -2098,10 +2137,34 @@ public:
             return std::nullopt;
         }
 
-        // TODO: process the actual parameter
+        auto &parameter_node = *actual_parameter_it++;
+        checkNoFormattingSpecification(parameter_node);
 
-        ++actual_parameter_it;
-        return std::nullopt;
+        auto lookup_result = resolveExpressionAsSubroutineReference(
+            scope, parameter_node.value, bool(sps.signature().resultType()));
+
+        if (!lookup_result)
+            return std::nullopt;
+
+        auto &[ref, signature] = *lookup_result;
+
+        if (!signature->isCongruousWith(sps.signature())) {
+            reporter_.err(parameter_node.value.view.data(),
+                ec::TYPE_MISMATCH,
+                "formal parameter list of the actual parameter "
+                    "is incongruous with that of the formal parameter");
+            return std::nullopt;
+        }
+
+        if (signature->resultType() != sps.signature().resultType()) {
+            reporter_.err(parameter_node.value.view.data(),
+                ec::TYPE_MISMATCH,
+                "result type of the actual parameter "
+                "is different from that of the formal parameter");
+            return std::nullopt;
+        }
+
+        return sem::actual_parameter_section_t(ref);
     }
 
     std::vector<sem::actual_parameter_section_t>

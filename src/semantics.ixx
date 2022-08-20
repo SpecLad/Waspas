@@ -146,6 +146,9 @@ public:
     const std::vector<FormalParameterSection> &
     parameters() const { return parameters_; }
 
+    bool
+    isCongruousWith(const Signature &other) const;
+
 private:
     std::vector<FormalParameterSection> parameters_;
     std::unordered_map<std::string, DynamicType::ptr_t> regular_parameter_types_;

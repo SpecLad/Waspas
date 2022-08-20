@@ -541,6 +541,9 @@ public:
     bool
     isConformableWith(const DynamicType &type_or_schema) const override;
 
+    bool
+    isEquivalent(const DynamicType &type_or_schema) const override;
+
     const std::string &
     smallestBound() const { return smallest_bound_; }
 

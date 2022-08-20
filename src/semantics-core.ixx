@@ -56,6 +56,13 @@ public:
     isConformableWith(const DynamicType &type_or_schema) const {
         return this == &type_or_schema;
     }
+
+    // Similarly, equivalence is only defined for schemas, but for convenience
+    // we also consider a type equivalent to itself.
+    virtual bool
+    isEquivalent(const DynamicType &type_or_schema) const {
+        return this == &type_or_schema;
+    }
 };
 
 export

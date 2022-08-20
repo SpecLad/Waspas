@@ -27,6 +27,8 @@ procedure p(i: integer; procedure r);
     begin end;
 procedure pvar(var i: tag);
     begin end;
+procedure pfunc(function f(v: array [m..n: integer] of integer; procedure r): integer);
+    begin end;
 procedure q(a, b: packed array[m..n: acceptableBound] of tag);
     begin
         q(a, goodArray);
@@ -37,21 +39,41 @@ procedure q(a, b: packed array[m..n: acceptableBound] of tag);
     end;
 procedure qvar(var a, b: packed array[m..n: acceptableBound] of tag);
     begin end;
-procedure r; begin end;
-
+procedure goodProc; begin end;
+function goodFunc(v: array [m..n: integer] of integer; procedure r): integer;
+    begin goodFunc := 0 end;
+function badFuncWrongNumParams: integer;
+    begin badFuncWrongNumParams := 0 end;
+function badFuncVarMismatch(var v: array [m..n: integer] of integer; procedure r): integer;
+    begin badFuncVarMismatch := 0 end;
+function badFuncWrongNumNames(v, w: array [m..n: integer] of integer; procedure r): integer;
+    begin badFuncWrongNumNames := 0 end;
+function badFuncBoundTypeMismatch(v: array [m..n: acceptableBound] of integer; procedure r): integer;
+    begin badFuncBoundTypeMismatch := 0 end;
+function badFuncComponentTypeMismatch(v: array [m..n: integer] of real; procedure r): integer;
+    begin badFuncComponentTypeMismatch := 0 end;
+function badFuncPackedMismatch(v: packed array [m..n: integer] of integer; procedure r): integer;
+    begin badFuncPackedMismatch := 0 end;
+function badFuncSignatureMismatch(v: array [m..n: integer] of integer; procedure r(i: integer)): integer;
+    begin badFuncSignatureMismatch := 0 end;
+function badFuncWrongResultType(v: array [m..n: integer] of integer; procedure r): real;
+    begin badFuncWrongResultType := 0 end;
 begin
     p;
     {^ error:parameter-count-mismatch }
     p(1);
       {^ error:parameter-count-mismatch }
-    p(1, r, 1);
-           {^ error:parameter-count-mismatch }
+    p(1, goodProc, 1);
+                  {^ error:parameter-count-mismatch }
 
-    p(2.3, r);
+    p(2.3, goodProc);
      {^ error:type-mismatch }
 
-    p(1:10, r);
+    p(1:10, goodProc);
       {^ error:disallowed-parameter-form }
+
+    p(1, goodFunc);
+        {^ error:wrong-identifier-kind }
 
     pvar(intVar);
         {^ error:type-mismatch }
@@ -78,6 +100,48 @@ begin
 
     pvar(tagVar:10);
               {^ error:disallowed-parameter-form }
+
+    pfunc(goodFunc = 0);
+                  {^ error:disallowed-parameter-form }
+    pfunc(+goodFunc);
+         {^ error:disallowed-parameter-form }
+    pfunc(goodFunc + 1);
+                  {^ error:disallowed-parameter-form }
+    pfunc(goodFunc * 2);
+                  {^ error:disallowed-parameter-form }
+    pfunc(goodFunc.foobar);
+                 {^ error:disallowed-parameter-form }
+    pfunc(1);
+         {^ error:disallowed-parameter-form }
+
+    pfunc(goodFunc:10);
+                 {^ error:disallowed-parameter-form }
+
+    pfunc(undefined);
+         {^ error:undefined-identifier }
+
+    pfunc(intVar);
+         {^ error:wrong-identifier-kind }
+
+    pfunc(goodProc);
+         {^ error:wrong-identifier-kind }
+
+    pfunc(badFuncWrongNumParams);
+         {^ error:type-mismatch }
+    pfunc(badFuncVarMismatch);
+         {^ error:type-mismatch }
+    pfunc(badFuncWrongNumNames);
+         {^ error:type-mismatch }
+    pfunc(badFuncBoundTypeMismatch);
+         {^ error:type-mismatch }
+    pfunc(badFuncComponentTypeMismatch);
+         {^ error:type-mismatch }
+    pfunc(badFuncPackedMismatch);
+         {^ error:type-mismatch }
+    pfunc(badFuncSignatureMismatch);
+         {^ error:type-mismatch }
+    pfunc(badFuncWrongResultType);
+         {^ error:type-mismatch }
 
     q(goodArray, arrayWithDifferentBounds);
      {^ note }  {^ error:type-mismatch }
