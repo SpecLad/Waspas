@@ -352,7 +352,6 @@ struct BuiltinBlockInitializer {
             builtin_block.scope_.addBuiltin(t.first, sem::DefiningOccurrence::TYPE);
 
         // TODO:
-        // procedures: rewrite, put, reset, get, read, write, new, dispose, pack, unpack, page
         // functions: abs, sqr, sin, cos, exp, ln, sqrt, arctan, trunc, round, ord, chr,
         //   succ, pred, odd, eof, eoln
     }

@@ -2116,8 +2116,25 @@ public:
             return std::nullopt;
         }
 
-        return lookupSubroutineReference(
-            scope, variable_access_node->variable, need_function);
+        using result_t
+            = std::optional<std::pair<sem::SubroutineReference, const sem::Signature *>>;
+
+        return std::visit(
+            overloaded{
+                [](const std::monostate &) { return result_t{}; },
+                [&](const BuiltinMarker &) {
+                    reporter_.err(variable_access_node->variable.view.data(),
+                        ec::DISALLOWED_PARAMETER_FORM,
+                        "builtin {} passed as parameter", expected_construct_str);
+                    return result_t{};
+                },
+                [](const std::pair<sem::SubroutineReference, const sem::Signature *> &p) {
+                    return result_t(p);
+                },
+            },
+            lookupSubroutineReference(
+                scope, variable_access_node->variable, need_function)
+        );
     }
 
     std::optional<sem::actual_parameter_section_t>
@@ -2205,43 +2222,65 @@ public:
         return actual_parameters;
     }
 
-    std::optional<std::pair<sem::SubroutineReference, const sem::Signature *>>
+    using builtin_procedure_call_f
+        = std::unique_ptr<sem::Statement>(ProgramBuilder:: *)(
+            sem::Scope &scope,
+            std::span<const nodes::ActualParameter> actual_parameter_nodes,
+            const char *actual_parameter_end_location,
+            const StatementAnalysisContext &context
+        );
+
+    static const std::unordered_map<std::string_view, builtin_procedure_call_f>
+        BUILTIN_PROCEDURES;
+
+    struct BuiltinMarker {};
+
+    std::variant<
+        std::monostate, // not found / wrong kind
+        BuiltinMarker, // builtin
+        std::pair<sem::SubroutineReference, const sem::Signature *> // defined
+    >
     lookupSubroutineReference(
         sem::Scope &scope, const nodes::Identifier &id_node, bool need_function
     ) {
         const auto &id = id_node.spelling;
         auto lookup_result = scope.lookup(id);
 
-        if (!lookup_result) {
-            // TODO: handle builtin procedures
-
-            reporter_.err(id_node.view.data(),
-                ec::UNDEFINED_IDENTIFIER,
-                "undefined procedure identifier \"{}\"", id);
-            return std::nullopt;
-        }
-
         const sem::Signature *signature = nullptr;
         sem::SubroutineReference::Kind kind;
 
-        if (auto *block = lookup_result->scope->block())
-            if (block->hasSubroutine(id)) {
-                signature = &block->subroutine(id).signature();
-                kind = sem::SubroutineReference::REGULAR;
-            }
-            else if (auto *container = block->containingSubroutine()) {
-                if (container->signature().hasSubroutineParameter(id)) {
-                    signature = &container->signature().subroutineParameterSignature(id);
-                    kind = sem::SubroutineReference::PARAMETER;
+        if (lookup_result) {
+            if (auto *block = lookup_result->scope->block())
+                if (block->hasSubroutine(id)) {
+                    signature = &block->subroutine(id).signature();
+                    kind = sem::SubroutineReference::REGULAR;
                 }
+                else if (auto *container = block->containingSubroutine()) {
+                    if (container->signature().hasSubroutineParameter(id)) {
+                        signature = &container->signature().subroutineParameterSignature(id);
+                        kind = sem::SubroutineReference::PARAMETER;
+                    }
+                }
+        }
+        else {
+            if (BUILTIN_PROCEDURES.contains(id)) {
+                if (!need_function) return BuiltinMarker{};
             }
+            // TODO: handle builtin functions
+            else {
+                reporter_.err(id_node.view.data(),
+                    ec::UNDEFINED_IDENTIFIER,
+                    "undefined procedure identifier \"{}\"", id);
+                return std::monostate{};
+            }
+        }
 
         if (!signature || bool(signature->resultType()) != need_function) {
             reporter_.err(id_node.view.data(),
                 ec::WRONG_IDENTIFIER_KIND,
                 "identifier \"{}\" is not a {} identifier",
                 id, need_function ? "function" : "procedure");
-            return std::nullopt;
+            return std::monostate{};
         }
 
         return std::make_pair(
@@ -2258,28 +2297,42 @@ public:
     ) {
         const std::string &procedure_name = procedure_statement_node.procedure.spelling;
 
-        auto lookup_result = lookupSubroutineReference(
-            scope, procedure_statement_node.procedure, false);
-
-        if (!lookup_result)
-            return std::make_unique<sem::StatementEmpty>();
-
-        auto &[ref, signature] = *lookup_result;
-
-        auto actual_parameters = resolveActualParameters(
-            scope, *signature, procedure_statement_node.parameters,
-            procedure_statement_node.parameters.empty()
+        const char *actual_parameter_end_location
+            = procedure_statement_node.parameters.empty()
                 ? procedure_statement_node.procedure.view.data()
                     + procedure_statement_node.procedure.view.size()
                 : procedure_statement_node.parameters.back().view.data()
-                    + procedure_statement_node.parameters.back().view.size(),
-            context);
+                    + procedure_statement_node.parameters.back().view.size();
 
-        if (actual_parameters.size() != signature->parameters().size())
-            return std::make_unique<sem::StatementEmpty>();
+        return std::visit(
+            overloaded{
+                [](const std::monostate &) -> std::unique_ptr<sem::Statement> {
+                    return std::make_unique<sem::StatementEmpty>();
+                },
+                [&](const BuiltinMarker &) {
+                    return (this->*BUILTIN_PROCEDURES.at(procedure_name))(
+                        scope, procedure_statement_node.parameters,
+                        actual_parameter_end_location, context);
+                },
+                [&](const std::pair<sem::SubroutineReference, const sem::Signature *> &p)
+                    -> std::unique_ptr<sem::Statement>
+                {
+                    auto &[ref, signature] = p;
 
-        return std::make_unique<sem::StatementProcedure>(
-            ref, std::move(actual_parameters));
+                    auto actual_parameters = resolveActualParameters(
+                        scope, *signature, procedure_statement_node.parameters,
+                        actual_parameter_end_location, context);
+
+                    if (actual_parameters.size() != signature->parameters().size())
+                        return std::make_unique<sem::StatementEmpty>();
+
+                    return std::make_unique<sem::StatementProcedure>(
+                        ref, std::move(actual_parameters));
+                },
+            },
+            lookupSubroutineReference(
+                scope, procedure_statement_node.procedure, false)
+        );
     }
 
     std::unique_ptr<sem::Statement>
@@ -2419,6 +2472,18 @@ public:
         return statement;
     }
 
+    std::unique_ptr<sem::Statement>
+    resolveUnsupportedBuiltinProcedure(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &context
+    ) {
+        reporter_.err(actual_parameter_end_location,
+            ec::UNSUPPORTED_FEATURE, "unsupported builtin procedure");
+        return std::make_unique<sem::StatementEmpty>();
+    }
+
     void
     buildBlock(
         const nodes::Block &block_node,
@@ -2501,6 +2566,23 @@ public:
 
 private:
     Reporter &reporter_;
+};
+
+const std::unordered_map<std::string_view, ProgramBuilder::builtin_procedure_call_f>
+ProgramBuilder::BUILTIN_PROCEDURES = {
+    {"dispose"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"get"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"new"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"pack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"page"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"put"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"read"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"readln"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"reset"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"rewrite"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"unpack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"write"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"writeln"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
 };
 
 std::unique_ptr<sem::Program>

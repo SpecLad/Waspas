@@ -75,6 +75,12 @@ begin
     p(1, goodFunc);
         {^ error:wrong-identifier-kind }
 
+    p(1, write);
+        {^ error:disallowed-parameter-form }
+
+    p(1, sin);
+        {^ error:undefined-identifier } { TODO: change to wrong-identifier-kind }
+
     pvar(intVar);
         {^ error:type-mismatch }
 
@@ -125,6 +131,12 @@ begin
 
     pfunc(goodProc);
          {^ error:wrong-identifier-kind }
+
+    pfunc(write);
+         {^ error:wrong-identifier-kind }
+
+    pfunc(sin);
+         {^ error:undefined-identifier } { TODO: change to disallowed-parameter-form }
 
     pfunc(badFuncWrongNumParams);
          {^ error:type-mismatch }
