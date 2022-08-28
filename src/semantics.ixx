@@ -13,6 +13,7 @@ module;
 
 export module semantics;
 
+export import :builtins;
 export import :constants;
 export import :core;
 export import :expressions;

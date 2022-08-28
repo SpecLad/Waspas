@@ -2483,6 +2483,91 @@ public:
         return std::make_unique<sem::StatementEmpty>();
     }
 
+    std::unique_ptr<sem::Statement>
+    resolveBuiltinWriteTyped(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location
+    ) {
+        // We already know that there is at least one parameter due to the check
+        // made in `resolveBuiltinWrite`.
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        // TODO: figure out a way to avoid duplicate errors from resolving twice
+        auto file = resolveExpressionAsVariableAccess(
+            scope, actual_parameter_nodes[0].value);
+        if (!file)
+            return std::make_unique<sem::StatementEmpty>();
+
+        // We already know that the cast will succeed due to the check made in
+        // `resolveBuiltinWrite`. The same expression cannot have different types
+        // when resolved as an expression or as a variable reference.
+        auto &file_variable_type
+            = dynamic_cast<const sem::TypeFile &>(file->type(scope));
+
+        if (actual_parameter_nodes.size() < 2) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH, "no value to be written");
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
+        std::vector<std::unique_ptr<sem::Expression>> values;
+
+        for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
+            checkNoFormattingSpecification(parameter_node);
+
+            auto parameter = resolveExpression(scope, parameter_node.value);
+            auto &parameter_type = parameter->type(scope);
+            auto &parameter_type_promoted = parameter_type.promoted();
+
+            if (!parameter_type_promoted.isAssignmentCompatibleWith(
+                *file_variable_type.componentType()
+            )) {
+                reporter_.err(parameter_node.value.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "value of type \"{}\" is incompatible with file of type \"{}\"",
+                    parameter_type_promoted.str(),
+                    file_variable_type.componentType()->str());
+                continue;
+            }
+
+            values.push_back(std::move(parameter));
+        }
+
+        if (values.empty())
+            return std::make_unique<sem::StatementEmpty>();
+
+        return std::make_unique<sem::StatementProcedureWriteTyped>(
+            std::move(file), std::move(values));
+    }
+
+    std::unique_ptr<sem::Statement>
+    resolveBuiltinWrite(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH, "no value to be written");
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
+        auto parameter0 = resolveExpression(scope, actual_parameter_nodes[0].value);
+        auto &parameter0_type = parameter0->type(scope);
+
+        if (dynamic_cast<const sem::TypeFileLike *>(&parameter0_type)) {
+            return resolveBuiltinWriteTyped(
+                scope, actual_parameter_nodes, actual_parameter_end_location);
+        }
+
+        reporter_.err(actual_parameter_end_location,
+            ec::UNSUPPORTED_FEATURE, "text version of \"write\" is not supported");
+        return std::make_unique<sem::StatementEmpty>();
+    }
+
     void
     buildBlock(
         const nodes::Block &block_node,
@@ -2580,7 +2665,7 @@ ProgramBuilder::BUILTIN_PROCEDURES = {
     {"reset"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"rewrite"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"unpack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
-    {"write"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"write"sv, &ProgramBuilder::resolveBuiltinWrite},
     {"writeln"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
 };
 
