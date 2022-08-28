@@ -1820,8 +1820,7 @@ public:
         if (parameter_node.formatting_specification)
             reporter_.err(parameter_node.formatting_specification->view.data(),
                 ec::DISALLOWED_PARAMETER_FORM,
-                "total width specified in call to procedure "
-                    "other than \"write\" or \"writeln\"");
+                "unexpected total width specification");
     }
 
     bool
