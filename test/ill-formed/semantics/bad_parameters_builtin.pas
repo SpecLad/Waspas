@@ -7,6 +7,9 @@ begin
     write(fi);
            {^ error:parameter-count-mismatch }
 
+    write(fi.x, 1);
+           {^ error:non-record-type } { testing that the error is only emitted once }
+
     write(fi:3, 1);
            {^ error:disallowed-parameter-form }
 

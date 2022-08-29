@@ -1,6 +1,7 @@
 module;
 
 #include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <filesystem>
 #include <string_view>
@@ -146,26 +147,70 @@ public:
                 std::make_format_args(std::forward<Args>(note_message_args)...)));
     }
 
+    void hold() {
+        assert(!holding_);
+        holding_ = true;
+    }
+
+    void unhold() {
+        assert(holding_);
+
+        for (const auto &message : held_messages_) {
+            printError("{}", message);
+        }
+
+        if (held_had_errors_)
+            had_errors_ = true;
+
+        unholdDiscard();
+    }
+
+    void unholdDiscard() {
+        assert(holding_);
+
+        held_messages_.clear();
+        held_had_errors_ = false;
+        holding_ = false;
+    }
+
 private:
     void
     errRaw(const char *location, std::string_view error_code, std::string_view error_message) {
         Locus locus = line_indexer_.getLocusForOffset(location - source_start_);
-        printError("{}:{}:{}: error: {} ({})\n",
+        emit("{}:{}:{}: error: {} ({})\n",
             source_path_str_, locus.line() + 1, locus.column() + 1,
             error_message, error_code);
-        had_errors_ = true;
+
+        if (holding_)
+            held_had_errors_ = true;
+        else
+            had_errors_ = true;
     }
 
     void
     noteRaw(const char *location, std::string_view note_message) {
         Locus locus = line_indexer_.getLocusForOffset(location - source_start_);
-        printError("{}:{}:{}: note: {}\n",
+        emit("{}:{}:{}: note: {}\n",
             source_path_str_, locus.line() + 1, locus.column() + 1,
             note_message);
+    }
+
+    template <typename ...Args>
+    void
+    emit(std::string_view format, Args &&...args) {
+        if (holding_)
+            held_messages_.push_back(std::vformat(
+                format, std::make_format_args(std::forward<Args>(args)...)));
+        else
+            printError(format, std::forward<Args>(args)...);
     }
 
     std::string source_path_str_;
     const char *source_start_;
     const LineIndexer &line_indexer_;
     bool had_errors_;
+
+    bool holding_ = false;
+    std::vector<std::string> held_messages_;
+    bool held_had_errors_ = false;
 };

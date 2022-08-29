@@ -2494,7 +2494,6 @@ public:
 
         checkNoFormattingSpecification(actual_parameter_nodes[0]);
 
-        // TODO: figure out a way to avoid duplicate errors from resolving twice
         auto file = resolveExpressionAsVariableAccess(
             scope, actual_parameter_nodes[0].value);
         if (!file)
@@ -2555,13 +2554,18 @@ public:
             return std::make_unique<sem::StatementEmpty>();
         }
 
+        reporter_.hold();
+
         auto parameter0 = resolveExpression(scope, actual_parameter_nodes[0].value);
         auto &parameter0_type = parameter0->type(scope);
 
         if (dynamic_cast<const sem::TypeFileLike *>(&parameter0_type)) {
+            reporter_.unholdDiscard();
             return resolveBuiltinWriteTyped(
                 scope, actual_parameter_nodes, actual_parameter_end_location);
         }
+
+        reporter_.unhold();
 
         reporter_.err(actual_parameter_end_location,
             ec::UNSUPPORTED_FEATURE, "text version of \"write\" is not supported");
