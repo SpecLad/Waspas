@@ -31,4 +31,13 @@ begin
 
     write(t, t);
             {^ error:type-mismatch }
+
+    write(t, 1:1.1);
+              {^ error:type-mismatch }
+
+    write(t, 1:1:1.1);
+                {^ error:disallowed-parameter-form }
+
+    write(t, 1.1:1:1.1);
+                  {^ error:type-mismatch }
 end.

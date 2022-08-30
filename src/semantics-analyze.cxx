@@ -2572,7 +2572,7 @@ public:
         }
 
         std::unique_ptr<sem::VariableAccess> file;
-        std::vector<std::unique_ptr<sem::Expression>> values;
+        std::vector<sem::WriteParameter> parameters;
 
         if (dynamic_cast<const sem::TypeText *>(&parameter0_type)) {
             reporter_.unholdDiscard();
@@ -2598,41 +2598,113 @@ public:
         }
 
         for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
-            // TODO: deal with formatting specifications
+            auto value = resolveExpression(scope, parameter_node.value);
+            auto &value_type = value->type(scope);
+            auto &value_type_promoted = value_type.promoted();
 
-            auto parameter = resolveExpression(scope, parameter_node.value);
-            auto &parameter_type = parameter->type(scope);
-            auto &parameter_type_promoted = parameter_type.promoted();
+            bool can_have_frac_digits;
+            pascal_integer_t total_width_default;
 
             if (
-                &parameter_type_promoted == &sem::TypeInteger::instance()
-                    || &parameter_type_promoted == &sem::TypeReal::instance()
-                    || &parameter_type_promoted == &sem::TypeChar::instance()
-                    || &parameter_type_promoted == &sem::TypeBoolean::instance()
+                &value_type_promoted == &sem::TypeInteger::instance()
+                    || &value_type_promoted == &sem::TypeBoolean::instance()
             ) {
-                values.push_back(std::move(parameter));
+                can_have_frac_digits = false;
+                total_width_default = 0;
+            }
+            else if (&value_type_promoted == &sem::TypeReal::instance()) {
+                can_have_frac_digits = true;
+                total_width_default = 0;
+            }
+            else if (&value_type_promoted == &sem::TypeChar::instance()) {
+                can_have_frac_digits = false;
+                total_width_default = 1;
             }
             else if (
                 auto *array_type
-                    = dynamic_cast<const sem::TypeArray *>(&parameter_type_promoted);
+                    = dynamic_cast<const sem::TypeArray *>(&value_type_promoted);
                 array_type && array_type->isString()
             ) {
-                values.push_back(std::move(parameter));
+                can_have_frac_digits = false;
+                total_width_default = array_type->indexType()->largestOrdinal();
             }
             else {
                 reporter_.err(parameter_node.value.view.data(),
                     ec::TYPE_MISMATCH,
                     "value type \"{}\" is not \"integer\", \"real\", \"char\","
                         " \"boolean\" or a string type",
-                    parameter_type_promoted.str());
+                    value_type_promoted.str());
+                continue;
+            }
+
+            if (auto &format_spec_node = parameter_node.formatting_specification) {
+                auto total_width = resolveExpression(
+                    scope, format_spec_node->total_width);
+
+                auto &total_width_type = total_width->type(scope);
+                auto &total_width_type_promoted = total_width_type.promoted();
+
+                if (&total_width_type_promoted != &sem::TypeInteger::instance()) {
+                    reporter_.err(
+                        format_spec_node->total_width.view.data(),
+                        ec::TYPE_MISMATCH,
+                        "total width has type \"{}\" instead of \"integer\"",
+                        total_width_type_promoted.str());
+                    parameters.push_back(sem::WriteParameter(std::move(value)));
+                    continue;
+                }
+
+                if (can_have_frac_digits && format_spec_node->frac_digits) {
+                    auto frac_digits = resolveExpression(
+                        scope, *format_spec_node->frac_digits);
+
+                    auto &frac_digits_type = frac_digits->type(scope);
+                    auto &frac_digits_type_promoted = frac_digits_type.promoted();
+
+                    if (&frac_digits_type_promoted != &sem::TypeInteger::instance()) {
+                        reporter_.err(format_spec_node->frac_digits->view.data(),
+                            ec::TYPE_MISMATCH,
+                            "number of fractional digits has type \"{}\""
+                                " instead of \"integer\"",
+                            frac_digits_type_promoted.str());
+                        parameters.push_back(sem::WriteParameter(
+                            std::move(value), std::move(total_width)));
+                        continue;
+                    }
+
+                    parameters.push_back(sem::WriteParameter(
+                        std::move(value),
+                        std::move(total_width), std::move(frac_digits)));
+                }
+                else {
+                    if (format_spec_node->frac_digits) {
+                        reporter_.err(format_spec_node->frac_digits->view.data(),
+                            ec::DISALLOWED_PARAMETER_FORM,
+                            "number of fractional digits in a parameter of type \"{}\""
+                                " that is not \"real\"",
+                            value_type_promoted.str());
+                    }
+
+                    parameters.push_back(sem::WriteParameter(
+                        std::move(value), std::move(total_width)));
+                }
+            }
+            else {
+                if (total_width_default > 0)
+                    parameters.push_back(sem::WriteParameter(
+                        std::move(value),
+                        std::make_unique<sem::ExpressionConstant>(
+                            std::make_shared<sem::ConstantInteger>(total_width_default))));
+                else
+                    parameters.push_back(sem::WriteParameter(std::move(value)));
             }
         }
 
-        if (values.empty())
+        if (parameters.empty())
             return fallbackStatement();
 
         return std::make_unique<sem::StatementProcedureWriteText>(
-            std::move(file), std::move(values));
+            std::move(file), std::move(parameters));
     }
 
     void

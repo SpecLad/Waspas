@@ -11,16 +11,36 @@ export import :statements;
 namespace sem {
 
 export
+class WriteParameter {
+public:
+    explicit
+    WriteParameter(
+        std::unique_ptr<sem::Expression> &&value,
+        std::unique_ptr<sem::Expression> &&total_width = nullptr,
+        std::unique_ptr<sem::Expression> &&frac_digits = nullptr
+    )
+        : value_(std::move(value))
+        , total_width_(std::move(total_width))
+        , frac_digits_(std::move(frac_digits))
+    {}
+
+private:
+    std::unique_ptr<sem::Expression> value_;
+    std::unique_ptr<sem::Expression> total_width_;
+    std::unique_ptr<sem::Expression> frac_digits_;
+};
+
+export
 class StatementProcedureWriteText : public Statement {
 public:
     StatementProcedureWriteText(
         std::unique_ptr<sem::VariableAccess> &&file,
-        std::vector<std::unique_ptr<sem::Expression>> &&values
-    ) : file_(std::move(file)), values_(std::move(values)) {}
+        std::vector<WriteParameter> &&parameters
+    ) : file_(std::move(file)), parameters_(std::move(parameters)) {}
 
 private:
     std::unique_ptr<sem::VariableAccess> file_;
-    std::vector<std::unique_ptr<sem::Expression>> values_;
+    std::vector<WriteParameter> parameters_;
 };
 
 export
