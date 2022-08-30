@@ -1,6 +1,7 @@
 program bpb;
 var
     fi: file of integer;
+    t: text;
 begin
     write;
         {^ error:parameter-count-mismatch }
@@ -18,4 +19,16 @@ begin
 
     write(fi, 1.1);
              {^ error:type-mismatch }
+
+    write(t);
+          {^ error:parameter-count-mismatch }
+
+    write(t.x, 1);
+          {^ error:non-record-type } { testing that the error is only emitted once }
+
+    write(t:3, 1);
+          {^ error:disallowed-parameter-form }
+
+    write(t, t);
+            {^ error:type-mismatch }
 end.

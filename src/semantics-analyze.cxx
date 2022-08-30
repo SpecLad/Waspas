@@ -2565,11 +2565,67 @@ public:
                 scope, actual_parameter_nodes, actual_parameter_end_location);
         }
 
-        reporter_.unhold();
+        std::unique_ptr<sem::VariableAccess> file;
+        std::vector<std::unique_ptr<sem::Expression>> values;
 
-        reporter_.err(actual_parameter_end_location,
-            ec::UNSUPPORTED_FEATURE, "text version of \"write\" is not supported");
-        return std::make_unique<sem::StatementEmpty>();
+        if (dynamic_cast<const sem::TypeText *>(&parameter0_type)) {
+            reporter_.unholdDiscard();
+
+            checkNoFormattingSpecification(actual_parameter_nodes[0]);
+            file = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
+
+            if (!file)
+                return std::make_unique<sem::StatementEmpty>();
+
+            if (actual_parameter_nodes.size() < 2) {
+                reporter_.err(actual_parameter_end_location,
+                    ec::PARAMETER_COUNT_MISMATCH, "no value to be written");
+                return std::make_unique<sem::StatementEmpty>();
+            }
+        }
+        else {
+            reporter_.unhold();
+
+            reporter_.err(actual_parameter_end_location,
+                ec::UNSUPPORTED_FEATURE, "\"write\" with an implicit file is not supported");
+            return std::make_unique<sem::StatementEmpty>();
+        }
+
+        for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
+            // TODO: deal with formatting specifications
+
+            auto parameter = resolveExpression(scope, parameter_node.value);
+            auto &parameter_type = parameter->type(scope);
+            auto &parameter_type_promoted = parameter_type.promoted();
+
+            if (
+                &parameter_type_promoted == &sem::TypeInteger::instance()
+                    || &parameter_type_promoted == &sem::TypeReal::instance()
+                    || &parameter_type_promoted == &sem::TypeChar::instance()
+                    || &parameter_type_promoted == &sem::TypeBoolean::instance()
+            ) {
+                values.push_back(std::move(parameter));
+            }
+            else if (
+                auto *array_type
+                    = dynamic_cast<const sem::TypeArray *>(&parameter_type_promoted);
+                array_type && array_type->isString()
+            ) {
+                values.push_back(std::move(parameter));
+            }
+            else {
+                reporter_.err(parameter_node.value.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "value type \"{}\" is not integer, real, char, boolean or a string type",
+                    parameter_type_promoted.str());
+            }
+        }
+
+        if (values.empty())
+            return std::make_unique<sem::StatementEmpty>();
+
+        return std::make_unique<sem::StatementProcedureWriteText>(
+            std::move(file), std::move(values));
     }
 
     void
