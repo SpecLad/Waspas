@@ -2559,7 +2559,7 @@ public:
         auto parameter0 = resolveExpression(scope, actual_parameter_nodes[0].value);
         auto &parameter0_type = parameter0->type(scope);
 
-        if (dynamic_cast<const sem::TypeFileLike *>(&parameter0_type)) {
+        if (dynamic_cast<const sem::TypeFile *>(&parameter0_type)) {
             reporter_.unholdDiscard();
             return resolveBuiltinWriteTyped(
                 scope, actual_parameter_nodes, actual_parameter_end_location);
