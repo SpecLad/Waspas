@@ -1470,6 +1470,12 @@ public:
         linked_list_ptr_t<ControlVariable> used_control_variables;
     };
 
+    static
+    std::unique_ptr<sem::Statement>
+    fallbackStatement() {
+        return std::make_unique<sem::StatementEmpty>();
+    }
+
     void
     threatenVariable(
         sem::Scope &scope,
@@ -1516,7 +1522,7 @@ public:
             &resolveVariableFdOrCurrentFunctionIdentifier,
             "variable, field designator or current function");
         if (!access)
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         const auto &access_type = access->type(scope);
 
         threatenVariable(
@@ -1534,7 +1540,7 @@ public:
                 "right-hand side expression type \"{}\" is assignment-incompatible"
                     " with left-hand side type \"{}\"",
                 expression_type_promoted.str(), access_type.str());
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         if (
@@ -1567,7 +1573,7 @@ public:
                 "case index has non-ordinal type \"{}\"",
                 case_index_type_promoted.str());
 
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         std::vector<sem::CaseListElement> case_list_elements;
@@ -1615,7 +1621,7 @@ public:
         }
 
         if (case_list_elements.empty())
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
 
         return std::make_unique<sem::StatementCase>(std::move(case_list_elements));
     }
@@ -1669,7 +1675,7 @@ public:
                     ec::WRONG_IDENTIFIER_KIND,
                     "identifier \"{}\" is not a variable identifier",
                     control_variable.value.name);
-                return std::make_unique<sem::StatementEmpty>();
+                return fallbackStatement();
             }
 
             lookup_scope = lookup_scope->parent();
@@ -1684,7 +1690,7 @@ public:
             reporter_.err(control_variable.value.location,
                 ec::UNDEFINED_IDENTIFIER,
                 "undefined variable identifier");
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         auto control_variable_type
@@ -1694,7 +1700,7 @@ public:
             reporter_.err(control_variable.value.location,
                 ec::NON_ORDINAL_TYPE,
                 "control variable has non-ordinal type \"{}\"", it->second.type->str());
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         if (it->second.subroutine_threat_location) {
@@ -1719,7 +1725,7 @@ public:
                 "initial value type \"{}\" is incompatible"
                     " with the control variable type \"{}\"",
                 initial_value_type.promoted().str(), control_variable_type->str());
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         auto final_value = resolveExpression(scope, for_statement_node.final_value);
@@ -1731,7 +1737,7 @@ public:
                 "final value type \"{}\" is incompatible"
                     " with the control variable type \"{}\"",
                 final_value_type.promoted().str(), control_variable_type->str());
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         return std::make_unique<sem::StatementFor>(
@@ -1767,14 +1773,14 @@ public:
                     reporter_.err(goto_statement_node.label.view.data(),
                         ec::DISALLOWED_GOTO_TARGET,
                         "disallowed target label for this goto statement");
-                    return std::make_unique<sem::StatementEmpty>();
+                    return fallbackStatement();
                 }
             }
         }
 
         reporter_.err(goto_statement_node.label.view.data(),
             ec::UNDEFINED_LABEL, "undefined label");
-        return std::make_unique<sem::StatementEmpty>();
+        return fallbackStatement();
     }
 
     std::unique_ptr<sem::Expression>
@@ -2306,7 +2312,7 @@ public:
         return std::visit(
             overloaded{
                 [](const std::monostate &) -> std::unique_ptr<sem::Statement> {
-                    return std::make_unique<sem::StatementEmpty>();
+                    return fallbackStatement();
                 },
                 [&](const BuiltinMarker &) {
                     return (this->*BUILTIN_PROCEDURES.at(procedure_name))(
@@ -2323,7 +2329,7 @@ public:
                         actual_parameter_end_location, context);
 
                     if (actual_parameters.size() != signature->parameters().size())
-                        return std::make_unique<sem::StatementEmpty>();
+                        return fallbackStatement();
 
                     return std::make_unique<sem::StatementProcedure>(
                         ref, std::move(actual_parameters));
@@ -2386,7 +2392,7 @@ public:
         auto &variable_node = with_statement_node.variables[variable_index];
         auto variable = resolveVariableAccess(scope, variable_node);
         if (!variable)
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
 
         const auto &variable_type = variable->type(scope);
         auto *record_type = dynamic_cast<const sem::TypeRecord *>(
@@ -2395,7 +2401,7 @@ public:
             reporter_.err(variable_node.view.data(),
                 ec::NON_RECORD_TYPE,
                 "variable has non-record type \"{}\"", variable_type.str());
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         auto with_statement = std::make_unique<sem::StatementWith>(
@@ -2480,7 +2486,7 @@ public:
     ) {
         reporter_.err(actual_parameter_end_location,
             ec::UNSUPPORTED_FEATURE, "unsupported builtin procedure");
-        return std::make_unique<sem::StatementEmpty>();
+        return fallbackStatement();
     }
 
     std::unique_ptr<sem::Statement>
@@ -2497,7 +2503,7 @@ public:
         auto file = resolveExpressionAsVariableAccess(
             scope, actual_parameter_nodes[0].value);
         if (!file)
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
 
         // We already know that the cast will succeed due to the check made in
         // `resolveBuiltinWrite`. The same expression cannot have different types
@@ -2508,7 +2514,7 @@ public:
         if (actual_parameter_nodes.size() < 2) {
             reporter_.err(actual_parameter_end_location,
                 ec::PARAMETER_COUNT_MISMATCH, "no value to be written");
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         std::vector<std::unique_ptr<sem::Expression>> values;
@@ -2535,7 +2541,7 @@ public:
         }
 
         if (values.empty())
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
 
         return std::make_unique<sem::StatementProcedureWriteTyped>(
             std::move(file), std::move(values));
@@ -2551,7 +2557,7 @@ public:
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
                 ec::PARAMETER_COUNT_MISMATCH, "no value to be written");
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         reporter_.hold();
@@ -2575,12 +2581,12 @@ public:
             file = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
 
             if (!file)
-                return std::make_unique<sem::StatementEmpty>();
+                return fallbackStatement();
 
             if (actual_parameter_nodes.size() < 2) {
                 reporter_.err(actual_parameter_end_location,
                     ec::PARAMETER_COUNT_MISMATCH, "no value to be written");
-                return std::make_unique<sem::StatementEmpty>();
+                return fallbackStatement();
             }
         }
         else {
@@ -2588,7 +2594,7 @@ public:
 
             reporter_.err(actual_parameter_end_location,
                 ec::UNSUPPORTED_FEATURE, "\"write\" with an implicit file is not supported");
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
         }
 
         for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
@@ -2622,7 +2628,7 @@ public:
         }
 
         if (values.empty())
-            return std::make_unique<sem::StatementEmpty>();
+            return fallbackStatement();
 
         return std::make_unique<sem::StatementProcedureWriteText>(
             std::move(file), std::move(values));
