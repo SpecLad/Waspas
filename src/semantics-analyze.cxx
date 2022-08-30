@@ -2622,7 +2622,8 @@ public:
             else {
                 reporter_.err(parameter_node.value.view.data(),
                     ec::TYPE_MISMATCH,
-                    "value type \"{}\" is not integer, real, char, boolean or a string type",
+                    "value type \"{}\" is not \"integer\", \"real\", \"char\","
+                        " \"boolean\" or a string type",
                     parameter_type_promoted.str());
             }
         }
