@@ -31,14 +31,13 @@ struct BuiltinBlockInitializer;
 
 namespace sem {
 
+class Program;
 class Subroutine;
 
 export
 class Block {
 public:
-    // This is a variant rather than an optional,
-    // because we'll likely add Program * as an alternative later.
-    using container_t = std::variant<std::monostate, Subroutine *>;
+    using container_t = std::variant<std::monostate, Program *, Subroutine *>;
 
     explicit
     Block(Block *parent_block, const container_t &container = {})
@@ -54,11 +53,11 @@ public:
     const Scope &
     scope() const { return scope_; }
 
+    const Program *
+    containingProgram() const { return container<Program>(); }
+
     const Subroutine *
-    containingSubroutine() const {
-        auto *s = std::get_if<Subroutine *>(&container_);
-        return s ? *s : nullptr;
-    }
+    containingSubroutine() const { return container<Subroutine>(); }
 
     Type::ptr_t
     type(const std::string &name) const { return types_.at(name); }
@@ -76,6 +75,13 @@ public:
     subroutine(const std::string &name) const { return subroutines_.at(name); }
 
 private:
+    template <typename T>
+    const T *
+    container() const {
+        auto *c = std::get_if<T *>(&container_);
+        return c ? *c : nullptr;
+    }
+
     Scope scope_;
     container_t container_;
 

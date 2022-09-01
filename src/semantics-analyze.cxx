@@ -2700,7 +2700,28 @@ public:
         else {
             reporter_.unhold();
 
-            // TODO: resolve the file
+            sem::Scope *lookup_scope = &scope;
+            std::size_t scope_index = 0;
+
+            for (; ; lookup_scope = lookup_scope->parent()) {
+                if (auto *block = lookup_scope->block())
+                    if (auto *program = block->containingProgram())
+                        if (program->parameters_.contains("output")) {
+                            file = std::make_unique<sem::VariableAccessVariableId>(
+                                "output", scope_index);
+                            break;
+                        }
+                        else {
+                            reporter_.err(actual_parameter_nodes[0].view.data(),
+                                ec::UNDEFINED_IDENTIFIER,
+                                "program parameter \"output\" is not defined");
+                            return fallbackStatement();
+                        }
+
+                // There has to be one program block in the scope chain,
+                // so we shouldn't be able to reach the end of the chain.
+                assert(lookup_scope->parent());
+            }
 
             finishResolvingWriteParameter(scope, actual_parameter_nodes[0],
                 std::move(parameter0), parameters);

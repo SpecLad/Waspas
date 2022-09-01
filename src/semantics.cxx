@@ -327,7 +327,7 @@ sem::VariableAccessIndexedDynamic::type(const Scope &scope) const {
 
 sem::Block builtin_block(nullptr);
 
-sem::Program::Program() : block_(&builtin_block) {}
+sem::Program::Program() : block_(&builtin_block, this) {}
 
 struct BuiltinBlockInitializer {
     BuiltinBlockInitializer() {
