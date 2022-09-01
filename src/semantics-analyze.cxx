@@ -2547,6 +2547,114 @@ public:
             std::move(file), std::move(values));
     }
 
+    void
+    finishResolvingWriteParameter(
+        sem::Scope &scope,
+        const nodes::ActualParameter &parameter_node,
+        std::unique_ptr<sem::Expression> &&value,
+        std::vector<sem::WriteParameter> &parameters
+    ) {
+        auto &value_type = value->type(scope);
+        auto &value_type_promoted = value_type.promoted();
+
+        bool can_have_frac_digits;
+        pascal_integer_t total_width_default;
+
+        if (
+            &value_type_promoted == &sem::TypeInteger::instance()
+                || &value_type_promoted == &sem::TypeBoolean::instance()
+        ) {
+            can_have_frac_digits = false;
+            total_width_default = 0;
+        }
+        else if (&value_type_promoted == &sem::TypeReal::instance()) {
+            can_have_frac_digits = true;
+            total_width_default = 0;
+        }
+        else if (&value_type_promoted == &sem::TypeChar::instance()) {
+            can_have_frac_digits = false;
+            total_width_default = 1;
+        }
+        else if (
+            auto *array_type
+                = dynamic_cast<const sem::TypeArray *>(&value_type_promoted);
+            array_type && array_type->isString()
+        ) {
+            can_have_frac_digits = false;
+            total_width_default = array_type->indexType()->largestOrdinal();
+        }
+        else {
+            reporter_.err(parameter_node.value.view.data(),
+                ec::TYPE_MISMATCH,
+                "value type \"{}\" is not \"integer\", \"real\", \"char\","
+                    " \"boolean\" or a string type",
+                value_type_promoted.str());
+            return;
+        }
+
+        if (auto &format_spec_node = parameter_node.formatting_specification) {
+            auto total_width = resolveExpression(
+                scope, format_spec_node->total_width);
+
+            auto &total_width_type = total_width->type(scope);
+            auto &total_width_type_promoted = total_width_type.promoted();
+
+            if (&total_width_type_promoted != &sem::TypeInteger::instance()) {
+                reporter_.err(
+                    format_spec_node->total_width.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "total width has type \"{}\" instead of \"integer\"",
+                    total_width_type_promoted.str());
+                parameters.push_back(sem::WriteParameter(std::move(value)));
+                return;
+            }
+
+            if (can_have_frac_digits && format_spec_node->frac_digits) {
+                auto frac_digits = resolveExpression(
+                    scope, *format_spec_node->frac_digits);
+
+                auto &frac_digits_type = frac_digits->type(scope);
+                auto &frac_digits_type_promoted = frac_digits_type.promoted();
+
+                if (&frac_digits_type_promoted != &sem::TypeInteger::instance()) {
+                    reporter_.err(format_spec_node->frac_digits->view.data(),
+                        ec::TYPE_MISMATCH,
+                        "number of fractional digits has type \"{}\""
+                            " instead of \"integer\"",
+                        frac_digits_type_promoted.str());
+                    parameters.push_back(sem::WriteParameter(
+                        std::move(value), std::move(total_width)));
+                    return;
+                }
+
+                parameters.push_back(sem::WriteParameter(
+                    std::move(value),
+                    std::move(total_width), std::move(frac_digits)));
+            }
+            else {
+                if (format_spec_node->frac_digits) {
+                    reporter_.err(format_spec_node->frac_digits->view.data(),
+                        ec::DISALLOWED_PARAMETER_FORM,
+                        "number of fractional digits in a parameter of type \"{}\""
+                            " that is not \"real\"",
+                        value_type_promoted.str());
+                }
+
+                parameters.push_back(sem::WriteParameter(
+                    std::move(value), std::move(total_width)));
+            }
+        }
+        else {
+            if (total_width_default > 0)
+                parameters.push_back(sem::WriteParameter(
+                    std::move(value),
+                    std::make_unique<sem::ExpressionConstant>(
+                        std::make_shared<sem::ConstantInteger>(total_width_default))));
+            else
+                parameters.push_back(sem::WriteParameter(std::move(value)));
+        }
+    }
+
     std::unique_ptr<sem::Statement>
     resolveBuiltinWrite(
         sem::Scope &scope,
@@ -2592,112 +2700,16 @@ public:
         else {
             reporter_.unhold();
 
-            reporter_.err(actual_parameter_end_location,
-                ec::UNSUPPORTED_FEATURE, "\"write\" with an implicit file is not supported");
-            return fallbackStatement();
+            // TODO: resolve the file
+
+            finishResolvingWriteParameter(scope, actual_parameter_nodes[0],
+                std::move(parameter0), parameters);
         }
 
         for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
-            auto value = resolveExpression(scope, parameter_node.value);
-            auto &value_type = value->type(scope);
-            auto &value_type_promoted = value_type.promoted();
-
-            bool can_have_frac_digits;
-            pascal_integer_t total_width_default;
-
-            if (
-                &value_type_promoted == &sem::TypeInteger::instance()
-                    || &value_type_promoted == &sem::TypeBoolean::instance()
-            ) {
-                can_have_frac_digits = false;
-                total_width_default = 0;
-            }
-            else if (&value_type_promoted == &sem::TypeReal::instance()) {
-                can_have_frac_digits = true;
-                total_width_default = 0;
-            }
-            else if (&value_type_promoted == &sem::TypeChar::instance()) {
-                can_have_frac_digits = false;
-                total_width_default = 1;
-            }
-            else if (
-                auto *array_type
-                    = dynamic_cast<const sem::TypeArray *>(&value_type_promoted);
-                array_type && array_type->isString()
-            ) {
-                can_have_frac_digits = false;
-                total_width_default = array_type->indexType()->largestOrdinal();
-            }
-            else {
-                reporter_.err(parameter_node.value.view.data(),
-                    ec::TYPE_MISMATCH,
-                    "value type \"{}\" is not \"integer\", \"real\", \"char\","
-                        " \"boolean\" or a string type",
-                    value_type_promoted.str());
-                continue;
-            }
-
-            if (auto &format_spec_node = parameter_node.formatting_specification) {
-                auto total_width = resolveExpression(
-                    scope, format_spec_node->total_width);
-
-                auto &total_width_type = total_width->type(scope);
-                auto &total_width_type_promoted = total_width_type.promoted();
-
-                if (&total_width_type_promoted != &sem::TypeInteger::instance()) {
-                    reporter_.err(
-                        format_spec_node->total_width.view.data(),
-                        ec::TYPE_MISMATCH,
-                        "total width has type \"{}\" instead of \"integer\"",
-                        total_width_type_promoted.str());
-                    parameters.push_back(sem::WriteParameter(std::move(value)));
-                    continue;
-                }
-
-                if (can_have_frac_digits && format_spec_node->frac_digits) {
-                    auto frac_digits = resolveExpression(
-                        scope, *format_spec_node->frac_digits);
-
-                    auto &frac_digits_type = frac_digits->type(scope);
-                    auto &frac_digits_type_promoted = frac_digits_type.promoted();
-
-                    if (&frac_digits_type_promoted != &sem::TypeInteger::instance()) {
-                        reporter_.err(format_spec_node->frac_digits->view.data(),
-                            ec::TYPE_MISMATCH,
-                            "number of fractional digits has type \"{}\""
-                                " instead of \"integer\"",
-                            frac_digits_type_promoted.str());
-                        parameters.push_back(sem::WriteParameter(
-                            std::move(value), std::move(total_width)));
-                        continue;
-                    }
-
-                    parameters.push_back(sem::WriteParameter(
-                        std::move(value),
-                        std::move(total_width), std::move(frac_digits)));
-                }
-                else {
-                    if (format_spec_node->frac_digits) {
-                        reporter_.err(format_spec_node->frac_digits->view.data(),
-                            ec::DISALLOWED_PARAMETER_FORM,
-                            "number of fractional digits in a parameter of type \"{}\""
-                                " that is not \"real\"",
-                            value_type_promoted.str());
-                    }
-
-                    parameters.push_back(sem::WriteParameter(
-                        std::move(value), std::move(total_width)));
-                }
-            }
-            else {
-                if (total_width_default > 0)
-                    parameters.push_back(sem::WriteParameter(
-                        std::move(value),
-                        std::make_unique<sem::ExpressionConstant>(
-                            std::make_shared<sem::ConstantInteger>(total_width_default))));
-                else
-                    parameters.push_back(sem::WriteParameter(std::move(value)));
-            }
+            finishResolvingWriteParameter(
+                scope, parameter_node,
+                resolveExpression(scope, parameter_node.value), parameters);
         }
 
         if (parameters.empty())

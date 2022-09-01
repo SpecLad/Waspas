@@ -1,4 +1,4 @@
-program bpb;
+program bpb(output);
 var
     fi: file of integer;
     t: text;
@@ -40,4 +40,16 @@ begin
 
     write(t, 1.1:1:1.1);
                   {^ error:type-mismatch }
+
+    write(nil);
+         {^ error:type-mismatch }
+
+    write(1:1.1);
+           {^ error:type-mismatch }
+
+    write(1:1:1.1);
+             {^ error:disallowed-parameter-form }
+
+    write(1.1:1:1.1);
+               {^ error:type-mismatch }
 end.
