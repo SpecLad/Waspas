@@ -2517,6 +2517,45 @@ public:
     }
 
     std::unique_ptr<sem::Statement>
+    resolveBuiltinCallRewrite(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "no file variable");
+            return fallbackStatement();
+        }
+
+        auto file_variable = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
+        if (!file_variable) return fallbackStatement();
+
+        auto &file_variable_type = file_variable->type(scope);
+
+        if (!dynamic_cast<const sem::TypeFileLike *>(&file_variable_type)) {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable type is \"{}\", which is not a file type",
+                file_variable_type.str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        if (actual_parameter_nodes.size() > 1) {
+            reporter_.err(actual_parameter_nodes[1].view.data(),
+                ec::PARAMETER_COUNT_MISMATCH,
+                "unexpected actual parameter");
+        }
+
+        return std::make_unique<sem::StatementProcedureRewrite>(
+            std::move(file_variable));
+    }
+
+    std::unique_ptr<sem::Statement>
     resolveBuiltinCallWriteTyped(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
@@ -2893,7 +2932,7 @@ ProgramBuilder::BUILTIN_PROCEDURES = {
     {"read"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"readln"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"reset"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
-    {"rewrite"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"rewrite"sv, &ProgramBuilder::resolveBuiltinCallRewrite},
     {"unpack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"write"sv, &ProgramBuilder::resolveBuiltinCallWrite},
     {"writeln"sv, &ProgramBuilder::resolveBuiltinCallWriteln},

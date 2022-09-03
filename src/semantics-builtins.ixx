@@ -11,6 +11,18 @@ export import :statements;
 namespace sem {
 
 export
+class StatementProcedureRewrite : public Statement {
+public:
+    explicit
+    StatementProcedureRewrite(
+        std::unique_ptr<sem::VariableAccess> &&file
+    ) : file_(std::move(file)) {}
+
+private:
+    std::unique_ptr<sem::VariableAccess> file_;
+};
+
+export
 class WriteParameter {
 public:
     explicit

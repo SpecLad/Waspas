@@ -1,8 +1,22 @@
 program bpb(output);
 var
+    i: integer;
     fi: file of integer;
     t: text;
 begin
+    { rewrite }
+
+    rewrite;
+          {^ error:parameter-count-mismatch }
+    rewrite(i);
+           {^ error:type-mismatch }
+    rewrite(fi:3);
+             {^ error:disallowed-parameter-form }
+    rewrite(fi, 1);
+               {^ error:parameter-count-mismatch }
+
+    { write (???) }
+
     write;
         {^ error:parameter-count-mismatch }
 
