@@ -47,9 +47,9 @@ public:
 };
 
 export
-class StatementProcedureReadText : public Statement {
+class StatementProcedureReadLike : public Statement {
 public:
-    StatementProcedureReadText(
+    StatementProcedureReadLike(
         std::unique_ptr<sem::VariableAccess> &&file,
         std::vector<std::unique_ptr<sem::VariableAccess>> &&variables
     ) : file_(std::move(file)), variables_(std::move(variables)) {}
@@ -57,6 +57,18 @@ public:
 private:
     std::unique_ptr<sem::VariableAccess> file_;
     std::vector<std::unique_ptr<sem::VariableAccess>> variables_;
+};
+
+export
+class StatementProcedureReadText : public StatementProcedureReadLike {
+public:
+    using StatementProcedureReadLike::StatementProcedureReadLike;
+};
+
+export
+class StatementProcedureReadTyped : public StatementProcedureReadLike {
+public:
+    using StatementProcedureReadLike::StatementProcedureReadLike;
 };
 
 export

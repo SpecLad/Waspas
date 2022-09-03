@@ -21,6 +21,20 @@ begin
     read;
        {^ error:parameter-count-mismatch }
 
+    { read (typed) }
+
+    read(fi);
+          {^ error:parameter-count-mismatch }
+
+    read(fi:3, i);
+          {^ error:disallowed-parameter-form }
+
+    read(fi, pi);
+            {^ error:type-mismatch }
+
+    read(fi, i:3);
+             {^ error:disallowed-parameter-form }
+
     { read (text) }
 
     read(t);

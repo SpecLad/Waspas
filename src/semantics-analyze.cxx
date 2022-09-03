@@ -2627,15 +2627,49 @@ public:
 
         auto &parameter0_type = parameter0->type(scope);
 
-        if (dynamic_cast<const sem::TypeFile *>(&parameter0_type)) {
-            checkNoFormattingSpecification(actual_parameter_nodes[0]);
-            reporter_.err(actual_parameter_nodes[0].value.view.data(),
-                ec::UNSUPPORTED_FEATURE, "read on typed files is not supported");
-            return fallbackStatement();
-        }
-
         std::unique_ptr<sem::VariableAccess> file;
         std::vector<std::unique_ptr<sem::VariableAccess>> variables;
+
+        if (auto *file_type = dynamic_cast<const sem::TypeFile *>(&parameter0_type)) {
+            checkNoFormattingSpecification(actual_parameter_nodes[0]);
+            file = std::move(parameter0);
+
+            if (actual_parameter_nodes.size() < 2) {
+                reporter_.err(actual_parameter_end_location,
+                    ec::PARAMETER_COUNT_MISMATCH, "no variable to be read into");
+                return fallbackStatement();
+            }
+
+            for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
+                auto variable = resolveExpressionAsVariableAccess(
+                    scope, parameter_node.value);
+                if (!variable) continue;
+
+                threatenVariable(scope,
+                    *variable, parameter_node.value.view.data(),
+                    context.used_control_variables);
+
+                auto &variable_type = variable->type(scope);
+                if (!file_type->componentType()->isAssignmentCompatibleWith(variable_type)) {
+                    reporter_.err(parameter_node.value.view.data(),
+                        ec::TYPE_MISMATCH,
+                        "file component type \"{}\" is assignment-incompatible"
+                            " with variable type \"{}\"",
+                        file_type->componentType()->str(), variable_type.str());
+                    continue;
+                }
+
+                checkNoFormattingSpecification(parameter_node);
+
+                variables.push_back(std::move(variable));
+            }
+
+            if (variables.empty())
+                return fallbackStatement();
+
+            return std::make_unique<sem::StatementProcedureReadTyped>(
+                std::move(file), std::move(variables));
+        }
 
         if (dynamic_cast<const sem::TypeText *>(&parameter0_type)) {
             checkNoFormattingSpecification(actual_parameter_nodes[0]);
