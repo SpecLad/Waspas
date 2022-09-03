@@ -92,9 +92,9 @@ private:
 };
 
 export
-class StatementProcedureWriteText : public Statement {
+class StatementProcedureWriteTextLike : public Statement {
 public:
-    StatementProcedureWriteText(
+    StatementProcedureWriteTextLike(
         std::unique_ptr<sem::VariableAccess> &&file,
         std::vector<WriteParameter> &&parameters
     ) : file_(std::move(file)), parameters_(std::move(parameters)) {}
@@ -102,6 +102,12 @@ public:
 private:
     std::unique_ptr<sem::VariableAccess> file_;
     std::vector<WriteParameter> parameters_;
+};
+
+export
+class StatementProcedureWriteText : public StatementProcedureWriteTextLike {
+public:
+    using StatementProcedureWriteTextLike::StatementProcedureWriteTextLike;
 };
 
 export
@@ -118,16 +124,9 @@ private:
 };
 
 export
-class StatementProcedureWriteln : public Statement {
+class StatementProcedureWriteln : public StatementProcedureWriteTextLike {
 public:
-    StatementProcedureWriteln(
-        std::unique_ptr<sem::VariableAccess> &&file,
-        std::vector<WriteParameter> &&parameters
-    ) : file_(std::move(file)), parameters_(std::move(parameters)) {}
-
-private:
-    std::unique_ptr<sem::VariableAccess> file_;
-    std::vector<WriteParameter> parameters_;
+    using StatementProcedureWriteTextLike::StatementProcedureWriteTextLike;
 };
 
 }
