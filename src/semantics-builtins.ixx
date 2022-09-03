@@ -72,6 +72,12 @@ public:
 };
 
 export
+class StatementProcedureReadln : public StatementProcedureReadLike {
+public:
+    using StatementProcedureReadLike::StatementProcedureReadLike;
+};
+
+export
 class WriteParameter {
 public:
     explicit

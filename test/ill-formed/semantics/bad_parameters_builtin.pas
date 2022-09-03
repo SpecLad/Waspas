@@ -55,6 +55,23 @@ begin
     read(i:3);
          {^ error:disallowed-parameter-form }
 
+    { readln }
+
+    readln(t:3);
+           {^ error:disallowed-parameter-form }
+
+    readln(t, t);
+             {^ error:type-mismatch }
+
+    readln(t, i:3);
+              {^ error:disallowed-parameter-form }
+
+    readln(fi);
+          {^ error:type-mismatch }
+
+    readln(i:3);
+           {^ error:disallowed-parameter-form }
+
     { reset }
 
     reset;

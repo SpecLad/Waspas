@@ -2719,6 +2719,69 @@ public:
     }
 
     std::unique_ptr<sem::Statement>
+    resolveBuiltinCallReadln(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &context
+    ) {
+        std::unique_ptr<sem::VariableAccess> file;
+        std::vector<std::unique_ptr<sem::VariableAccess>> variables;
+
+        if (actual_parameter_nodes.empty()) {
+            file = resolveBuiltinFile(
+                scope, "input", actual_parameter_end_location);
+            if (!file) return fallbackStatement();
+
+            return std::make_unique<sem::StatementProcedureReadln>(
+                std::move(file), std::move(variables));
+        }
+
+        auto parameter0 = resolveExpressionAsVariableAccess(
+            scope, actual_parameter_nodes[0].value);
+        if (!parameter0) return fallbackStatement();
+
+        auto &parameter0_type = parameter0->type(scope);
+
+        if (dynamic_cast<const sem::TypeText *>(&parameter0_type)) {
+            checkNoFormattingSpecification(actual_parameter_nodes[0]);
+            file = std::move(parameter0);
+        }
+        else {
+            file = resolveBuiltinFile(
+                scope, "input", actual_parameter_nodes[0].view.data());
+            if (!file) return fallbackStatement();
+
+            threatenVariable(scope,
+                *parameter0, actual_parameter_nodes[0].value.view.data(),
+                context.used_control_variables);
+
+            if (checkReadParameterValidity(
+                actual_parameter_nodes[0], *parameter0, parameter0_type)
+            )
+                variables.push_back(std::move(parameter0));
+        }
+
+        for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
+            auto variable = resolveExpressionAsVariableAccess(
+                scope, parameter_node.value);
+            if (!variable) continue;
+
+            threatenVariable(scope,
+                *variable, parameter_node.value.view.data(),
+                context.used_control_variables);
+
+            if (checkReadParameterValidity(
+                parameter_node, *variable, variable->type(scope))
+            )
+                variables.push_back(std::move(variable));
+        }
+
+        return std::make_unique<sem::StatementProcedureReadln>(
+            std::move(file), std::move(variables));
+    }
+
+    std::unique_ptr<sem::Statement>
     resolveBuiltinCallWriteTyped(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
@@ -3093,7 +3156,7 @@ ProgramBuilder::BUILTIN_PROCEDURES = {
     {"page"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"put"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
     {"read"sv, &ProgramBuilder::resolveBuiltinCallRead},
-    {"readln"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"readln"sv, &ProgramBuilder::resolveBuiltinCallReadln},
     {"reset"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureReset>},
     {"rewrite"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureRewrite>},
     {"unpack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
