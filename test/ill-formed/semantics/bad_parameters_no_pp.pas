@@ -5,6 +5,9 @@ program bpnpp;
 var
     i: integer;
 begin
+    page;
+       {^ error:undefined-identifier }
+
     read(i);
         {^ error:undefined-identifier }
 

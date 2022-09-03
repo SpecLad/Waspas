@@ -2574,6 +2574,45 @@ public:
         );
     }
 
+    std::unique_ptr<sem::Statement>
+    resolveBuiltinCallPage(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
+    ) {
+        std::unique_ptr<sem::VariableAccess> file;
+
+        if (actual_parameter_nodes.empty()) {
+            file = resolveBuiltinFile(
+                scope, "output", actual_parameter_end_location);
+            if (!file) return fallbackStatement();
+
+            return std::make_unique<sem::StatementProcedurePage>(std::move(file));
+        }
+
+        file = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
+        auto &file_type = file->type(scope);
+
+        if (&file_type != &sem::TypeText::instance()) {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable has type \"{}\" rather than \"text\"",
+                file_type.str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        if (actual_parameter_nodes.size() > 1) {
+            reporter_.err(actual_parameter_nodes[1].view.data(),
+                ec::PARAMETER_COUNT_MISMATCH,
+                "unexpected actual parameter");
+        }
+
+        return std::make_unique<sem::StatementProcedurePage>(std::move(file));
+    }
+
     bool
     checkReadParameterValidity(
         const nodes::ActualParameter &parameter_node,
@@ -3153,7 +3192,7 @@ ProgramBuilder::BUILTIN_PROCEDURES = {
     {"get"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureGet>},
     {"new"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"pack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
-    {"page"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"page"sv, &ProgramBuilder::resolveBuiltinCallPage},
     {"put"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
     {"read"sv, &ProgramBuilder::resolveBuiltinCallRead},
     {"readln"sv, &ProgramBuilder::resolveBuiltinCallReadln},

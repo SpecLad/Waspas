@@ -41,6 +41,12 @@ public:
 };
 
 export
+class StatementProcedurePage: public StatementProcedureGetLike {
+public:
+    using StatementProcedureGetLike::StatementProcedureGetLike;
+};
+
+export
 class StatementProcedurePut : public StatementProcedureGetLike {
 public:
     using StatementProcedureGetLike::StatementProcedureGetLike;

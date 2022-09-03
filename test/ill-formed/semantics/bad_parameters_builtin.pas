@@ -94,6 +94,14 @@ begin
     rewrite(fi, 1);
                {^ error:parameter-count-mismatch }
 
+    { page }
+    page(fi);
+        {^ error:type-mismatch }
+    page(t:3);
+         {^ error:disallowed-parameter-form }
+    page(t, 1);
+           {^ error:parameter-count-mismatch }
+
     { put }
 
     put;
