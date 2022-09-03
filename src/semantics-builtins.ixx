@@ -47,6 +47,19 @@ public:
 };
 
 export
+class StatementProcedureReadText : public Statement {
+public:
+    StatementProcedureReadText(
+        std::unique_ptr<sem::VariableAccess> &&file,
+        std::vector<std::unique_ptr<sem::VariableAccess>> &&variables
+    ) : file_(std::move(file)), variables_(std::move(variables)) {}
+
+private:
+    std::unique_ptr<sem::VariableAccess> file_;
+    std::vector<std::unique_ptr<sem::VariableAccess>> variables_;
+};
+
+export
 class WriteParameter {
 public:
     explicit

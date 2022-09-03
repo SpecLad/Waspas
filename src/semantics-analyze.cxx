@@ -2574,6 +2574,116 @@ public:
         );
     }
 
+    bool
+    checkReadParameterValidity(
+        const nodes::ActualParameter &parameter_node,
+        const sem::VariableAccess &variable,
+        const sem::DynamicType &variable_type
+    ) {
+        bool type_is_valid = false;
+
+        if (&variable_type == &sem::TypeReal::instance()
+            || variable_type.isCompatibleWith(sem::TypeChar::instance())
+            || variable_type.isCompatibleWith(sem::TypeInteger::instance())
+        ) {
+            type_is_valid = true;
+        }
+        else if (
+            auto *array_type
+                = dynamic_cast<const sem::TypeArray *>(&variable_type);
+            array_type && array_type->isString()
+        ) {
+            type_is_valid = true;
+        }
+
+        if (!type_is_valid) {
+            reporter_.err(parameter_node.value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable type is \"{}\", which is neither \"real\", a string type,"
+                    " or compatible with \"char\" or \"integer\"",
+                variable_type.str());
+        }
+
+        checkNoFormattingSpecification(parameter_node);
+        return type_is_valid;
+    }
+
+    std::unique_ptr<sem::Statement>
+    resolveBuiltinCallRead(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &context
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH, "no variable to be read into");
+            return fallbackStatement();
+        }
+
+        auto parameter0 = resolveExpressionAsVariableAccess(
+            scope, actual_parameter_nodes[0].value);
+        if (!parameter0) return fallbackStatement();
+
+        auto &parameter0_type = parameter0->type(scope);
+
+        if (dynamic_cast<const sem::TypeFile *>(&parameter0_type)) {
+            checkNoFormattingSpecification(actual_parameter_nodes[0]);
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::UNSUPPORTED_FEATURE, "read on typed files is not supported");
+            return fallbackStatement();
+        }
+
+        std::unique_ptr<sem::VariableAccess> file;
+        std::vector<std::unique_ptr<sem::VariableAccess>> variables;
+
+        if (dynamic_cast<const sem::TypeText *>(&parameter0_type)) {
+            checkNoFormattingSpecification(actual_parameter_nodes[0]);
+            file = std::move(parameter0);
+
+            if (actual_parameter_nodes.size() < 2) {
+                reporter_.err(actual_parameter_end_location,
+                    ec::PARAMETER_COUNT_MISMATCH, "no variable to be read into");
+                return fallbackStatement();
+            }
+        }
+        else {
+            file = resolveBuiltinFile(
+                scope, "input", actual_parameter_nodes[0].view.data());
+            if (!file) return fallbackStatement();
+
+            threatenVariable(scope,
+                *parameter0, actual_parameter_nodes[0].value.view.data(),
+                context.used_control_variables);
+
+            if (checkReadParameterValidity(
+                actual_parameter_nodes[0], *parameter0, parameter0_type)
+            )
+                variables.push_back(std::move(parameter0));
+        }
+
+        for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
+            auto variable = resolveExpressionAsVariableAccess(
+                scope, parameter_node.value);
+            if (!variable) continue;
+
+            threatenVariable(scope,
+                *variable, parameter_node.value.view.data(),
+                context.used_control_variables);
+
+            if (checkReadParameterValidity(
+                parameter_node, *variable, variable->type(scope))
+            )
+                variables.push_back(std::move(variable));
+        }
+
+        if (variables.empty())
+            return fallbackStatement();
+
+        return std::make_unique<sem::StatementProcedureReadText>(
+            std::move(file), std::move(variables));
+    }
+
     std::unique_ptr<sem::Statement>
     resolveBuiltinCallWriteTyped(
         sem::Scope &scope,
@@ -2948,7 +3058,7 @@ ProgramBuilder::BUILTIN_PROCEDURES = {
     {"pack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"page"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"put"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
-    {"read"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"read"sv, &ProgramBuilder::resolveBuiltinCallRead},
     {"readln"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"reset"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureReset>},
     {"rewrite"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureRewrite>},

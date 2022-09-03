@@ -1,4 +1,4 @@
-program badstmt;
+program badstmt(input);
 label 1, 3, 4;
         {^ error:unused-label }
 type
@@ -64,6 +64,16 @@ begin
        {^ note }
         writer(threatenedInBody);
               {^ error:threatened-control-variable }
+
+    for threatenedInBody := 1 to 10 do
+       {^ note }
+        read(threatenedInBody);
+            {^ error:threatened-control-variable }
+
+    for threatenedInBody := 1 to 10 do
+       {^ note }
+        read(input, threatenedInBody);
+                   {^ error:threatened-control-variable }
 
     goto 2;
         {^ error:undefined-label }

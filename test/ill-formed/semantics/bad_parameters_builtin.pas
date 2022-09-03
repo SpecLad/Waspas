@@ -1,6 +1,7 @@
-program bpb(output);
+program bpb(input, output);
 var
     i: integer;
+    pi: ^integer;
     fi: file of integer;
     t: text;
 begin
@@ -14,6 +15,31 @@ begin
          {^ error:disallowed-parameter-form }
     get(fi, 1);
            {^ error:parameter-count-mismatch }
+
+    { read (???) }
+
+    read;
+       {^ error:parameter-count-mismatch }
+
+    { read (text) }
+
+    read(t);
+         {^ error:parameter-count-mismatch }
+
+    read(t:3, i);
+         {^ error:disallowed-parameter-form }
+
+    read(t, t);
+           {^ error:type-mismatch }
+
+    read(t, i:3);
+            {^ error:disallowed-parameter-form }
+
+    read(pi);
+        {^ error:type-mismatch }
+
+    read(i:3);
+         {^ error:disallowed-parameter-form }
 
     { reset }
 
@@ -93,7 +119,7 @@ begin
     write(t, 1.1:1:1.1);
                   {^ error:type-mismatch }
 
-    write(nil);
+    write(pi);
          {^ error:type-mismatch }
 
     write(1:1.1);

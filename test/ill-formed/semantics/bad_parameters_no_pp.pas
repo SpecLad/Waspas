@@ -2,7 +2,12 @@
   program parameter. }
 
 program bpnpp;
+var
+    i: integer;
 begin
+    read(i);
+        {^ error:undefined-identifier }
+
     write(1);
          {^ error:undefined-identifier }
 
