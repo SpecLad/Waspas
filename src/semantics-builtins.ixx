@@ -56,4 +56,17 @@ private:
     std::vector<std::unique_ptr<sem::Expression>> values_;
 };
 
+export
+class StatementProcedureWriteln : public Statement {
+public:
+    StatementProcedureWriteln(
+        std::unique_ptr<sem::VariableAccess> &&file,
+        std::vector<WriteParameter> &&parameters
+    ) : file_(std::move(file)), parameters_(std::move(parameters)) {}
+
+private:
+    std::unique_ptr<sem::VariableAccess> file_;
+    std::vector<WriteParameter> parameters_;
+};
+
 }

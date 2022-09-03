@@ -5,4 +5,9 @@ program bpnpp;
 begin
     write(1);
          {^ error:undefined-identifier }
+
+    writeln;
+          {^ error:undefined-identifier }
+    writeln(1);
+           {^ error:undefined-identifier }
 end.

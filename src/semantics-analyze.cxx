@@ -2489,8 +2489,35 @@ public:
         return fallbackStatement();
     }
 
+    std::unique_ptr<sem::VariableAccess>
+    resolveBuiltinFile(
+        sem::Scope &scope, const std::string &id, const char *location
+    ) {
+        sem::Scope *lookup_scope = &scope;
+        std::size_t scope_index = 0;
+
+        for (; ; lookup_scope = lookup_scope->parent()) {
+            if (auto *block = lookup_scope->block())
+                if (auto *program = block->containingProgram())
+                    if (program->parameters_.contains(id)) {
+                        return std::make_unique<sem::VariableAccessVariableId>(
+                            id, scope_index);
+                    }
+                    else {
+                        reporter_.err(location,
+                            ec::UNDEFINED_IDENTIFIER,
+                            "program parameter \"{}\" is not defined", id);
+                        return nullptr;
+                    }
+
+            // There has to be one program block in the scope chain,
+            // so we shouldn't be able to reach the end of the chain.
+            assert(lookup_scope->parent());
+        }
+    }
+
     std::unique_ptr<sem::Statement>
-    resolveBuiltinWriteTyped(
+    resolveBuiltinCallWriteTyped(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
         const char *actual_parameter_end_location
@@ -2656,7 +2683,7 @@ public:
     }
 
     std::unique_ptr<sem::Statement>
-    resolveBuiltinWrite(
+    resolveBuiltinCallWrite(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
         const char *actual_parameter_end_location,
@@ -2675,7 +2702,7 @@ public:
 
         if (dynamic_cast<const sem::TypeFile *>(&parameter0_type)) {
             reporter_.unholdDiscard();
-            return resolveBuiltinWriteTyped(
+            return resolveBuiltinCallWriteTyped(
                 scope, actual_parameter_nodes, actual_parameter_end_location);
         }
 
@@ -2700,28 +2727,9 @@ public:
         else {
             reporter_.unhold();
 
-            sem::Scope *lookup_scope = &scope;
-            std::size_t scope_index = 0;
-
-            for (; ; lookup_scope = lookup_scope->parent()) {
-                if (auto *block = lookup_scope->block())
-                    if (auto *program = block->containingProgram())
-                        if (program->parameters_.contains("output")) {
-                            file = std::make_unique<sem::VariableAccessVariableId>(
-                                "output", scope_index);
-                            break;
-                        }
-                        else {
-                            reporter_.err(actual_parameter_nodes[0].view.data(),
-                                ec::UNDEFINED_IDENTIFIER,
-                                "program parameter \"output\" is not defined");
-                            return fallbackStatement();
-                        }
-
-                // There has to be one program block in the scope chain,
-                // so we shouldn't be able to reach the end of the chain.
-                assert(lookup_scope->parent());
-            }
+            file = resolveBuiltinFile(
+                scope, "output", actual_parameter_nodes[0].view.data());
+            if (!file) return fallbackStatement();
 
             finishResolvingWriteParameter(scope, actual_parameter_nodes[0],
                 std::move(parameter0), parameters);
@@ -2735,6 +2743,56 @@ public:
 
         if (parameters.empty())
             return fallbackStatement();
+
+        return std::make_unique<sem::StatementProcedureWriteText>(
+            std::move(file), std::move(parameters));
+    }
+
+    std::unique_ptr<sem::Statement>
+    resolveBuiltinCallWriteln(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
+    ) {
+        std::unique_ptr<sem::VariableAccess> file;
+        std::vector<sem::WriteParameter> parameters;
+
+        if (actual_parameter_nodes.empty()) {
+            file = resolveBuiltinFile(scope, "output", actual_parameter_end_location);
+            if (!file) return fallbackStatement();
+
+            return std::make_unique<sem::StatementProcedureWriteln>(
+                std::move(file), std::move(parameters));
+        }
+
+        reporter_.hold();
+
+        auto parameter0 = resolveExpression(scope, actual_parameter_nodes[0].value);
+        auto &parameter0_type = parameter0->type(scope);
+
+        if (dynamic_cast<const sem::TypeText *>(&parameter0_type)) {
+            reporter_.unholdDiscard();
+
+            checkNoFormattingSpecification(actual_parameter_nodes[0]);
+            file = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
+            if (!file) return fallbackStatement();
+        }
+        else {
+            reporter_.unhold();
+
+            file = resolveBuiltinFile(
+                scope, "output", actual_parameter_nodes[0].view.data());
+            if (!file) return fallbackStatement();
+
+            finishResolvingWriteParameter(scope, actual_parameter_nodes[0],
+                std::move(parameter0), parameters);
+        }
+
+        for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1))
+            finishResolvingWriteParameter(
+                scope, parameter_node,
+                resolveExpression(scope, parameter_node.value), parameters);
 
         return std::make_unique<sem::StatementProcedureWriteText>(
             std::move(file), std::move(parameters));
@@ -2837,8 +2895,8 @@ ProgramBuilder::BUILTIN_PROCEDURES = {
     {"reset"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"rewrite"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"unpack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
-    {"write"sv, &ProgramBuilder::resolveBuiltinWrite},
-    {"writeln"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"write"sv, &ProgramBuilder::resolveBuiltinCallWrite},
+    {"writeln"sv, &ProgramBuilder::resolveBuiltinCallWriteln},
 };
 
 std::unique_ptr<sem::Program>

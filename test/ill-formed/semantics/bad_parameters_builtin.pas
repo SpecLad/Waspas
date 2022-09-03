@@ -5,6 +5,9 @@ var
 begin
     write;
         {^ error:parameter-count-mismatch }
+
+    { write (typed) }
+
     write(fi);
            {^ error:parameter-count-mismatch }
 
@@ -19,6 +22,8 @@ begin
 
     write(fi, 1.1);
              {^ error:type-mismatch }
+
+    { write (text) }
 
     write(t);
           {^ error:parameter-count-mismatch }
@@ -52,4 +57,36 @@ begin
 
     write(1.1:1:1.1);
                {^ error:type-mismatch }
+
+    { writeln }
+
+    writeln(t.x);
+            {^ error:non-record-type } { testing that the error is only emitted once }
+
+    writeln(t:3);
+            {^ error:disallowed-parameter-form }
+
+    writeln(t, t);
+              {^ error:type-mismatch }
+
+    writeln(t, 1:1.1);
+                {^ error:type-mismatch }
+
+    writeln(t, 1:1:1.1);
+                  {^ error:disallowed-parameter-form }
+
+    writeln(t, 1.1:1:1.1);
+                    {^ error:type-mismatch }
+
+    writeln(fi);
+           {^ error:type-mismatch }
+
+    writeln(1:1.1);
+             {^ error:type-mismatch }
+
+    writeln(1:1:1.1);
+               {^ error:disallowed-parameter-form }
+
+    writeln(1.1:1:1.1);
+                 {^ error:type-mismatch }
 end.
