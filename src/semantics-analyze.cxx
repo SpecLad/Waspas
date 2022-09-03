@@ -2517,11 +2517,12 @@ public:
     }
 
     std::unique_ptr<sem::Statement>
-    resolveBuiltinCallRewrite(
+    resolveBuiltinCallGetLike(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
         const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        std::unique_ptr<sem::Statement> (*factory)(
+            std::unique_ptr<sem::VariableAccess> &&)
     ) {
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
@@ -2551,8 +2552,26 @@ public:
                 "unexpected actual parameter");
         }
 
-        return std::make_unique<sem::StatementProcedureRewrite>(
-            std::move(file_variable));
+        return factory(std::move(file_variable));
+    }
+
+    template <typename T>
+    std::unique_ptr<sem::Statement>
+    resolveBuiltinCallGetLike(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
+    ) {
+        return resolveBuiltinCallGetLike(
+            scope,
+            actual_parameter_nodes, actual_parameter_end_location,
+            [](std::unique_ptr<sem::VariableAccess> &&file)
+                -> std::unique_ptr<sem::Statement>
+            {
+                return std::make_unique<T>(std::move(file));
+            }
+        );
     }
 
     std::unique_ptr<sem::Statement>
@@ -2924,15 +2943,15 @@ private:
 const std::unordered_map<std::string_view, ProgramBuilder::builtin_procedure_call_f>
 ProgramBuilder::BUILTIN_PROCEDURES = {
     {"dispose"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
-    {"get"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"get"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureGet>},
     {"new"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"pack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"page"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
-    {"put"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"put"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
     {"read"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"readln"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
-    {"reset"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
-    {"rewrite"sv, &ProgramBuilder::resolveBuiltinCallRewrite},
+    {"reset"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureReset>},
+    {"rewrite"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureRewrite>},
     {"unpack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"write"sv, &ProgramBuilder::resolveBuiltinCallWrite},
     {"writeln"sv, &ProgramBuilder::resolveBuiltinCallWriteln},

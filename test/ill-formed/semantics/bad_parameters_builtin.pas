@@ -4,6 +4,28 @@ var
     fi: file of integer;
     t: text;
 begin
+    { get }
+
+    get;
+      {^ error:parameter-count-mismatch }
+    get(i);
+       {^ error:type-mismatch }
+    get(fi:3);
+         {^ error:disallowed-parameter-form }
+    get(fi, 1);
+           {^ error:parameter-count-mismatch }
+
+    { reset }
+
+    reset;
+        {^ error:parameter-count-mismatch }
+    reset(i);
+         {^ error:type-mismatch }
+    reset(fi:3);
+           {^ error:disallowed-parameter-form }
+    reset(fi, 1);
+             {^ error:parameter-count-mismatch }
+
     { rewrite }
 
     rewrite;
@@ -14,6 +36,17 @@ begin
              {^ error:disallowed-parameter-form }
     rewrite(fi, 1);
                {^ error:parameter-count-mismatch }
+
+    { put }
+
+    put;
+      {^ error:parameter-count-mismatch }
+    put(i);
+       {^ error:type-mismatch }
+    put(fi:3);
+         {^ error:disallowed-parameter-form }
+    put(fi, 1);
+           {^ error:parameter-count-mismatch }
 
     { write (???) }
 

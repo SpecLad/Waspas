@@ -11,15 +11,39 @@ export import :statements;
 namespace sem {
 
 export
-class StatementProcedureRewrite : public Statement {
+class StatementProcedureGetLike : public Statement {
 public:
     explicit
-    StatementProcedureRewrite(
+    StatementProcedureGetLike(
         std::unique_ptr<sem::VariableAccess> &&file
     ) : file_(std::move(file)) {}
 
 private:
     std::unique_ptr<sem::VariableAccess> file_;
+};
+
+export
+class StatementProcedureGet : public StatementProcedureGetLike {
+public:
+    using StatementProcedureGetLike::StatementProcedureGetLike;
+};
+
+export
+class StatementProcedureReset : public StatementProcedureGetLike {
+public:
+    using StatementProcedureGetLike::StatementProcedureGetLike;
+};
+
+export
+class StatementProcedureRewrite : public StatementProcedureGetLike {
+public:
+    using StatementProcedureGetLike::StatementProcedureGetLike;
+};
+
+export
+class StatementProcedurePut : public StatementProcedureGetLike {
+public:
+    using StatementProcedureGetLike::StatementProcedureGetLike;
 };
 
 export
