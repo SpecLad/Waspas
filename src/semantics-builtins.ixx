@@ -1,6 +1,7 @@
 module;
 
 #include <memory>
+#include <span>
 #include <vector>
 
 export module semantics:builtins;
@@ -50,6 +51,34 @@ export
 class StatementProcedurePut : public StatementProcedureGetLike {
 public:
     using StatementProcedureGetLike::StatementProcedureGetLike;
+};
+
+export
+class StatementProcedureNewLike : public Statement {
+public:
+    StatementProcedureNewLike(
+        std::unique_ptr<sem::VariableAccess> &&pointer,
+        std::span<Constant::ptr_t> case_constants
+    )
+        : pointer_(std::move(pointer))
+        , case_constants_(case_constants.begin(), case_constants.end())
+    {}
+
+private:
+    std::unique_ptr<sem::VariableAccess> pointer_;
+    std::vector<Constant::ptr_t> case_constants_;
+};
+
+export
+class StatementProcedureDispose : public StatementProcedureNewLike {
+public:
+    using StatementProcedureNewLike::StatementProcedureNewLike;
+};
+
+export
+class StatementProcedureNew : public StatementProcedureNewLike {
+public:
+    using StatementProcedureNewLike::StatementProcedureNewLike;
 };
 
 export

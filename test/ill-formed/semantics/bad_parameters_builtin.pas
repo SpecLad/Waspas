@@ -16,6 +16,22 @@ begin
     get(fi, 1);
            {^ error:parameter-count-mismatch }
 
+    { new }
+
+    new;
+      {^ error:parameter-count-mismatch }
+
+    new(i);
+       {^ error:type-mismatch }
+
+    new(pi:3);
+         {^ error:disallowed-parameter-form }
+
+    new(pi, 1);
+           {^ error:parameter-count-mismatch }
+
+    { TODO: replicate these tests for `dispose` }
+
     { read (???) }
 
     read;

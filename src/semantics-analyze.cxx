@@ -2575,6 +2575,84 @@ public:
     }
 
     std::unique_ptr<sem::Statement>
+    resolveBuiltinCallNewLike(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        std::unique_ptr<sem::Statement>(*factory)(
+            std::unique_ptr<sem::VariableAccess> &&, std::span<sem::Constant::ptr_t>)
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "no pointer variable");
+            return fallbackStatement();
+        }
+
+        auto pointer = resolveExpressionAsVariableAccess(
+            scope, actual_parameter_nodes[0].value);
+        if (!pointer) return fallbackStatement();
+
+        auto &pointer_type = pointer->type(scope);
+        auto *pointer_type_pointer
+            = dynamic_cast<const sem::TypePointer *>(&pointer_type);
+
+        if (!pointer_type_pointer) {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable type is \"{}\", which is not a pointer type",
+                pointer_type.str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        if (actual_parameter_nodes.size() == 1)
+            return factory(std::move(pointer), {});
+
+        auto record_type = std::dynamic_pointer_cast<const sem::TypeRecord>(
+            pointer_type_pointer->domainType());
+
+        if (!record_type) {
+            reporter_.err(actual_parameter_nodes[1].view.data(),
+                ec::PARAMETER_COUNT_MISMATCH,
+                "case constant specified for a pointer with a non-record domain type \"{}\"",
+                pointer_type_pointer->domainType()->str());
+            return factory(std::move(pointer), {});
+        }
+
+        std::vector<sem::Constant::ptr_t> case_constants;
+
+        const sem::FieldList *current_field_list = &record_type->fieldList();
+
+        for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
+            // TODO
+        }
+
+        return factory(std::move(pointer), case_constants);
+    }
+
+    template <typename T>
+    std::unique_ptr<sem::Statement>
+    resolveBuiltinCallNewLike(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
+    ) {
+        return resolveBuiltinCallNewLike(
+            scope,
+            actual_parameter_nodes, actual_parameter_end_location,
+            [](
+                std::unique_ptr<sem::VariableAccess> &&pointer,
+                std::span<sem::Constant::ptr_t> case_constants
+            ) -> std::unique_ptr<sem::Statement> {
+                return std::make_unique<T>(std::move(pointer), case_constants);
+            }
+        );
+    }
+
+    std::unique_ptr<sem::Statement>
     resolveBuiltinCallPage(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
@@ -3188,9 +3266,9 @@ private:
 
 const std::unordered_map<std::string_view, ProgramBuilder::builtin_procedure_call_f>
 ProgramBuilder::BUILTIN_PROCEDURES = {
-    {"dispose"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"dispose"sv, &ProgramBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureDispose>},
     {"get"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureGet>},
-    {"new"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"new"sv, &ProgramBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureNew>},
     {"pack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
     {"page"sv, &ProgramBuilder::resolveBuiltinCallPage},
     {"put"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
