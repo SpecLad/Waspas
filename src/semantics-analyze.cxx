@@ -2575,13 +2575,80 @@ public:
         );
     }
 
+    sem::Constant::ptr_t
+    resolveExpressionAsConstant(
+        sem::Scope &scope, const nodes::Expression &expression_node
+    ) {
+        if (expression_node.modifier) {
+            reporter_.err(expression_node.modifier->view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "operator in constant");
+            return nullptr;
+        }
+
+        auto &simple_expression_node = expression_node.operand;
+
+        if (!simple_expression_node.modifiers.empty()) {
+            reporter_.err(simple_expression_node.modifiers[0].view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "operator in constant");
+            return nullptr;
+        }
+
+        auto &term_node = simple_expression_node.operand;
+
+        if (!term_node.modifiers.empty()) {
+            reporter_.err(term_node.modifiers[0].view.data(),
+                ec::DISALLOWED_PARAMETER_FORM,
+                "operator in constant");
+            return nullptr;
+        }
+
+        sem::Constant::ptr_t constant;
+
+        visit(*term_node.operand, overloaded{
+            [&](nodes::CharacterString &cs_node) {
+                constant = resolveConstant(scope, cs_node);
+            },
+            [&](nodes::UnsignedIntegerConstant &uic_node) {
+                constant = resolveSignableConstant(scope, uic_node);
+            },
+            [&](nodes::UnsignedRealConstant &urc_node) {
+                constant = resolveSignableConstant(scope, urc_node);
+            },
+            [&](nodes::VariableAccess &va_node) {
+                if (!va_node.modifiers.empty()) {
+                    reporter_.err(va_node.modifiers[0]->view.data(),
+                        ec::DISALLOWED_PARAMETER_FORM,
+                        "component access in constant");
+                    return;
+                }
+
+                constant = resolveSignableConstant(scope, va_node.variable);
+            },
+            [&](auto &) {
+                reporter_.err(term_node.operand->view.data(),
+                    ec::DISALLOWED_PARAMETER_FORM,
+                    "not a constant");
+            }
+        });
+
+        if (!constant) return nullptr;
+
+        applySignToConstant(constant,
+            simple_expression_node.sign, simple_expression_node.view.data());
+
+        return constant;
+    }
+
     std::unique_ptr<sem::Statement>
     resolveBuiltinCallNewLike(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
         const char *actual_parameter_end_location,
         std::unique_ptr<sem::Statement>(*factory)(
-            std::unique_ptr<sem::VariableAccess> &&, std::span<sem::Constant::ptr_t>)
+            std::unique_ptr<sem::VariableAccess> &&,
+            std::span<sem::ConstantOrdinal::ptr_t>)
     ) {
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
@@ -2622,12 +2689,53 @@ public:
             return factory(std::move(pointer), {});
         }
 
-        std::vector<sem::Constant::ptr_t> case_constants;
+        std::vector<sem::ConstantOrdinal::ptr_t> case_constants;
 
         const sem::FieldList *current_field_list = &record_type->fieldList();
 
         for (auto &parameter_node : std::views::drop(actual_parameter_nodes, 1)) {
-            // TODO
+            if (!current_field_list->variantPart()) {
+                reporter_.err(parameter_node.view.data(),
+                    ec::PARAMETER_COUNT_MISMATCH,
+                    "no variant part corresponding to this case constant");
+                break;
+            }
+
+            auto case_constant = resolveExpressionAsConstant(scope, parameter_node.value);
+            applyFallback(case_constant);
+
+            const auto &variant_part = *current_field_list->variantPart();
+            if (!case_constant->type()->isCompatibleWith(*variant_part.tagType())) {
+                reporter_.err(parameter_node.value.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "case constant type \"{}\" is incompatible with"
+                        " the variant tag type \"{}\"",
+                    case_constant->type()->str(), variant_part.tagType()->str());
+                break;
+            }
+
+            // This must succeed, since the previous check ensures that
+            // the constant type is an ordinal type.
+            auto ordinal_constant
+                = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(case_constant);
+
+            auto ordinal = ordinal_constant->ordinalNumber();
+            if (!(
+                variant_part.tagType()->smallestOrdinal() <= ordinal
+                    && ordinal <= variant_part.tagType()->largestOrdinal()
+            )) {
+                reporter_.err(parameter_node.value.view.data(),
+                    ec::OUT_OF_RANGE,
+                    "case constant is not within the range of values of"
+                        " the variant tag type");
+                break;
+            }
+
+            checkNoFormattingSpecification(parameter_node);
+
+            case_constants.push_back(ordinal_constant);
+
+            current_field_list = &variant_part.variantByOrdinal(ordinal);
         }
 
         return factory(std::move(pointer), case_constants);
@@ -2646,7 +2754,7 @@ public:
             actual_parameter_nodes, actual_parameter_end_location,
             [](
                 std::unique_ptr<sem::VariableAccess> &&pointer,
-                std::span<sem::Constant::ptr_t> case_constants
+                std::span<sem::ConstantOrdinal::ptr_t> case_constants
             ) -> std::unique_ptr<sem::Statement> {
                 return std::make_unique<T>(std::move(pointer), case_constants);
             }

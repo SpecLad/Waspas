@@ -29,6 +29,12 @@ sem::TypeInteger::isAssignmentCompatibleWith(const DynamicType &other) const {
     return Type::isAssignmentCompatibleWith(other);
 }
 
+const sem::FieldList &
+sem::VariantPart::variantByOrdinal(pascal_integer_t ordinal) const {
+    std::size_t variant_index = variant_indexes_by_ordinal_.at(ordinal);
+    return variants_.at(variant_index).fields;
+}
+
 void
 sem::VariantPart::addVariant(
     std::span<ConstantOrdinal::ptr_t> case_constants,
@@ -39,6 +45,10 @@ sem::VariantPart::addVariant(
             case_constants.begin(), case_constants.end()),
         fields,
     });
+
+    for (const auto &case_constant : case_constants)
+        variant_indexes_by_ordinal_[case_constant->ordinalNumber()]
+            = variants_.size() - 1;
 }
 
 std::shared_ptr<const sem::TypeEnumerated>

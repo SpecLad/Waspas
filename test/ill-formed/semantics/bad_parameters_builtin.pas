@@ -1,10 +1,43 @@
 program bpb(input, output);
+type
+    tagType = 0..1;
+    recType = record
+        case tagType of 0: (); 1: ();
+    end;
 var
     i: integer;
     pi: ^integer;
     fi: file of integer;
     t: text;
+
+    pr: ^recType;
 begin
+    { dispose }
+
+    dispose;
+          {^ error:parameter-count-mismatch }
+
+    dispose(i);
+           {^ error:type-mismatch }
+
+    dispose(pi:3);
+             {^ error:disallowed-parameter-form }
+
+    dispose(pi, 1);
+               {^ error:parameter-count-mismatch }
+
+    dispose(pr, 1.1);
+               {^ error:type-mismatch }
+
+    dispose(pr, 2);
+               {^ error:out-of-range }
+
+    dispose(pr, 1:3);
+                {^ error:disallowed-parameter-form }
+
+    dispose(pr, 1, 'a');
+                  {^ error:parameter-count-mismatch }
+
     { get }
 
     get;
@@ -30,7 +63,30 @@ begin
     new(pi, 1);
            {^ error:parameter-count-mismatch }
 
-    { TODO: replicate these tests for `dispose` }
+    new(pr, 1.1);
+           {^ error:type-mismatch }
+
+    new(pr, 2);
+           {^ error:out-of-range }
+
+    new(pr, 1:3);
+            {^ error:disallowed-parameter-form }
+
+    new(pr, 1, 'a');
+              {^ error:parameter-count-mismatch }
+
+    { new with invalid constants }
+
+    new(pr, 1 = 0);
+             {^ error:disallowed-parameter-form }
+    new(pr, 1 + 1);
+             {^ error:disallowed-parameter-form }
+    new(pr, 1 * 1);
+             {^ error:disallowed-parameter-form }
+    new(pr, maxint.foobar);
+                 {^ error:disallowed-parameter-form }
+    new(pr, (1));
+           {^ error:disallowed-parameter-form }
 
     { read (???) }
 

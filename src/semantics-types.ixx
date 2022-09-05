@@ -299,6 +299,9 @@ public:
     std::span<const Variant>
     variants() const { return variants_; }
 
+    const FieldList &
+    variantByOrdinal(pascal_integer_t ordinal) const;
+
     void
     addVariant(
         std::span<ConstantOrdinal::ptr_t> case_constants,
@@ -309,6 +312,8 @@ private:
     TypeOrdinal::ptr_t tag_type_;
     std::optional<std::string> tag_field_;
     std::vector<Variant> variants_;
+
+    std::unordered_map<pascal_integer_t, std::size_t> variant_indexes_by_ordinal_;
 };
 
 export

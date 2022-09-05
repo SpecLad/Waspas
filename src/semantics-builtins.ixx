@@ -58,7 +58,7 @@ class StatementProcedureNewLike : public Statement {
 public:
     StatementProcedureNewLike(
         std::unique_ptr<sem::VariableAccess> &&pointer,
-        std::span<Constant::ptr_t> case_constants
+        std::span<ConstantOrdinal::ptr_t> case_constants
     )
         : pointer_(std::move(pointer))
         , case_constants_(case_constants.begin(), case_constants.end())
@@ -66,7 +66,7 @@ public:
 
 private:
     std::unique_ptr<sem::VariableAccess> pointer_;
-    std::vector<Constant::ptr_t> case_constants_;
+    std::vector<ConstantOrdinal::ptr_t> case_constants_;
 };
 
 export
