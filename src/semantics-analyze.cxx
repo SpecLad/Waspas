@@ -18,8 +18,9 @@ import utilities;
 
 using namespace std::literals;
 
-// In situations where a type fails to resolve this function can be used
-// to recover without dropping the declaration being analysed entirely.
+// In situations where a construct fails to resolve these functions can be used
+// to recover without dropping the parent construct entirely.
+
 template <typename T>
 void
 applyFallback(std::shared_ptr<const T> &ptr)
@@ -27,6 +28,13 @@ applyFallback(std::shared_ptr<const T> &ptr)
 {
     if (!ptr)
         ptr = staticPtr(sem::TypeInteger::instance());
+}
+
+void
+applyFallback(sem::Constant::ptr_t &ptr)
+{
+    if (!ptr)
+        ptr = std::make_shared<sem::ConstantInteger>(0);
 }
 
 class ProgramBuilder {
@@ -325,11 +333,7 @@ public:
             // the new constant to block.constants_, and _then_ resolve the value.
             auto &constant = block.constants_[constant_def_node.name.spelling];
             constant = resolveConstant(block.scope_, *constant_def_node.value);
-
-            if (!constant) {
-                // use a fallback value so that we can continue with the analysis
-                constant = std::make_shared<sem::ConstantInteger>(0);
-            }
+            applyFallback(constant);
         }
     }
 
@@ -1350,10 +1354,7 @@ public:
         T &signable_constant_node
     ) requires std::is_base_of_v<nodes::SignableConstant, T> {
         auto constant = resolveSignableConstant(scope, signable_constant_node);
-
-        // apply fallback
-        if (!constant)
-            constant = std::make_shared<sem::ConstantInteger>(0);
+        applyFallback(constant);
 
         return std::make_unique<sem::ExpressionConstant>(constant);
     }
