@@ -11,6 +11,10 @@ var
     t: text;
 
     pr: ^recType;
+
+    packedArray: packed array [1..10] of integer;
+    packedArrayWrongType: packed array [1..10] of real;
+    unpackedArray: array [0..10] of integer;
 begin
     { dispose }
 
@@ -87,6 +91,38 @@ begin
                  {^ error:disallowed-parameter-form }
     new(pr, (1));
            {^ error:disallowed-parameter-form }
+
+    { pack }
+
+    pack;
+       {^ error:parameter-count-mismatch }
+    pack(i, 1, packedArray);
+        {^ error:non-array-type }
+    pack(packedArray, 1, packedArray);
+        {^ error:type-mismatch }
+    pack(unpackedArray:3, 1, packedArray);
+                     {^ error:disallowed-parameter-form }
+
+    pack(unpackedArray);
+                     {^ error:parameter-count-mismatch }
+    pack(unpackedArray, 'a', packedArray);
+                       {^ error:type-mismatch }
+    pack(unpackedArray, 1:3, packedArray);
+                        {^ error:disallowed-parameter-form }
+
+    pack(unpackedArray, 1);
+                        {^ error:parameter-count-mismatch }
+    pack(unpackedArray, 1, i);
+                          {^ error:non-array-type }
+    pack(unpackedArray, 1, unpackedArray);
+                          {^ error:type-mismatch }
+    pack(unpackedArray, 1, packedArrayWrongType);
+                          {^ error:type-mismatch }
+    pack(unpackedArray, 1, packedArray:3);
+                                     {^ error:disallowed-parameter-form }
+
+    pack(unpackedArray, 1, packedArray, 'abc');
+                                       {^ error:parameter-count-mismatch }
 
     { read (???) }
 

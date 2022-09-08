@@ -82,6 +82,25 @@ public:
 };
 
 export
+class StatementProcedurePack : public Statement {
+public:
+    StatementProcedurePack(
+        std::unique_ptr<sem::VariableAccess> &&source,
+        std::unique_ptr<sem::Expression> &&start_index,
+        std::unique_ptr<sem::VariableAccess> &&destination
+    )
+        : source_(std::move(source))
+        , start_index_(std::move(start_index))
+        , destination_(std::move(destination))
+    {}
+
+private:
+    std::unique_ptr<sem::VariableAccess> source_;
+    std::unique_ptr<sem::Expression> start_index_;
+    std::unique_ptr<sem::VariableAccess> destination_;
+};
+
+export
 class StatementProcedureReadLike : public Statement {
 public:
     StatementProcedureReadLike(

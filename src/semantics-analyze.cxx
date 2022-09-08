@@ -2762,6 +2762,151 @@ public:
     }
 
     std::unique_ptr<sem::Statement>
+    resolveBuiltinCallPack(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the source array");
+            return fallbackStatement();
+        }
+
+        auto source = resolveExpressionAsVariableAccess(
+            scope, actual_parameter_nodes[0].value);
+        if (!source) return fallbackStatement();
+
+        auto &source_type = source->type(scope);
+        sem::DynamicType::ptr_t source_component_type;
+        sem::TypeOrdinal::ptr_t source_index_type;
+        bool source_is_packed;
+
+        if (auto *source_type_array
+            = dynamic_cast<const sem::TypeArray *>(&source_type)
+        ) {
+            source_component_type = source_type_array->componentType();
+            source_index_type = source_type_array->indexType();
+            source_is_packed = source_type_array->isPacked();
+        }
+        else if (auto *unpacked_array_type_schema
+            = dynamic_cast<const sem::ConformantArraySchema *>(&source_type)
+        ) {
+            source_component_type = unpacked_array_type_schema->componentType();
+            source_index_type = unpacked_array_type_schema->boundType();
+            source_is_packed = unpacked_array_type_schema->isPacked();
+        }
+        else {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::NON_ARRAY_TYPE,
+                "variable has type \"{}\", which is not an array type",
+                source_type.str());
+            return fallbackStatement();
+        }
+
+        if (source_is_packed) {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable has packed array type \"{}\"",
+                source_type.str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        if (actual_parameter_nodes.size() < 2) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the start index");
+            return fallbackStatement();
+        }
+
+        auto start_index = resolveExpression(scope, actual_parameter_nodes[1].value);
+        auto &start_index_type = start_index->type(scope);
+        auto &start_index_type_promoted = start_index_type.promoted();
+
+        if (!start_index_type_promoted.isAssignmentCompatibleWith(*source_index_type)) {
+            reporter_.err(actual_parameter_nodes[1].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "value type \"{}\" is assignment-incompatible with array index type \"{}\"",
+                start_index_type_promoted.str(), source_index_type->str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[1]);
+
+        if (actual_parameter_nodes.size() < 3) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the destination array");
+            return fallbackStatement();
+        }
+
+        auto dest = resolveExpressionAsVariableAccess(
+            scope, actual_parameter_nodes[2].value);
+        if (!dest) return fallbackStatement();
+
+        auto &dest_type = dest->type(scope);
+
+        sem::DynamicType::ptr_t dest_component_type;
+        sem::TypeOrdinal::ptr_t dest_index_type;
+        bool dest_is_packed;
+
+        if (auto *dest_type_array
+            = dynamic_cast<const sem::TypeArray *>(&dest_type)
+        ) {
+            dest_component_type = dest_type_array->componentType();
+            dest_index_type = dest_type_array->indexType();
+            dest_is_packed = dest_type_array->isPacked();
+        }
+        else if (auto *unpacked_array_type_schema
+            = dynamic_cast<const sem::ConformantArraySchema *>(&dest_type)
+        ) {
+            dest_component_type = unpacked_array_type_schema->componentType();
+            dest_index_type = unpacked_array_type_schema->boundType();
+            dest_is_packed = unpacked_array_type_schema->isPacked();
+        }
+        else {
+            reporter_.err(actual_parameter_nodes[2].value.view.data(),
+                ec::NON_ARRAY_TYPE,
+                "variable has type \"{}\", which is not an array type",
+                dest_type.str());
+            return fallbackStatement();
+        }
+
+        if (!dest_is_packed) {
+            reporter_.err(actual_parameter_nodes[2].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable has non-packed array type \"{}\"",
+                dest_type.str());
+            return fallbackStatement();
+        }
+
+        if (dest_component_type != source_component_type) {
+            reporter_.err(actual_parameter_nodes[2].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "destination array component type \"{}\" is different"
+                    " from source array component type \"{}\"",
+                dest_component_type->str(), source_component_type->str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[2]);
+
+        if (actual_parameter_nodes.size() > 3) {
+            reporter_.err(actual_parameter_nodes[3].view.data(),
+                ec::PARAMETER_COUNT_MISMATCH,
+                "unexpected actual parameter");
+            return fallbackStatement();
+        }
+
+        return std::make_unique<sem::StatementProcedurePack>(
+            std::move(source), std::move(start_index), std::move(dest));
+    }
+
+    std::unique_ptr<sem::Statement>
     resolveBuiltinCallPage(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
@@ -3384,7 +3529,7 @@ ProgramBuilder::BUILTIN_PROCEDURES = {
     {"dispose"sv, &ProgramBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureDispose>},
     {"get"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureGet>},
     {"new"sv, &ProgramBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureNew>},
-    {"pack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"pack"sv, &ProgramBuilder::resolveBuiltinCallPack},
     {"page"sv, &ProgramBuilder::resolveBuiltinCallPage},
     {"put"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
     {"read"sv, &ProgramBuilder::resolveBuiltinCallRead},
