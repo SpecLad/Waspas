@@ -78,7 +78,7 @@ public:
     largestOrdinal() const override { return PASCAL_INTEGER_MAX; }
 
     bool
-    isAssignmentCompatibleWith(const DynamicType &other) const override;
+    isAssignmentCompatibleWith(const Type &other) const override;
 
 private:
     TypeInteger() = default;
@@ -165,10 +165,50 @@ private:
 };
 
 export
+class TypeSubrangeDynamic : public TypeOrdinalDynamic {
+public:
+    TypeSubrangeDynamic(
+        const std::string &smallest_bound_id,
+        const std::string &largest_bound_id,
+        TypeOrdinal::ptr_t bound_type
+    )
+        : smallest_bound_id_(smallest_bound_id)
+        , largest_bound_id_(largest_bound_id)
+        , bound_type_(bound_type)
+    {}
+
+    std::string
+    str() const override {
+        return smallest_bound_id_ + ".." + largest_bound_id_
+            + ": " + bound_type_->str();
+    };
+
+    const TypeOrdinal &
+    fullRange() const override {
+        // Unlike TypeSubrange, the bound type _can_ be a subrange, so we need
+        // to delegate the `fullRange` call to it.
+        return bound_type_->fullRange();
+    }
+
+    const std::string &
+    smallestBoundId() const { return smallest_bound_id_; }
+
+    const std::string &
+    largestBoundId() const { return largest_bound_id_; }
+
+    TypeOrdinal::ptr_t
+    boundType() const { return bound_type_; }
+
+private:
+    std::string smallest_bound_id_, largest_bound_id_;
+    TypeOrdinal::ptr_t bound_type_;
+};
+
+export
 class TypeArray final : public Type {
 public:
     TypeArray(
-        TypeOrdinal::ptr_t index_type,
+        TypeOrdinalDynamic::ptr_t index_type,
         Type::ptr_t component_type,
         bool is_packed
     ) : index_type_(index_type), component_type_(component_type), is_packed_(is_packed) {}
@@ -196,20 +236,30 @@ public:
             && component_type_.get() == &sem::TypeChar::instance();
     }
 
+    pascal_integer_t
+    stringLength() const {
+        assert(isString());
+
+        return std::dynamic_pointer_cast<const TypeSubrange>(
+            index_type_)->largestOrdinal();
+    }
+
     bool
-    isCompatibleWith(const DynamicType &other) const override {
+    isCompatibleWith(const Type &other) const override {
         if (isString())
             if (auto *other_array = dynamic_cast<const TypeArray *>(&other))
                 return other_array->isString()
-                    && index_type_->largestOrdinal()
-                        == other_array->index_type_->largestOrdinal();
+                    && stringLength() == other_array->stringLength();
         return Type::isCompatibleWith(other);
     }
 
     bool
-    isConformableWith(const DynamicType &type_or_schema) const override;
+    isConformableWith(const Type &type) const override;
 
-    TypeOrdinal::ptr_t
+    bool
+    isEquivalent(const Type &type) const override;
+
+    TypeOrdinalDynamic::ptr_t
     indexType() const { return index_type_; }
 
     Type::ptr_t
@@ -219,7 +269,7 @@ public:
     isPacked() const { return is_packed_; }
 
 private:
-    TypeOrdinal::ptr_t index_type_;
+    TypeOrdinalDynamic::ptr_t index_type_;
     Type::ptr_t component_type_;
     bool is_packed_;
 };
@@ -454,7 +504,7 @@ public:
     }
 
     bool
-    isCompatibleWith(const DynamicType &other) const override {
+    isCompatibleWith(const Type &other) const override {
         if (auto *other_set = dynamic_cast<const TypeSet *>(&other))
             return is_packed_ == other_set->is_packed_
                 && base_type_->isCompatibleWith(*other_set->base_type_);
@@ -498,7 +548,7 @@ public:
     static inline constexpr std::string_view NAME = "^<???>"sv;
 
     bool
-    isAssignmentCompatibleWith(const DynamicType &other) const override {
+    isAssignmentCompatibleWith(const Type &other) const override {
         if (dynamic_cast<const TypePointer *>(&other)) return true;
         return Type::isAssignmentCompatibleWith(other);
     }
@@ -506,70 +556,6 @@ public:
 private:
     TypePointerAny() = default;
     friend class TypeBuiltin;
-};
-
-export
-class ConformantArraySchema final : public DynamicType {
-public:
-    ConformantArraySchema(
-        const std::string &smallest_bound, const std::string &largest_bound,
-        TypeOrdinal::ptr_t bound_type, DynamicType::ptr_t component_type,
-        bool is_packed
-    )
-        : smallest_bound_(smallest_bound)
-        , largest_bound_(largest_bound)
-        , bound_type_(bound_type)
-        , component_type_(component_type)
-        , is_packed_(is_packed)
-    {}
-
-    std::string
-    str() const override {
-        // the following gives ICE in MSVC++ 17.2.5:
-        //return std::format("{}array [{}..{}: {}] of {}",
-        //    is_packed_ ? "packed "sv : ""sv,
-        //    smallest_bound_, largest_bound_, bound_type_->str(),
-        //    component_type_->str());
-        return (is_packed_ ? "packed "s : ""s) +
-            "array ["s + smallest_bound_ + ".."s + largest_bound_ + ": "s +
-            bound_type_->str() + "] of "s + component_type_->str();
-    }
-
-    // Schemas can't really be file components, but we need to implement this
-    // method anyway so that analysis can determine whether a schema should be
-    // allowed as a value parameter.
-    bool
-    canBeFileComponent() const override {
-        return component_type_->canBeFileComponent();
-    }
-
-    bool
-    isConformableWith(const DynamicType &type_or_schema) const override;
-
-    bool
-    isEquivalent(const DynamicType &type_or_schema) const override;
-
-    const std::string &
-    smallestBound() const { return smallest_bound_; }
-
-    const std::string &
-    largestBound() const { return largest_bound_; }
-
-    TypeOrdinal::ptr_t
-    boundType() const { return bound_type_; }
-
-    DynamicType::ptr_t
-    componentType() const { return component_type_; }
-
-    bool
-    isPacked() const { return is_packed_; }
-
-private:
-    std::string smallest_bound_;
-    std::string largest_bound_;
-    TypeOrdinal::ptr_t bound_type_;
-    DynamicType::ptr_t component_type_;
-    bool is_packed_;
 };
 
 }

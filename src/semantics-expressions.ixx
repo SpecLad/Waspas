@@ -16,7 +16,7 @@ public:
     virtual
     ~Expression() = default;
 
-    virtual const DynamicType &
+    virtual const Type &
     type(const Scope &scope) const = 0;
 };
 
@@ -42,7 +42,7 @@ class ExpressionBound final : public ExpressionId<> {
 public:
     using ExpressionId::ExpressionId;
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 };
 
@@ -52,7 +52,7 @@ public:
     ExpressionConstant(Constant::ptr_t constant)
         : constant_(constant) {}
 
-    const DynamicType &
+    const Type &
     type(const Scope &) const override { return *constant_->type(); }
 
 private:
@@ -63,7 +63,7 @@ class ExpressionNil final : public Expression {
 public:
     ExpressionNil() = default;
 
-    const DynamicType &
+    const Type &
     type(const Scope &) const override;
 };
 
@@ -74,7 +74,7 @@ class VariableAccessActivationResult final : public ExpressionId<VariableAccess>
 public:
     using ExpressionId::ExpressionId;
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 };
 
@@ -82,7 +82,7 @@ class VariableAccessFieldDesignatorId final : public ExpressionId<VariableAccess
 public:
     using ExpressionId::ExpressionId;
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 };
 
@@ -90,7 +90,7 @@ class VariableAccessParameterId final : public ExpressionId<VariableAccess> {
 public:
     using ExpressionId::ExpressionId;
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 };
 
@@ -98,7 +98,7 @@ class VariableAccessVariableId final : public ExpressionId<VariableAccess> {
 public:
     using ExpressionId::ExpressionId;
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 };
 
@@ -109,7 +109,7 @@ public:
         std::unique_ptr<VariableAccess> &&file
     ) : file_(std::move(file)) {}
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 
 private:
@@ -123,7 +123,7 @@ public:
         std::unique_ptr<VariableAccess> &&pointer
     ) : pointer_(std::move(pointer)) {}
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 
 private:
@@ -137,7 +137,7 @@ public:
         const std::string &field_name
     ) : record_(std::move(record)), field_name_(field_name) {}
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 
     const VariableAccess &
@@ -158,7 +158,7 @@ public:
         std::unique_ptr<Expression> &&index
     ) : array_(std::move(array)), index_(std::move(index)) {}
 
-    const DynamicType &
+    const Type &
     type(const Scope &scope) const override;
 
     const VariableAccess &
@@ -166,24 +166,6 @@ public:
 
 private:
     std::unique_ptr<VariableAccess> array_;
-    std::unique_ptr<Expression> index_;
-};
-
-class VariableAccessIndexedDynamic final : public VariableAccess {
-public:
-    VariableAccessIndexedDynamic(
-        std::unique_ptr<VariableAccess> &&dynamic_array,
-        std::unique_ptr<Expression> &&index
-    ) : dynamic_array_(std::move(dynamic_array)), index_(std::move(index)) {}
-
-    const DynamicType &
-    type(const Scope &scope) const override;
-
-    const VariableAccess &
-    dynamicArray() const { return *dynamic_array_; }
-
-private:
-    std::unique_ptr<VariableAccess> dynamic_array_;
     std::unique_ptr<Expression> index_;
 };
 

@@ -13,6 +13,9 @@ import utilities;
 
 using namespace std::literals;
 
+const sem::TypeOrdinalDynamic &
+sem::TypeOrdinalDynamic::promoted() const { return fullRange(); }
+
 // This should really be defined inline, but doing that
 // makes VC++ generate multiple definitions for the t symbol.
 // TODO: report compiler bug
@@ -24,7 +27,7 @@ sem::TypeBuiltin<T, Base>::instance() {
 }
 
 bool
-sem::TypeInteger::isAssignmentCompatibleWith(const DynamicType &other) const {
+sem::TypeInteger::isAssignmentCompatibleWith(const Type &other) const {
     if (&other == &TypeReal::instance()) return true;
     return Type::isAssignmentCompatibleWith(other);
 }
@@ -98,24 +101,59 @@ sem::TypeEnumerated::largestOrdinal() const {
 }
 
 bool
-sem::TypeArray::isConformableWith(const DynamicType &type_or_schema) const {
-    if (auto *schema = dynamic_cast<const ConformantArraySchema *>(&type_or_schema)) {
-        auto schema_bound_type = schema->boundType();
+sem::TypeArray::isConformableWith(const Type &type) const {
+    auto *schema = dynamic_cast<const TypeArray *>(&type);
+    if (!schema) return Type::isConformableWith(type);
 
-        if (!index_type_->isCompatibleWith(*schema_bound_type)) return false;
+    auto *index_specification = dynamic_cast<const TypeSubrangeDynamic *>(
+        schema->indexType().get());
+    if (!index_specification) return Type::isConformableWith(type);
 
-        if (index_type_->smallestOrdinal() < schema_bound_type->smallestOrdinal())
+    auto schema_bound_type = index_specification->boundType();
+
+    if (!index_type_->isCompatibleWith(*schema_bound_type)) return false;
+
+    if (auto index_type_static
+        = dynamic_cast<const sem::TypeOrdinal *>(index_type_.get())
+    ) {
+        if (index_type_static->smallestOrdinal() < schema_bound_type->smallestOrdinal())
             return false;
 
-        if (index_type_->largestOrdinal() > schema_bound_type->largestOrdinal())
+        if (index_type_static->largestOrdinal() > schema_bound_type->largestOrdinal())
             return false;
-
-        if (is_packed_ != schema->isPacked()) return false;
-
-        return component_type_->isConformableWith(*schema->componentType());
+    }
+    else {
+        // We can't check the index type's smallest/largest values, because
+        // they aren't known at compile time. This has to be a runtime check.
     }
 
-    return Type::isConformableWith(type_or_schema);
+    if (is_packed_ != schema->isPacked()) return false;
+
+    if (!component_type_->isConformableWith(*schema->componentType()))
+        return false;
+
+    return true;
+}
+
+bool
+sem::TypeArray::isEquivalent(const Type &type) const {
+    if (auto *other_array = dynamic_cast<const TypeArray *>(&type)) {
+        auto *index_specification
+            = dynamic_cast<const TypeSubrangeDynamic *>(index_type_.get());
+
+        auto *other_index_specification
+            = dynamic_cast<const TypeSubrangeDynamic *>(other_array->index_type_.get());
+
+        if (!index_specification || !other_index_specification)
+            return Type::isEquivalent(type);
+
+        return
+            index_specification->boundType() == other_index_specification->boundType()
+            && component_type_->isEquivalent(*other_array->component_type_)
+            && is_packed_ == other_array->is_packed_;
+    }
+
+    return false;
 }
 
 std::vector<std::string>
@@ -157,33 +195,6 @@ sem::TypePointer::domainType() const {
     return domain_type_block_.type(domain_type_name_);
 }
 
-bool
-sem::ConformantArraySchema::isConformableWith(const DynamicType &type_or_schema) const {
-    if (auto *other_schema = dynamic_cast<const ConformantArraySchema *>(&type_or_schema)) {
-        if (!bound_type_->isCompatibleWith(*other_schema->bound_type_)) return false;
-
-        // We can't check the index type's smallest/largest values, because
-        // they aren't known at compile time. This has to be a runtime check.
-
-        if (is_packed_ != other_schema->is_packed_) return false;
-
-        return component_type_->isConformableWith(*other_schema->component_type_);
-    }
-
-    return false;
-}
-
-bool
-sem::ConformantArraySchema::isEquivalent(const DynamicType &type_or_schema) const {
-    if (auto *other_schema = dynamic_cast<const ConformantArraySchema *>(&type_or_schema)) {
-        return bound_type_ == other_schema->bound_type_
-            && component_type_->isEquivalent(*other_schema->component_type_)
-            && is_packed_ == other_schema->is_packed_;
-    }
-
-    return false;
-}
-
 sem::Signature::Signature(
     std::span<FormalParameterSection> parameters,
     Type::ptr_t result_type
@@ -200,14 +211,25 @@ sem::Signature::Signature(
                 auto type = rps.type();
 
                 while (
-                    auto schema
-                        = std::dynamic_pointer_cast<const ConformantArraySchema>(type)
+                    auto maybe_schema
+                        = std::dynamic_pointer_cast<const TypeArray>(type)
                 ) {
-                    bound_types_.try_emplace(
-                        schema->smallestBound(), schema->boundType());
-                    bound_types_.try_emplace(
-                        schema->largestBound(), schema->boundType());
-                    type = schema->componentType();
+                    if (auto index_specification
+                        = std::dynamic_pointer_cast<const TypeSubrangeDynamic>(
+                            maybe_schema->indexType())
+                    ) {
+                        bound_types_.try_emplace(
+                            index_specification->smallestBoundId(),
+                            index_specification->boundType());
+                        bound_types_.try_emplace(
+                            index_specification->largestBoundId(),
+                            index_specification->boundType());
+                        type = maybe_schema->componentType();
+                    }
+                    else {
+                        // not actually a schema
+                        break;
+                    }
                 }
             },
             [this](const SubroutineParameterSpecification &sps) {
@@ -250,7 +272,7 @@ sem::Signature::isCongruousWith(const Signature &other) const {
     return true;
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::ExpressionBound::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
@@ -260,26 +282,26 @@ sem::ExpressionBound::type(const Scope &scope) const {
 }
 
 // this is only defined out-of-line because TypeBuiltin::instance is.
-const sem::DynamicType &
+const sem::Type &
 sem::ExpressionNil::type(const Scope &) const {
     return TypePointerAny::instance();
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::VariableAccessActivationResult::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     return *block->subroutine(id()).signature().resultType();
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::VariableAccessFieldDesignatorId::type(const Scope &scope) const {
     auto *with = scope.parent(scopeIndex()).statementWith();
     assert(with);
     return *with->variableType().fieldList().fieldType(id());
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::VariableAccessParameterId::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
@@ -288,14 +310,14 @@ sem::VariableAccessParameterId::type(const Scope &scope) const {
     return *subroutine->signature().regularParameterType(id());
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::VariableAccessVariableId::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     return *block->variableType(id());
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::VariableAccessBuffer::type(const Scope &scope) const {
     const auto &file_type = dynamic_cast<const TypeFileLike &>(
         file_->type(scope));
@@ -303,7 +325,7 @@ sem::VariableAccessBuffer::type(const Scope &scope) const {
     return *file_type.componentType();
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::VariableAccessDereference::type(const Scope &scope) const {
     const auto &pointer_type = dynamic_cast<const TypePointer &>(
         pointer_->type(scope));
@@ -311,7 +333,7 @@ sem::VariableAccessDereference::type(const Scope &scope) const {
     return *pointer_type.domainType();
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::VariableAccessField::type(const Scope &scope) const {
     const auto &record_type = dynamic_cast<const TypeRecord &>(
         record_->type(scope));
@@ -319,20 +341,12 @@ sem::VariableAccessField::type(const Scope &scope) const {
     return *record_type.fieldList().fieldType(field_name_);
 }
 
-const sem::DynamicType &
+const sem::Type &
 sem::VariableAccessIndexed::type(const Scope &scope) const {
     const auto &array_type = dynamic_cast<const TypeArray &>(
         array_->type(scope));
 
     return *array_type.componentType();
-}
-
-const sem::DynamicType &
-sem::VariableAccessIndexedDynamic::type(const Scope &scope) const {
-    const auto &schema = dynamic_cast<const ConformantArraySchema &>(
-        dynamic_array_->type(scope));
-
-    return *schema.componentType();
 }
 
 sem::Block builtin_block(nullptr);

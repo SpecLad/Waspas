@@ -14,17 +14,17 @@ import parsing;
 namespace sem {
 
 export
-class DynamicType {
+class Type {
 public:
-    using ptr_t = std::shared_ptr<const DynamicType>;
+    using ptr_t = std::shared_ptr<const Type>;
 
-    DynamicType() = default;
+    Type() = default;
 
-    DynamicType(const DynamicType &) = delete;
-    DynamicType &operator =(const DynamicType &) = delete;
+    Type(const Type &) = delete;
+    Type &operator =(const Type &) = delete;
 
     virtual constexpr
-    ~DynamicType() = default;
+    ~Type() = default;
 
     virtual std::string
     str() const = 0;
@@ -34,66 +34,66 @@ public:
 
     // For a type T, returns the type that an expression of type T should
     // be treated as having, according to Pascal rules.
-    virtual const DynamicType &
+    virtual const Type &
     promoted() const { return *this; }
 
     virtual bool
-    isCompatibleWith(const DynamicType &other) const {
+    isCompatibleWith(const Type &other) const {
         return this == &other;
     }
 
     virtual bool
-    isAssignmentCompatibleWith(const DynamicType &other) const {
+    isAssignmentCompatibleWith(const Type &other) const {
         if (this == &other) return canBeFileComponent();
         return isCompatibleWith(other);
     }
-
-    virtual bool
-    isConformableWith(const DynamicType &type_or_schema) const = 0;
-
-    virtual bool
-    isEquivalent(const DynamicType &type_or_schema) const = 0;
-};
-
-export
-class Type : public DynamicType {
-public:
-    using ptr_t = std::shared_ptr<const Type>;
 
     // The relation of conformance is only formally defined when the second
     // element is a schema, but for implementation convenience we extend it
     // to types, as well. We consider two types conformant with each other
     // iff they are the same type.
-    bool
-    isConformableWith(const DynamicType &type_or_schema) const override {
-        return this == &type_or_schema;
+    virtual bool
+    isConformableWith(const Type &type) const {
+        return this == &type;
     }
 
     // Similarly, equivalence is only defined for schemas, but for convenience
     // we also consider a type equivalent to itself.
-    bool
-    isEquivalent(const DynamicType &type_or_schema) const override {
-        return this == &type_or_schema;
+    virtual bool
+    isEquivalent(const Type &type) const {
+        return this == &type;
     }
 };
 
 export
-class TypeOrdinal : public Type {
+class TypeOrdinal;
+
+export
+class TypeOrdinalDynamic : public Type {
 public:
-    using ptr_t = std::shared_ptr<const TypeOrdinal>;
+    using ptr_t = std::shared_ptr<const TypeOrdinalDynamic>;
 
     bool
-    isCompatibleWith(const DynamicType &other) const override {
-        if (auto *other_ordinal = dynamic_cast<const TypeOrdinal *>(&other))
+    isCompatibleWith(const Type &other) const override {
+        if (auto *other_ordinal = dynamic_cast<const TypeOrdinalDynamic *>(&other))
             return &fullRange() == &other_ordinal->fullRange();
         return Type::isCompatibleWith(other);
     }
 
-    const TypeOrdinal &
-    promoted() const override { return fullRange(); }
+    const TypeOrdinalDynamic &
+    promoted() const override;
 
     virtual const TypeOrdinal &
-    fullRange() const { return *this; }
+    fullRange() const = 0;
+};
+
+export
+class TypeOrdinal : public TypeOrdinalDynamic {
+public:
+    using ptr_t = std::shared_ptr<const TypeOrdinal>;
+
+    const TypeOrdinal &
+    fullRange() const override { return *this; }
 
     virtual pascal_integer_t
     smallestOrdinal() const = 0;

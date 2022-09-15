@@ -772,18 +772,18 @@ public:
         });
     }
 
-    sem::DynamicType::ptr_t
-    resolveDynamicType(
+    sem::Type::ptr_t
+    resolveTypeOrSchema(
         sem::Scope &scope, nodes::FormalParameterTypeOrSchema &type_or_schema_node
     ) {
         return visit(type_or_schema_node, overloaded{
             [&](nodes::ConformantArraySchema &schema_node)
-                -> sem::DynamicType::ptr_t
+                -> sem::Type::ptr_t
             {
-                auto component_type = resolveDynamicType(scope, *schema_node.component_type);
+                auto component_type = resolveTypeOrSchema(scope, *schema_node.component_type);
                 if (!component_type) return nullptr;
 
-                std::shared_ptr<const sem::ConformantArraySchema> schema;
+                std::shared_ptr<const sem::TypeArray> schema;
 
                 for (auto &index_type_node : std::views::reverse(schema_node.index_types)) {
                     if (checkDuplicateIdentifier(scope, index_type_node.smallest))
@@ -804,9 +804,13 @@ public:
                         return nullptr;
                     }
 
-                    schema = std::make_shared<sem::ConformantArraySchema>(
-                        index_type_node.smallest.spelling, index_type_node.largest.spelling,
-                        bound_type_ordinal, component_type, schema_node.is_packed);
+                    schema = std::make_shared<sem::TypeArray>(
+                        std::make_shared<sem::TypeSubrangeDynamic>(
+                            index_type_node.smallest.spelling,
+                            index_type_node.largest.spelling,
+                            bound_type_ordinal),
+                        component_type, schema_node.is_packed);
+
                     component_type = schema;
                 }
 
@@ -816,7 +820,7 @@ public:
 
                 return schema;
             },
-            [&](nodes::Identifier &id_node) -> sem::DynamicType::ptr_t {
+            [&](nodes::Identifier &id_node) {
                 return resolveTypeDenoter(scope, id_node);
             },
         });
@@ -889,7 +893,8 @@ public:
 
                     if (names.empty()) return;
 
-                    auto type = resolveDynamicType(parameter_list_scope, *rps_node.parameter_type);
+                    auto type = resolveTypeOrSchema(
+                        parameter_list_scope, *rps_node.parameter_type);
 
                     if (type && !rps_node.is_variable && !type->canBeFileComponent()) {
                         reporter_.err(rps_node.parameter_type->view.data(),
@@ -1156,7 +1161,7 @@ public:
     std::unique_ptr<sem::Expression>
     resolveIndex(
         sem::Scope &scope,
-        const sem::TypeOrdinal &expected_index_type,
+        const sem::TypeOrdinalDynamic &expected_index_type,
         const nodes::Expression &index_expression_node
     ) {
         auto index = resolveExpression(scope, index_expression_node);
@@ -1232,8 +1237,6 @@ public:
                     auto *current_access_type = &access_type;
 
                     for (auto &index_node : indexing_mod_node.indices) {
-                        sem::TypeOrdinal::ptr_t expected_index_type;
-
                         if (
                             auto *array_type
                                 = dynamic_cast<const sem::TypeArray *>(current_access_type)
@@ -1241,15 +1244,6 @@ public:
                             auto index = resolveIndex(scope, *array_type->indexType(), index_node);
                             if (!index) return;
                             access = std::make_unique<sem::VariableAccessIndexed>(
-                                std::move(access), std::move(index));
-                        }
-                        else if (
-                            auto *schema
-                                = dynamic_cast<const sem::ConformantArraySchema *>(current_access_type)
-                        ) {
-                            auto index = resolveIndex(scope, *schema->boundType(), index_node);
-                            if (!index) return;
-                            access = std::make_unique<sem::VariableAccessIndexedDynamic>(
                                 std::move(access), std::move(index));
                         }
                         else {
@@ -1832,10 +1826,10 @@ public:
 
     bool
     checkActualParameterIsConformable(
-        const sem::DynamicType &expression_type,
+        const sem::Type &expression_type,
         const char *expression_location,
-        const sem::ConformantArraySchema &schema,
-        const sem::DynamicType *first_good_parameter_type,
+        const sem::Type &schema,
+        const sem::Type *first_good_parameter_type,
         const char *first_good_parameter_location
     ) {
         if (!first_good_parameter_type) {
@@ -1944,12 +1938,16 @@ public:
             return std::nullopt;
         }
 
-        const sem::DynamicType *first_good_parameter_type = nullptr;
+        const sem::Type *first_good_parameter_type = nullptr;
         const char *first_good_parameter_location = nullptr;
 
-        auto rps_schema
-            = std::dynamic_pointer_cast<const sem::ConformantArraySchema>(
-                rps.type());
+        bool type_is_schema = false;
+
+        if (auto type_array = std::dynamic_pointer_cast<const sem::TypeArray>(rps.type()))
+            if (!std::dynamic_pointer_cast<const sem::TypeOrdinal>(
+                type_array->indexType())
+            )
+                type_is_schema = true;
 
         std::optional<sem::actual_parameter_section_t> result;
 
@@ -1966,10 +1964,10 @@ public:
                 if (!access) continue;
                 const auto &access_type = access->type(scope);
 
-                if (rps_schema) {
+                if (type_is_schema) {
                     if (!checkActualParameterIsConformable(
                         access_type, parameter_node.value.view.data(),
-                        *rps_schema,
+                        *rps.type(),
                         first_good_parameter_type, first_good_parameter_location
                     ))
                         continue;
@@ -2018,19 +2016,6 @@ public:
                         continue;
                     }
                 }
-                else if (auto *indexed_access
-                    = dynamic_cast<sem::VariableAccessIndexedDynamic *>(access.get())
-                ) {
-                    const auto &schema = dynamic_cast<const sem::ConformantArraySchema &>(
-                        indexed_access->dynamicArray().type(scope));
-
-                    if (schema.isPacked()) {
-                        reporter_.err(parameter_node.value.view.data(),
-                            ec::DISALLOWED_PARAMETER_FORM,
-                            "component of packed array used as a variable parameter");
-                        continue;
-                    }
-                }
 
                 threatenVariable(
                     scope,
@@ -2058,19 +2043,25 @@ public:
                 auto expression = resolveExpression(scope, parameter_node.value);
                 const auto &expression_type = expression->type(scope);
 
-                if (rps_schema) {
+                if (type_is_schema) {
                     if (!checkActualParameterIsConformable(
                         expression_type, parameter_node.value.view.data(),
-                        *rps_schema,
+                        *rps.type(),
                         first_good_parameter_type, first_good_parameter_location
                     ))
                         continue;
 
-                    if (dynamic_cast<const sem::ConformantArraySchema *>(&expression_type)) {
-                        reporter_.err(parameter_node.value.view.data(),
-                            ec::DISALLOWED_PARAMETER_FORM,
-                            "conformant array used directly as a value parameter");
-                        continue;
+                    if (auto *expression_type_array
+                        = dynamic_cast<const sem::TypeArray *>(&expression_type)
+                    ) {
+                        if (dynamic_cast<const sem::TypeSubrangeDynamic *>(
+                            expression_type_array->indexType().get())
+                        ) {
+                            reporter_.err(parameter_node.value.view.data(),
+                                ec::DISALLOWED_PARAMETER_FORM,
+                                "conformant array used directly as a value parameter");
+                            continue;
+                        }
                     }
                 }
                 else {
@@ -2780,8 +2771,8 @@ public:
         if (!source) return fallbackStatement();
 
         auto &source_type = source->type(scope);
-        sem::DynamicType::ptr_t source_component_type;
-        sem::TypeOrdinal::ptr_t source_index_type;
+        sem::Type::ptr_t source_component_type;
+        sem::TypeOrdinalDynamic::ptr_t source_index_type;
         bool source_is_packed;
 
         if (auto *source_type_array
@@ -2790,13 +2781,6 @@ public:
             source_component_type = source_type_array->componentType();
             source_index_type = source_type_array->indexType();
             source_is_packed = source_type_array->isPacked();
-        }
-        else if (auto *unpacked_array_type_schema
-            = dynamic_cast<const sem::ConformantArraySchema *>(&source_type)
-        ) {
-            source_component_type = unpacked_array_type_schema->componentType();
-            source_index_type = unpacked_array_type_schema->boundType();
-            source_is_packed = unpacked_array_type_schema->isPacked();
         }
         else {
             reporter_.err(actual_parameter_nodes[0].value.view.data(),
@@ -2850,23 +2834,14 @@ public:
 
         auto &dest_type = dest->type(scope);
 
-        sem::DynamicType::ptr_t dest_component_type;
-        sem::TypeOrdinal::ptr_t dest_index_type;
+        sem::Type::ptr_t dest_component_type;
         bool dest_is_packed;
 
         if (auto *dest_type_array
             = dynamic_cast<const sem::TypeArray *>(&dest_type)
         ) {
             dest_component_type = dest_type_array->componentType();
-            dest_index_type = dest_type_array->indexType();
             dest_is_packed = dest_type_array->isPacked();
-        }
-        else if (auto *unpacked_array_type_schema
-            = dynamic_cast<const sem::ConformantArraySchema *>(&dest_type)
-        ) {
-            dest_component_type = unpacked_array_type_schema->componentType();
-            dest_index_type = unpacked_array_type_schema->boundType();
-            dest_is_packed = unpacked_array_type_schema->isPacked();
         }
         else {
             reporter_.err(actual_parameter_nodes[2].value.view.data(),
@@ -2949,7 +2924,7 @@ public:
     checkReadParameterValidity(
         const nodes::ActualParameter &parameter_node,
         const sem::VariableAccess &variable,
-        const sem::DynamicType &variable_type
+        const sem::Type &variable_type
     ) {
         bool type_is_valid = false;
 
@@ -3248,7 +3223,7 @@ public:
             array_type && array_type->isString()
         ) {
             can_have_frac_digits = false;
-            total_width_default = array_type->indexType()->largestOrdinal();
+            total_width_default = array_type->stringLength();
         }
         else {
             reporter_.err(parameter_node.value.view.data(),

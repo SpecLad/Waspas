@@ -125,7 +125,7 @@ public:
         return regular_parameter_types_.contains(name);
     }
 
-    DynamicType::ptr_t
+    Type::ptr_t
     regularParameterType(const std::string &name) const {
         return regular_parameter_types_.at(name);
     }
@@ -158,7 +158,7 @@ public:
 
 private:
     std::vector<FormalParameterSection> parameters_;
-    std::unordered_map<std::string, DynamicType::ptr_t> regular_parameter_types_;
+    std::unordered_map<std::string, Type::ptr_t> regular_parameter_types_;
     std::unordered_map<std::string, TypeOrdinal::ptr_t> bound_types_;
     std::unordered_map<std::string, const Signature *> subroutine_parameter_signatures_;
     Type::ptr_t result_type_;
@@ -170,7 +170,7 @@ public:
     RegularParameterSection(
         bool is_variable,
         std::span<std::string> names,
-        DynamicType::ptr_t type
+        Type::ptr_t type
     )
         : is_variable_(is_variable)
         , names_(names.begin(), names.end())
@@ -185,7 +185,7 @@ public:
     const std::vector<std::string> &
     names() const { return names_; }
 
-    DynamicType::ptr_t
+    Type::ptr_t
     type() const { return type_; }
 
 private:
@@ -196,7 +196,7 @@ private:
     // to match, so we have to remember which names were originally in which
     // sections.
     std::vector<std::string> names_;
-    DynamicType::ptr_t type_;
+    Type::ptr_t type_;
 };
 
 export
