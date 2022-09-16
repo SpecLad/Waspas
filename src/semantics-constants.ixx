@@ -66,7 +66,11 @@ class ConstantInteger final
     : public ConstantImpl<ConstantInteger, pascal_integer_t, ConstantOrdinal>
 {
 public:
-    using ConstantImpl::ConstantImpl;
+    explicit constexpr
+    ConstantInteger(pascal_integer_t value) : ConstantImpl(value) {
+        // Standard Pascal does not support integers lower than -maxint.
+        assert(value >= -PASCAL_INTEGER_MAX);
+    }
 
     TypeOrdinal::ptr_t
     typeOrdinal() const override { return staticPtr(TypeInteger::instance()); }

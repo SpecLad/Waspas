@@ -16,8 +16,6 @@ using namespace std::literals;
 export
 using pascal_integer_t = std::int32_t;
 
-export constexpr pascal_integer_t PASCAL_INTEGER_MIN
-    = std::numeric_limits<pascal_integer_t>::min();
 export constexpr pascal_integer_t PASCAL_INTEGER_MAX
     = std::numeric_limits<pascal_integer_t>::max();
 

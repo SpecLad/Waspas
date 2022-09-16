@@ -37,7 +37,6 @@ inline constexpr ErrorCode INVALID_COMPONENT_ACCESS{"invalid-component-access"sv
 inline constexpr ErrorCode INVALID_DIRECTIVE{"invalid-directive"sv};
 inline constexpr ErrorCode INVALID_INTEGER{"invalid-integer"sv};
 inline constexpr ErrorCode INVALID_LABEL{"invalid-label"sv};
-inline constexpr ErrorCode INVALID_NEGATION{"invalid-negation"sv};
 inline constexpr ErrorCode INVALID_REAL{"invalid-real"sv};
 inline constexpr ErrorCode INVALID_TOKEN{"invalid-token"sv};
 inline constexpr ErrorCode INVERTED_SUBRANGE_BOUNDS{"inverted-subrange-bounds"sv};

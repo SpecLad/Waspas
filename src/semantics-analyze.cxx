@@ -65,14 +65,6 @@ public:
 
         if (auto *p_integer_value = dynamic_cast<const sem::ConstantInteger *>(v.get())) {
             if (sign == nodes::Sign::MINUS) {
-                if (p_integer_value->value() == std::numeric_limits<pascal_integer_t>::min()) {
-                    // It should be impossible to reach this, since integer constants can only
-                    // be defined with unsigned literals and negations, which can't produce
-                    // the lowest integer. But just in case, we'll handle it anyway.
-                    reporter_.err(location, ec::INVALID_NEGATION,
-                        "can't negate the lowest possible integer");
-                }
-
                 v = std::make_shared<sem::ConstantInteger>(-p_integer_value->value());
             }
         }
@@ -454,8 +446,8 @@ public:
             pascal_integer_t tag_smallest_ordinal = tag_type_ordinal->smallestOrdinal();
             pascal_integer_t tag_largest_ordinal = tag_type_ordinal->largestOrdinal();
 
-            pascal_integer_t counter = tag_smallest_ordinal;
-            bool counter_overflowed = false;
+            assert(tag_smallest_ordinal >= -PASCAL_INTEGER_MAX);
+            pascal_integer_t counter = tag_smallest_ordinal - 1;
 
             std::unordered_map<pascal_integer_t, const char *> used_ordinals;
 
@@ -494,19 +486,11 @@ public:
 
                     case_constants.push_back(ordinal_constant);
 
-                    if (counter == PASCAL_INTEGER_MAX) {
-                        // Note that we can only reach this branch once, because
-                        // if the counter reached PASCAL_INTEGER_MAX, then every
-                        // constant between tag_smallest_ordinal and tag_largest_ordinal
-                        // has already been used, so if there are any constants left,
-                        // they are either invalid or duplicates, so we'll error
-                        // out before reaching here again.
-                        assert(!counter_overflowed);
-                        counter_overflowed = true;
-                    }
-                    else {
-                        ++counter;
-                    }
+                    // If the counter reached PASCAL_INTEGER_MAX, then every constant
+                    // between tag_smallest_ordinal and tag_largest_ordinal has
+                    // already been used, so we shouldn't be able to reach this again.
+                    assert(counter != PASCAL_INTEGER_MAX);
+                    ++counter;
                 }
 
                 auto variant_fields = resolveFieldList(scope, variant.fields);
@@ -516,9 +500,9 @@ public:
 
             // This could only be false if there were no case constants,
             // which the grammar isn't supposed to allow.
-            assert(counter_overflowed || counter != tag_smallest_ordinal);
+            assert(counter >= tag_smallest_ordinal);
 
-            if (tag_largest_ordinal != (counter_overflowed ? counter : counter - 1)) {
+            if (counter != tag_largest_ordinal) {
                 reporter_.err(variant_part_node->view.data(), ec::MISSING_CASE,
                     "at least one value of the tag type is not covered by a case constant");
                 return field_list;

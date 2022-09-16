@@ -72,7 +72,7 @@ public:
     static inline constexpr std::string_view NAME = "integer"sv;
 
     pascal_integer_t
-    smallestOrdinal() const override { return PASCAL_INTEGER_MIN; }
+    smallestOrdinal() const override { return -PASCAL_INTEGER_MAX; }
 
     pascal_integer_t
     largestOrdinal() const override { return PASCAL_INTEGER_MAX; }
