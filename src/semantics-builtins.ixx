@@ -132,6 +132,25 @@ public:
 };
 
 export
+class StatementProcedureUnpack : public Statement {
+public:
+    StatementProcedureUnpack(
+        std::unique_ptr<sem::VariableAccess> &&source,
+        std::unique_ptr<sem::VariableAccess> &&destination,
+        std::unique_ptr<sem::Expression> &&start_index
+    )
+        : source_(std::move(source))
+        , destination_(std::move(destination))
+        , start_index_(std::move(start_index))
+    {}
+
+private:
+    std::unique_ptr<sem::VariableAccess> source_;
+    std::unique_ptr<sem::VariableAccess> destination_;
+    std::unique_ptr<sem::Expression> start_index_;
+};
+
+export
 class WriteParameter {
 public:
     explicit

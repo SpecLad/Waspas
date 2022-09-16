@@ -2460,18 +2460,6 @@ public:
         return statement;
     }
 
-    std::unique_ptr<sem::Statement>
-    resolveUnsupportedBuiltinProcedure(
-        sem::Scope &scope,
-        std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &context
-    ) {
-        reporter_.err(actual_parameter_end_location,
-            ec::UNSUPPORTED_FEATURE, "unsupported builtin procedure");
-        return fallbackStatement();
-    }
-
     std::unique_ptr<sem::VariableAccess>
     resolveBuiltinFile(
         sem::Scope &scope, const std::string &id, const char *location
@@ -3110,6 +3098,123 @@ public:
     }
 
     std::unique_ptr<sem::Statement>
+    resolveBuiltinCallUnpack(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        const StatementAnalysisContext &
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the source array");
+            return fallbackStatement();
+        }
+
+        auto source = resolveExpressionAsVariableAccess(
+            scope, actual_parameter_nodes[0].value);
+        if (!source) return fallbackStatement();
+
+        auto &source_type = source->type(scope);
+        auto *source_type_array
+            = dynamic_cast<const sem::TypeArray *>(&source_type);
+
+        if (!source_type_array) {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::NON_ARRAY_TYPE,
+                "variable has type \"{}\", which is not an array type",
+                source_type.str());
+            return fallbackStatement();
+        }
+
+        if (!source_type_array->isPacked()) {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable has non-packed array type \"{}\"",
+                source_type.str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        if (actual_parameter_nodes.size() < 2) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the destination array");
+            return fallbackStatement();
+        }
+
+        auto dest = resolveExpressionAsVariableAccess(
+            scope, actual_parameter_nodes[1].value);
+        if (!dest) return fallbackStatement();
+
+        auto &dest_type = dest->type(scope);
+        auto *dest_type_array
+            = dynamic_cast<const sem::TypeArray *>(&dest_type);
+
+        if (!dest_type_array) {
+            reporter_.err(actual_parameter_nodes[1].value.view.data(),
+                ec::NON_ARRAY_TYPE,
+                "variable has type \"{}\", which is not an array type",
+                dest_type.str());
+            return fallbackStatement();
+        }
+
+        if (dest_type_array->isPacked()) {
+            reporter_.err(actual_parameter_nodes[1].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable has packed array type \"{}\"",
+                dest_type.str());
+            return fallbackStatement();
+        }
+
+        if (dest_type_array->componentType() != source_type_array->componentType()) {
+            reporter_.err(actual_parameter_nodes[1].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "destination array component type \"{}\" is different"
+                    " from source array component type \"{}\"",
+                dest_type_array->componentType()->str(),
+                source_type_array->componentType()->str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[1]);
+
+        if (actual_parameter_nodes.size() < 3) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the start index");
+            return fallbackStatement();
+        }
+
+        auto start_index = resolveExpression(scope, actual_parameter_nodes[2].value);
+        auto &start_index_type = start_index->type(scope);
+        auto &start_index_type_promoted = start_index_type.promoted();
+
+        if (!start_index_type_promoted.isAssignmentCompatibleWith(
+            *dest_type_array->indexType())
+        ) {
+            reporter_.err(actual_parameter_nodes[2].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "value type \"{}\" is assignment-incompatible with array index type \"{}\"",
+                start_index_type_promoted.str(), dest_type_array->indexType()->str());
+            return fallbackStatement();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[2]);
+
+        if (actual_parameter_nodes.size() > 3) {
+            reporter_.err(actual_parameter_nodes[3].view.data(),
+                ec::PARAMETER_COUNT_MISMATCH,
+                "unexpected actual parameter");
+            return fallbackStatement();
+        }
+
+        return std::make_unique<sem::StatementProcedureUnpack>(
+            std::move(source), std::move(dest), std::move(start_index));
+    }
+
+    std::unique_ptr<sem::Statement>
     resolveBuiltinCallWriteTyped(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
@@ -3490,7 +3595,7 @@ ProgramBuilder::BUILTIN_PROCEDURES = {
     {"readln"sv, &ProgramBuilder::resolveBuiltinCallReadln},
     {"reset"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureReset>},
     {"rewrite"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureRewrite>},
-    {"unpack"sv, &ProgramBuilder::resolveUnsupportedBuiltinProcedure},
+    {"unpack"sv, &ProgramBuilder::resolveBuiltinCallUnpack},
     {"write"sv, &ProgramBuilder::resolveBuiltinCallWrite},
     {"writeln"sv, &ProgramBuilder::resolveBuiltinCallWriteln},
 };

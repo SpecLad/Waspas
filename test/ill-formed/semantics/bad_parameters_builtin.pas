@@ -15,6 +15,7 @@ var
     packedArray: packed array ['a'..'f'] of integer;
     packedArrayWrongType: packed array ['a'..'f'] of real;
     unpackedArray: array [0..10] of integer;
+    unpackedArrayWrongType: array [0..10] of real;
 begin
     { dispose }
 
@@ -220,6 +221,38 @@ begin
          {^ error:disallowed-parameter-form }
     put(fi, 1);
            {^ error:parameter-count-mismatch }
+
+    { unpack }
+
+    unpack;
+         {^ error:parameter-count-mismatch }
+    unpack(i, unpackedArray, 1);
+          {^ error:non-array-type }
+    unpack(unpackedArray, unpackedArray, 1);
+          {^ error:type-mismatch }
+    unpack(packedArray:3, unpackedArray, 1);
+                     {^ error:disallowed-parameter-form }
+
+    unpack(packedArray);
+                     {^ error:parameter-count-mismatch }
+    unpack(packedArray, i, 1);
+                       {^ error:non-array-type }
+    unpack(packedArray, packedArray, 1);
+                       {^ error:type-mismatch }
+    unpack(packedArray, unpackedArrayWrongType, 1);
+                       {^ error:type-mismatch }
+    unpack(packedArray, unpackedArray:3, 1);
+                                    {^ error:disallowed-parameter-form }
+
+    unpack(packedArray, unpackedArray);
+                                    {^ error:parameter-count-mismatch }
+    unpack(packedArray, unpackedArray, 'a');
+                                      {^ error:type-mismatch }
+    unpack(packedArray, unpackedArray, 1:3);
+                                       {^ error:disallowed-parameter-form }
+
+    unpack(packedArray, unpackedArray, 1, 'abc');
+                                         {^ error:parameter-count-mismatch }
 
     { write (???) }
 
