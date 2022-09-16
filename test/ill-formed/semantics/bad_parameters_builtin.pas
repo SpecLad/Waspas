@@ -12,8 +12,8 @@ var
 
     pr: ^recType;
 
-    packedArray: packed array [1..10] of integer;
-    packedArrayWrongType: packed array [1..10] of real;
+    packedArray: packed array ['a'..'f'] of integer;
+    packedArrayWrongType: packed array ['a'..'f'] of real;
     unpackedArray: array [0..10] of integer;
 begin
     { dispose }
