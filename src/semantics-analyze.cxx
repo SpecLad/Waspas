@@ -1158,28 +1158,6 @@ public:
         return nullptr;
     }
 
-    std::unique_ptr<sem::Expression>
-    resolveIndex(
-        sem::Scope &scope,
-        const sem::TypeOrdinalDynamic &expected_index_type,
-        const nodes::Expression &index_expression_node
-    ) {
-        auto index = resolveExpression(scope, index_expression_node);
-        const auto &index_type = index->type(scope);
-        const auto &index_type_promoted = index_type.promoted();
-
-        if (!index_type_promoted.isAssignmentCompatibleWith(expected_index_type)) {
-            reporter_.err(index_expression_node.view.data(),
-                ec::TYPE_MISMATCH,
-                "index expression type \"{}\" is not assignment-compatible"
-                    " with the array index type \"{}\"",
-                index_type_promoted.str(), expected_index_type.str());
-            return nullptr;
-        }
-
-        return index;
-    }
-
     void
     applyComponentAccess(
         sem::Scope &scope,
@@ -1241,8 +1219,21 @@ public:
                             auto *array_type
                                 = dynamic_cast<const sem::TypeArray *>(current_access_type)
                         ) {
-                            auto index = resolveIndex(scope, *array_type->indexType(), index_node);
-                            if (!index) return;
+                            auto index = resolveExpression(scope, index_node);
+                            const auto &index_type = index->type(scope);
+                            const auto &index_type_promoted = index_type.promoted();
+
+                            if (!index_type_promoted.isAssignmentCompatibleWith(
+                                *array_type->indexType())
+                            ) {
+                                reporter_.err(index_node.view.data(),
+                                    ec::TYPE_MISMATCH,
+                                    "index expression type \"{}\" is not assignment-compatible"
+                                    " with the array index type \"{}\"",
+                                    index_type_promoted.str(), array_type->indexType()->str());
+                                return;
+                            }
+
                             access = std::make_unique<sem::VariableAccessIndexed>(
                                 std::move(access), std::move(index));
                         }
@@ -2771,18 +2762,10 @@ public:
         if (!source) return fallbackStatement();
 
         auto &source_type = source->type(scope);
-        sem::Type::ptr_t source_component_type;
-        sem::TypeOrdinalDynamic::ptr_t source_index_type;
-        bool source_is_packed;
+        auto *source_type_array
+            = dynamic_cast<const sem::TypeArray *>(&source_type);
 
-        if (auto *source_type_array
-            = dynamic_cast<const sem::TypeArray *>(&source_type)
-        ) {
-            source_component_type = source_type_array->componentType();
-            source_index_type = source_type_array->indexType();
-            source_is_packed = source_type_array->isPacked();
-        }
-        else {
+        if (!source_type_array) {
             reporter_.err(actual_parameter_nodes[0].value.view.data(),
                 ec::NON_ARRAY_TYPE,
                 "variable has type \"{}\", which is not an array type",
@@ -2790,7 +2773,7 @@ public:
             return fallbackStatement();
         }
 
-        if (source_is_packed) {
+        if (source_type_array->isPacked()) {
             reporter_.err(actual_parameter_nodes[0].value.view.data(),
                 ec::TYPE_MISMATCH,
                 "variable has packed array type \"{}\"",
@@ -2811,11 +2794,13 @@ public:
         auto &start_index_type = start_index->type(scope);
         auto &start_index_type_promoted = start_index_type.promoted();
 
-        if (!start_index_type_promoted.isAssignmentCompatibleWith(*source_index_type)) {
+        if (!start_index_type_promoted.isAssignmentCompatibleWith(
+            *source_type_array->indexType())
+        ) {
             reporter_.err(actual_parameter_nodes[1].value.view.data(),
                 ec::TYPE_MISMATCH,
                 "value type \"{}\" is assignment-incompatible with array index type \"{}\"",
-                start_index_type_promoted.str(), source_index_type->str());
+                start_index_type_promoted.str(), source_type_array->indexType()->str());
             return fallbackStatement();
         }
 
@@ -2833,17 +2818,10 @@ public:
         if (!dest) return fallbackStatement();
 
         auto &dest_type = dest->type(scope);
+        auto *dest_type_array
+            = dynamic_cast<const sem::TypeArray *>(&dest_type);
 
-        sem::Type::ptr_t dest_component_type;
-        bool dest_is_packed;
-
-        if (auto *dest_type_array
-            = dynamic_cast<const sem::TypeArray *>(&dest_type)
-        ) {
-            dest_component_type = dest_type_array->componentType();
-            dest_is_packed = dest_type_array->isPacked();
-        }
-        else {
+        if (!dest_type_array) {
             reporter_.err(actual_parameter_nodes[2].value.view.data(),
                 ec::NON_ARRAY_TYPE,
                 "variable has type \"{}\", which is not an array type",
@@ -2851,7 +2829,7 @@ public:
             return fallbackStatement();
         }
 
-        if (!dest_is_packed) {
+        if (!dest_type_array->isPacked()) {
             reporter_.err(actual_parameter_nodes[2].value.view.data(),
                 ec::TYPE_MISMATCH,
                 "variable has non-packed array type \"{}\"",
@@ -2859,12 +2837,13 @@ public:
             return fallbackStatement();
         }
 
-        if (dest_component_type != source_component_type) {
+        if (dest_type_array->componentType() != source_type_array->componentType()) {
             reporter_.err(actual_parameter_nodes[2].value.view.data(),
                 ec::TYPE_MISMATCH,
                 "destination array component type \"{}\" is different"
                     " from source array component type \"{}\"",
-                dest_component_type->str(), source_component_type->str());
+                dest_type_array->componentType()->str(),
+                source_type_array->componentType()->str());
             return fallbackStatement();
         }
 
