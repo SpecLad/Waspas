@@ -9,9 +9,11 @@
 {^ error:invalid-token}
  '
 {^ error:invalid-token}
+ '' { empty string }
+{^^ error:invalid-token}
+ '' { ASCII SOH character }
+{^^^ error:invalid-token }
  { "nested" (* comment *) }
                          {^ error:invalid-token}
   { ASCII SOH character }
 {^ error:invalid-token}
- '' { empty string }
-{^^ error:invalid-token}

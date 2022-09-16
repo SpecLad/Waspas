@@ -62,7 +62,7 @@ const std::regex TokenUnsignedInteger::PATTERN(R"([0-9]+)",
 const std::regex TokenUnsignedReal::PATTERN(R"([0-9]+(?:\.[0-9]+(?:e[+-]?[0-9]+)?|e[+-]?[0-9]+))",
     std::regex_constants::ECMAScript | std::regex_constants::icase);
 
-const std::regex TokenCharacterString::PATTERN(R"('(?:[^'\n]|'')+')");
+const std::regex TokenCharacterString::PATTERN(R"('(?:[ -&(-~]|'')+')");
 
 std::string
 TokenCharacterString::value() const {

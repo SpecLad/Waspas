@@ -91,11 +91,12 @@ dumpAstHelper(
             std::string value_with_escapes;
             value_with_escapes.reserve(value.size() + std::ranges::count(value, '\''));
             for (auto c : value) {
+                assert(' ' <= c && c <= '~');
                 value_with_escapes += c;
                 if (c == '\'') value_with_escapes += c;
             }
 
-            printError("'{}'", value_with_escapes); // TODO: do something about control chars
+            printError("'{}'", value_with_escapes);
         }
 
         void
