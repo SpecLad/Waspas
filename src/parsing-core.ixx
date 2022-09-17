@@ -70,7 +70,7 @@ public:
     isAtomic() const { return false; }
 
     virtual void
-    describeFields(NodeFieldReceiver &receiver) const {}
+    describeFields(NodeFieldReceiver &receiver) const = 0;
 
     std::string_view view;
 
