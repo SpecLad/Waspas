@@ -56,4 +56,7 @@ begin
 
     b := b in s;
              {^ error:type-mismatch }
+
+    b := b = a;
+            {^ error:type-mismatch }
 end.
