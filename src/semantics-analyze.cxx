@@ -1404,10 +1404,36 @@ public:
     ) {
         auto expression = resolveSimpleExpression(scope, expression_node.operand);
 
-        if (expression_node.modifier)
-            reporter_.err(expression_node.modifier->view.data(),
-                ec::UNSUPPORTED_FEATURE,
-                "operators are not supported");
+        if (!expression_node.modifier)
+            return expression;
+
+        auto operand = resolveSimpleExpression(scope, expression_node.modifier->operand);
+
+        // TODO: check types
+
+        switch (expression_node.modifier->operator_) {
+        case nodes::RelationalOperator::EQUAL:
+            return std::make_unique<sem::ExpressionOperatorEqual>(
+                std::move(expression), std::move(operand));
+        case nodes::RelationalOperator::NOT_EQUAL:
+            return std::make_unique<sem::ExpressionOperatorNotEqual>(
+                std::move(expression), std::move(operand));
+        case nodes::RelationalOperator::LESS:
+            return std::make_unique<sem::ExpressionOperatorLess>(
+                std::move(expression), std::move(operand));
+        case nodes::RelationalOperator::GREATER:
+            return std::make_unique<sem::ExpressionOperatorGreater>(
+                std::move(expression), std::move(operand));
+        case nodes::RelationalOperator::LESS_OR_EQUAL:
+            return std::make_unique<sem::ExpressionOperatorLessOrEqual>(
+                std::move(expression), std::move(operand));
+        case nodes::RelationalOperator::GREATER_OR_EQUAL:
+            return std::make_unique<sem::ExpressionOperatorGreaterOrEqual>(
+                std::move(expression), std::move(operand));
+        case nodes::RelationalOperator::IN:
+            return std::make_unique<sem::ExpressionOperatorIn>(
+                std::move(expression), std::move(operand));
+        }
 
         return expression;
     }

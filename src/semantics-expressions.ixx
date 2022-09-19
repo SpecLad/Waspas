@@ -8,6 +8,7 @@ module;
 export module semantics:expressions;
 
 export import :core;
+export import :types;
 
 namespace sem {
 
@@ -65,6 +66,62 @@ public:
 
     const Type &
     type(const Scope &) const override;
+};
+
+export
+class ExpressionOperatorBinary : public Expression {
+public:
+    ExpressionOperatorBinary(
+        std::unique_ptr<sem::Expression> &&left,
+        std::unique_ptr<sem::Expression> &&right
+    ) : left_(std::move(left)), right_(std::move(right)) {}
+
+private:
+    std::unique_ptr<sem::Expression> left_;
+    std::unique_ptr<sem::Expression> right_;
+};
+
+export
+class ExpressionOperatorRelational : public ExpressionOperatorBinary {
+    using ExpressionOperatorBinary::ExpressionOperatorBinary;
+
+    const Type &
+    type(const Scope &scope) const override { return TypeBoolean::instance(); }
+};
+
+export
+class ExpressionOperatorEqual : public ExpressionOperatorRelational {
+    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+};
+
+export
+class ExpressionOperatorGreater : public ExpressionOperatorRelational {
+    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+};
+
+export
+class ExpressionOperatorGreaterOrEqual : public ExpressionOperatorRelational {
+    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+};
+
+export
+class ExpressionOperatorIn : public ExpressionOperatorRelational {
+    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+};
+
+export
+class ExpressionOperatorLess : public ExpressionOperatorRelational {
+    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+};
+
+export
+class ExpressionOperatorLessOrEqual : public ExpressionOperatorRelational {
+    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+};
+
+export
+class ExpressionOperatorNotEqual : public ExpressionOperatorRelational {
+    using ExpressionOperatorRelational::ExpressionOperatorRelational;
 };
 
 class VariableAccess : public Expression {
