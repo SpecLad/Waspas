@@ -52,6 +52,7 @@ inline constexpr ErrorCode NON_ASCII_CHAR{"non-ascii-char"sv};
 inline constexpr ErrorCode NON_BOOLEAN_TYPE{"non-boolean-type"sv};
 inline constexpr ErrorCode NON_ORDINAL_TYPE{"non-ordinal-type"sv};
 inline constexpr ErrorCode NON_RECORD_TYPE{"non-record-type"sv};
+inline constexpr ErrorCode NON_SET_TYPE{"non-set-type"sv};
 inline constexpr ErrorCode OUT_OF_RANGE{"out-of-range"sv};
 inline constexpr ErrorCode PARAMETER_COUNT_MISMATCH{"parameter-count-mismatch"sv};
 inline constexpr ErrorCode THREATENED_CONTROL_VARIABLE{"threatened-control-variable"sv};

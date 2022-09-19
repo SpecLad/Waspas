@@ -1407,7 +1407,36 @@ public:
         if (!expression_node.modifier)
             return expression;
 
+        auto &expression_type = expression->type(scope);
+        auto &expression_type_promoted = expression_type.promoted();
+
         auto operand = resolveSimpleExpression(scope, expression_node.modifier->operand);
+        auto &operand_type = operand->type(scope);
+        auto &operand_type_promoted = operand_type.promoted();
+
+        if (expression_node.modifier->operator_ == nodes::RelationalOperator::IN) {
+            // TODO: support incomplete set types
+            auto *set_type = dynamic_cast<const sem::TypeSet *>(&operand_type_promoted);
+            if (!set_type) {
+                reporter_.err(expression_node.modifier->operand.view.data(),
+                    ec::NON_SET_TYPE,
+                    "operand has non-set type \"{}\"", operand_type_promoted.str());
+                return std::make_unique<sem::ExpressionConstant>(
+                    staticPtr(sem::ConstantBoolean::instanceFalse()));
+            }
+
+            if (&expression_type_promoted != set_type->baseType().get()) {
+                reporter_.err(expression_node.modifier->operand.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "set base type \"{}\" is different from left-hand side type \"{}\"",
+                    set_type->baseType()->str(), expression_type_promoted.str());
+                return std::make_unique<sem::ExpressionConstant>(
+                    staticPtr(sem::ConstantBoolean::instanceFalse()));
+            }
+
+            return std::make_unique<sem::ExpressionOperatorIn>(
+                std::move(expression), std::move(operand));
+        }
 
         // TODO: check types
 
@@ -1429,9 +1458,6 @@ public:
                 std::move(expression), std::move(operand));
         case nodes::RelationalOperator::GREATER_OR_EQUAL:
             return std::make_unique<sem::ExpressionOperatorGreaterOrEqual>(
-                std::move(expression), std::move(operand));
-        case nodes::RelationalOperator::IN:
-            return std::make_unique<sem::ExpressionOperatorIn>(
                 std::move(expression), std::move(operand));
         }
 

@@ -511,6 +511,9 @@ public:
         return Type::isCompatibleWith(other);
     }
 
+    TypeOrdinal::ptr_t
+    baseType() const { return base_type_; }
+
 private:
     TypeOrdinal::ptr_t base_type_;
     bool is_packed_;

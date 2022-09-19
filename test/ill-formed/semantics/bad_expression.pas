@@ -5,9 +5,11 @@ type
     pint = ^integer;
     rec = record end;
 var
+    b: boolean;
     i: integer;
     r: rec;
     a: array [1..10] of integer;
+    s: set of integer;
 function f(aa: array [m..n: integer] of integer): pint;
     begin
         f := nil;
@@ -48,4 +50,10 @@ begin
 
     a := a[1.1];
           {^ error:type-mismatch }
+
+    b := b in b;
+             {^ error:non-set-type }
+
+    b := b in s;
+             {^ error:type-mismatch }
 end.
