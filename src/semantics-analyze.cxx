@@ -1455,6 +1455,59 @@ public:
 
         synchronizeOperandTypes(expression_type_promoted, operand_type_promoted);
 
+        bool is_simple_or_string =
+            dynamic_cast<const sem::TypeOrdinal *>(expression_type_promoted)
+            || expression_type_promoted == &sem::TypeReal::instance();
+
+        if (auto *array_type
+            = dynamic_cast<const sem::TypeArray *>(expression_type_promoted)
+        )
+            is_simple_or_string = array_type->isString();
+
+        bool is_pointer = dynamic_cast<const sem::TypePointer *>(expression_type_promoted)
+            || expression_type_promoted == &sem::TypePointerAny::instance();
+
+        // TODO: support incomplete set types
+        bool is_set = dynamic_cast<const sem::TypeSet *>(expression_type_promoted);
+
+        switch (expression_node.modifier->operator_) {
+        case nodes::RelationalOperator::EQUAL:
+        case nodes::RelationalOperator::NOT_EQUAL:
+            if (!(is_simple_or_string || is_pointer || is_set)) {
+                reporter_.err(expression_node.operand.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "operand type \"{}\" is neither a simple, string, pointer nor set type",
+                    expression_type_promoted->str());
+                return std::make_unique<sem::ExpressionConstant>(
+                    staticPtr(sem::ConstantBoolean::instanceFalse()));
+            }
+            break;
+
+        case nodes::RelationalOperator::LESS:
+        case nodes::RelationalOperator::GREATER:
+            if (!is_simple_or_string) {
+                reporter_.err(expression_node.operand.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "operand type \"{}\" is neither a simple nor a string type",
+                    expression_type_promoted->str());
+                return std::make_unique<sem::ExpressionConstant>(
+                    staticPtr(sem::ConstantBoolean::instanceFalse()));
+            }
+            break;
+
+        case nodes::RelationalOperator::LESS_OR_EQUAL:
+        case nodes::RelationalOperator::GREATER_OR_EQUAL:
+            if (!(is_simple_or_string || is_set)) {
+                reporter_.err(expression_node.operand.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "operand type \"{}\" is neither a simple, string, nor set type",
+                    expression_type_promoted->str());
+                return std::make_unique<sem::ExpressionConstant>(
+                    staticPtr(sem::ConstantBoolean::instanceFalse()));
+            }
+            break;
+        }
+
         if (!expression_type_promoted->isCompatibleWith(*operand_type_promoted)) {
             reporter_.err(expression_node.modifier->operand.view.data(),
                 ec::TYPE_MISMATCH,
@@ -1463,8 +1516,6 @@ public:
             return std::make_unique<sem::ExpressionConstant>(
                 staticPtr(sem::ConstantBoolean::instanceFalse()));
         }
-
-        // TODO: check types
 
         switch (expression_node.modifier->operator_) {
         case nodes::RelationalOperator::EQUAL:

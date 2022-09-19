@@ -10,6 +10,8 @@ var
     r: rec;
     a: array [1..10] of integer;
     s: set of integer;
+
+    pi: pint;
 function f(aa: array [m..n: integer] of integer): pint;
     begin
         f := nil;
@@ -50,6 +52,24 @@ begin
 
     a := a[1.1];
           {^ error:type-mismatch }
+
+    b := r = r;
+        {^ error:type-mismatch }
+
+    b := r <> r;
+        {^ error:type-mismatch }
+
+    b := pi <= pi;
+        {^ error:type-mismatch }
+
+    b := pi >= pi;
+        {^ error:type-mismatch }
+
+    b := s < s;
+        {^ error:type-mismatch }
+
+    b := s > s;
+        {^ error:type-mismatch }
 
     b := b in b;
              {^ error:non-set-type }
