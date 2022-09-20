@@ -287,6 +287,13 @@ sem::ExpressionNil::type(const Scope &) const {
     return TypePointerAny::instance();
 }
 
+// ditto
+const sem::Type &
+sem::ExpressionSetConstructor::type(const Scope &scope) const {
+    if (type_) return *type_;
+    return TypeSetAny::instance();
+}
+
 const sem::Type &
 sem::VariableAccessActivationResult::type(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();

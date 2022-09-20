@@ -124,6 +124,33 @@ class ExpressionOperatorNotEqual : public ExpressionOperatorRelational {
     using ExpressionOperatorRelational::ExpressionOperatorRelational;
 };
 
+using member_designator_t = std::variant<
+    std::unique_ptr<Expression>,
+    std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>
+>;
+
+export
+class ExpressionSetConstructor : public Expression {
+public:
+    ExpressionSetConstructor() {}
+
+    explicit
+    ExpressionSetConstructor(
+        std::vector<member_designator_t> &&members,
+        const TypeOrdinal &member_type
+    )
+        : members_(std::move(members))
+        , type_(std::make_shared<TypeSetIncomplete>(member_type))
+    {}
+
+    const Type &
+    type(const Scope &scope) const override;
+
+private:
+    std::vector<member_designator_t> members_;
+    std::shared_ptr<const TypeSetIncomplete> type_;
+};
+
 class VariableAccess : public Expression {
 };
 

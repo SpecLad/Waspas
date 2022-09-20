@@ -521,6 +521,76 @@ private:
     std::unique_ptr<TypeSet> host_type_set_;
 };
 
+// A synthetic type created to be the type of the `[...]` expression
+// (with at least one member).
+export
+class TypeSetIncomplete final : public Type {
+public:
+    explicit
+    TypeSetIncomplete(const TypeOrdinal &base_type) : base_type_(base_type)
+    {
+        // The base type should never be a subrange, since it's supposed to be
+        // the promoted type of a member expression.
+        assert(!dynamic_cast<const TypeSubrange *>(&base_type_));
+    }
+
+    std::string
+    str() const override {
+        return "[packed] set of "s + base_type_.str();
+    }
+
+    const TypeSetIncomplete &
+    promoted() const override {
+        return *this;
+    }
+
+    bool
+    isCompatibleWith(const Type &other) const override {
+        if (auto *other_set = dynamic_cast<const TypeSetIncomplete *>(&other))
+            return base_type_.isCompatibleWith(other_set->base_type_);
+        return Type::isCompatibleWith(other);
+    }
+
+    bool
+    isAssignmentCompatibleWith(const Type &other) const override {
+        if (auto *other_set = dynamic_cast<const TypeSet *>(&other))
+            return base_type_.isCompatibleWith(*other_set->baseType());
+        return Type::isAssignmentCompatibleWith(other);
+    }
+
+    const TypeOrdinal &
+    baseType() const { return base_type_; }
+
+private:
+    // HACK: this should really hold a TypeOrdinal::ptr_t, but we can't get one
+    // when this type is created, because the host type is derived from the type
+    // of the member expression(s), and that's only available as a raw reference.
+    // This shouldn't be a problem, since the `ExpressionSetConstructor` owns both
+    // the `TypeSetIncomplete` and the member expression (and therefore its type),
+    // so the reference should never become dead.
+    // For safety, instances of this should never be created outside
+    // `ExpressionSetConstructor`.
+    const TypeOrdinal &base_type_;
+};
+
+// A synthetic type created to be the type of the `[]` expression.
+export
+class TypeSetAny final : public TypeBuiltin<TypeSetAny> {
+public:
+    static inline constexpr std::string_view NAME = "[packed] set of <???>"sv;
+
+    bool
+    isAssignmentCompatibleWith(const Type &other) const override {
+        if (dynamic_cast<const TypeSet *>(&other)) return true;
+        if (dynamic_cast<const TypeSetIncomplete *>(&other)) return true;
+        return Type::isAssignmentCompatibleWith(other);
+    }
+
+private:
+    TypeSetAny() = default;
+    friend class TypeBuiltin;
+};
+
 export
 class TypePointer final : public Type {
 public:

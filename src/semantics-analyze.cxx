@@ -1408,7 +1408,19 @@ public:
                 if (sub == &sem::TypePointerAny::instance())
                     sub = super;
             }
-            // TODO: handle incomplete set types
+            else if (auto *super_set = dynamic_cast<const sem::TypeSet *>(super)) {
+                if (sub == &sem::TypeSetAny::instance())
+                    sub = super;
+                else if (
+                    auto *sub_set = dynamic_cast<const sem::TypeSetIncomplete *>(sub);
+                    sub_set && &sub_set->baseType() == super_set->baseType().get()
+                )
+                    sub = super;
+            }
+            else if (auto *super_set = dynamic_cast<const sem::TypeSetIncomplete *>(super)) {
+                if (sub == &sem::TypeSetAny::instance())
+                    sub = super;
+            }
         }
     }
 
@@ -1430,9 +1442,19 @@ public:
         auto *operand_type_promoted = &operand_type.promoted();
 
         if (expression_node.modifier->operator_ == nodes::RelationalOperator::IN) {
-            // TODO: support incomplete set types
-            auto *set_type = dynamic_cast<const sem::TypeSet *>(operand_type_promoted);
-            if (!set_type) {
+            const sem::TypeOrdinal *base_type = nullptr;
+
+            if (auto *set_type
+                = dynamic_cast<const sem::TypeSet *>(operand_type_promoted)
+            ) {
+                base_type = set_type->baseType().get();
+            }
+            else if (auto *set_type
+                = dynamic_cast<const sem::TypeSetIncomplete *>(operand_type_promoted)
+            ) {
+                base_type = &set_type->baseType();
+            }
+            else if (operand_type_promoted != &sem::TypeSetAny::instance()) {
                 reporter_.err(expression_node.modifier->operand.view.data(),
                     ec::NON_SET_TYPE,
                     "operand has non-set type \"{}\"", operand_type_promoted->str());
@@ -1440,11 +1462,11 @@ public:
                     staticPtr(sem::ConstantBoolean::instanceFalse()));
             }
 
-            if (expression_type_promoted != set_type->baseType().get()) {
+            if (base_type && expression_type_promoted != base_type) {
                 reporter_.err(expression_node.modifier->operand.view.data(),
                     ec::TYPE_MISMATCH,
                     "set base type \"{}\" is different from left-hand side type \"{}\"",
-                    set_type->baseType()->str(), expression_type_promoted->str());
+                    base_type->str(), expression_type_promoted->str());
                 return std::make_unique<sem::ExpressionConstant>(
                     staticPtr(sem::ConstantBoolean::instanceFalse()));
             }
@@ -1467,8 +1489,9 @@ public:
         bool is_pointer = dynamic_cast<const sem::TypePointer *>(expression_type_promoted)
             || expression_type_promoted == &sem::TypePointerAny::instance();
 
-        // TODO: support incomplete set types
-        bool is_set = dynamic_cast<const sem::TypeSet *>(expression_type_promoted);
+        bool is_set = dynamic_cast<const sem::TypeSet *>(expression_type_promoted)
+            || dynamic_cast<const sem::TypeSetIncomplete *>(expression_type_promoted)
+            || expression_type_promoted == &sem::TypeSetAny::instance();
 
         switch (expression_node.modifier->operator_) {
         case nodes::RelationalOperator::EQUAL:
