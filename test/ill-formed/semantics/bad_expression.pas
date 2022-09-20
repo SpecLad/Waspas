@@ -83,6 +83,12 @@ begin
     b := b = a;
             {^ error:type-mismatch }
 
+    b := +b;
+         {^ error:type-mismatch }
+
+    b := -b;
+         {^ error:type-mismatch }
+
     s := [1.1];
          {^ error:non-ordinal-type }
 

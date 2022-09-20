@@ -124,6 +124,27 @@ class ExpressionOperatorNotEqual : public ExpressionOperatorRelational {
     using ExpressionOperatorRelational::ExpressionOperatorRelational;
 };
 
+export
+class ExpressionOperatorUnary : public Expression {
+public:
+    explicit
+    ExpressionOperatorUnary(
+        std::unique_ptr<sem::Expression> &&operand
+    ) : operand_(std::move(operand)) {}
+
+    const Type &
+    type(const Scope &scope) const override { return operand_->type(scope); }
+
+private:
+    std::unique_ptr<sem::Expression> operand_;
+};
+
+export
+class ExpressionOperatorNegate : public ExpressionOperatorUnary {
+public:
+    using ExpressionOperatorUnary::ExpressionOperatorUnary;
+};
+
 using member_designator_t = std::variant<
     std::unique_ptr<Expression>,
     std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>

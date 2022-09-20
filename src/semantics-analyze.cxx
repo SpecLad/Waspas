@@ -1464,12 +1464,25 @@ public:
         sem::Scope &scope,
         const nodes::SimpleExpression &simple_expression_node
     ) {
-        if (simple_expression_node.sign != nodes::Sign::NONE)
-            reporter_.err(simple_expression_node.view.data(),
-                ec::UNSUPPORTED_FEATURE,
-                "operators are not supported");
-
         auto expression = resolveTerm(scope, simple_expression_node.operand);
+        auto &expression_type = expression->type(scope);
+        auto &expression_type_promoted = expression_type.promoted();
+
+        if (simple_expression_node.sign != nodes::Sign::NONE) {
+            if (&expression_type_promoted != &sem::TypeInteger::instance()
+                && &expression_type_promoted != &sem::TypeReal::instance()
+            ) {
+                reporter_.err(simple_expression_node.operand.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "operand type is \"{}\", which is neither \"integer\" nor \"real\"",
+                    expression_type_promoted.str());
+                return expression;
+            }
+
+            if (simple_expression_node.sign == nodes::Sign::MINUS)
+                expression = std::make_unique<sem::ExpressionOperatorNegate>(
+                    std::move(expression));
+        }
 
         if (!simple_expression_node.modifiers.empty())
             reporter_.err(simple_expression_node.modifiers[0].view.data(),
