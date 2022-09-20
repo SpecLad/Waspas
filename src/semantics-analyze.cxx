@@ -1316,6 +1316,88 @@ public:
         return resolveExpression(scope, parenthetical_node.inner_expression);
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveFactor(
+        sem::Scope &scope,
+        nodes::SetConstructor &set_constructor_node
+    ) {
+        if (set_constructor_node.members.empty())
+            return std::make_unique<sem::ExpressionSetConstructor>();
+
+        auto smallest0 = resolveExpression(
+            scope, set_constructor_node.members.front().smallest);
+        auto &smallest0_type = smallest0->type(scope);
+        auto &smallest0_type_promoted = smallest0_type.promoted();
+
+        auto *smallest0_type_ordinal = dynamic_cast<const sem::TypeOrdinal *>(
+            &smallest0_type_promoted);
+
+        if (!smallest0_type_ordinal) {
+            reporter_.err(set_constructor_node.members.front().smallest.view.data(),
+                ec::NON_ORDINAL_TYPE,
+                "member has non-ordinal type \"{}\"",
+                smallest0_type_promoted.str());
+            return std::make_unique<sem::ExpressionSetConstructor>();
+        }
+
+        std::vector<sem::member_designator_t> members;
+
+        if (set_constructor_node.members.front().largest) {
+            auto largest0 = resolveExpression(scope,
+                *set_constructor_node.members.front().largest);
+            auto &largest0_type = largest0->type(scope);
+            auto &largest0_type_promoted = largest0_type.promoted();
+            if (&largest0_type_promoted != &smallest0_type_promoted) {
+                reporter_.err(set_constructor_node.members.front().largest->view.data(),
+                    ec::TYPE_MISMATCH,
+                    "member type \"{}\" is different from first member type \"{}\"",
+                    largest0_type_promoted.str(), smallest0_type_promoted.str());
+                return std::make_unique<sem::ExpressionSetConstructor>();
+            }
+
+            members.push_back(std::make_pair(std::move(smallest0), std::move(largest0)));
+        }
+        else {
+            members.push_back(std::move(smallest0));
+        }
+
+        for (const auto &member_node : std::views::drop(set_constructor_node.members, 1)) {
+            auto smallest = resolveExpression(scope, member_node.smallest);
+            auto &smallest_type = smallest->type(scope);
+            auto &smallest_type_promoted = smallest_type.promoted();
+
+            if (&smallest_type_promoted != &smallest0_type_promoted) {
+                reporter_.err(member_node.smallest.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "member type \"{}\" is different from first member type \"{}\"",
+                    smallest_type_promoted.str(), smallest0_type_promoted.str());
+                return std::make_unique<sem::ExpressionSetConstructor>();
+            }
+
+            if (member_node.largest) {
+                auto largest = resolveExpression(scope, *member_node.largest);
+                auto &largest_type = largest->type(scope);
+                auto &largest_type_promoted = largest_type.promoted();
+
+                if (&largest_type_promoted != &smallest0_type_promoted) {
+                    reporter_.err(member_node.largest->view.data(),
+                        ec::TYPE_MISMATCH,
+                        "member type \"{}\" is different from first member type \"{}\"",
+                        largest_type_promoted.str(), smallest0_type_promoted.str());
+                    return std::make_unique<sem::ExpressionSetConstructor>();
+                }
+
+                members.push_back(std::make_pair(std::move(smallest), std::move(largest)));
+            }
+            else {
+                members.push_back(std::move(smallest));
+            }
+        }
+
+        return std::make_unique<sem::ExpressionSetConstructor>(
+            std::move(members), *smallest0_type_ordinal);
+    }
+
     template <typename T>
     std::unique_ptr<sem::Expression>
     resolveFactor(

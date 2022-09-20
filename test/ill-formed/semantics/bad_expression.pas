@@ -77,6 +77,21 @@ begin
     b := b in s;
              {^ error:type-mismatch }
 
+    b := b in [1];
+             {^ error:type-mismatch }
+
     b := b = a;
             {^ error:type-mismatch }
+
+    s := [1.1];
+         {^ error:non-ordinal-type }
+
+    s := [1..'a'];
+            {^ error:type-mismatch }
+
+    s := [1, 'a'];
+            {^ error:type-mismatch }
+
+    s := [1, 2..'a'];
+               {^ error:type-mismatch }
 end.
