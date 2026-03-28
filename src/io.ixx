@@ -23,7 +23,7 @@ template <typename ...Args>
 void
 printError(std::string_view format, Args &&...args) {
     std::string message = std::vformat(format,
-        std::make_format_args(std::forward<Args>(args)...));
+        std::make_format_args(args...));
 
 #if _WIN32
     if (isConsole(stderr)) {

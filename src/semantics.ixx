@@ -31,8 +31,8 @@ struct BuiltinBlockInitializer;
 
 namespace sem {
 
-class Program;
-class Subroutine;
+export class Program;
+export class Subroutine;
 
 export
 class Block {
@@ -103,8 +103,8 @@ private:
 
     std::unique_ptr<StatementCompound> statement_;
 
-    friend class ProgramBuilder;
-    friend struct BuiltinBlockInitializer;
+    friend class ::ProgramBuilder;
+    friend struct ::BuiltinBlockInitializer;
 };
 
 struct FormalParameterSection;
@@ -252,7 +252,7 @@ private:
 
     bool contains_result_assignment_;
 
-    friend class ProgramBuilder;
+    friend class ::ProgramBuilder;
 };
 
 export
@@ -264,7 +264,7 @@ private:
     std::unordered_map<std::string, const char *> parameters_;
     Block block_;
 
-    friend class ProgramBuilder;
+    friend class ::ProgramBuilder;
 };
 
 }

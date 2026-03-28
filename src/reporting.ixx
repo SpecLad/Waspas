@@ -135,7 +135,7 @@ public:
             std::string_view error_message_format, Args &&...error_message_args) {
         errRaw(location, error_code.str,
             std::vformat(error_message_format,
-                std::make_format_args(std::forward<Args>(error_message_args)...)));
+                std::make_format_args(error_message_args...)));
     }
 
     template <typename ...Args>
@@ -144,7 +144,7 @@ public:
             std::string_view note_message_format, Args &&...note_message_args) {
         noteRaw(location,
             std::vformat(note_message_format,
-                std::make_format_args(std::forward<Args>(note_message_args)...)));
+                std::make_format_args(note_message_args...)));
     }
 
     void hold() {
@@ -200,9 +200,9 @@ private:
     emit(std::string_view format, Args &&...args) {
         if (holding_)
             held_messages_.push_back(std::vformat(
-                format, std::make_format_args(std::forward<Args>(args)...)));
+                format, std::make_format_args(args...)));
         else
-            printError(format, std::forward<Args>(args)...);
+            printError(format, args...);
     }
 
     std::string source_path_str_;

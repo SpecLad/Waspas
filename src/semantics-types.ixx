@@ -103,6 +103,8 @@ class TypeEnumerated final
     : public TypeOrdinal, public std::enable_shared_from_this<TypeEnumerated>
 {
 public:
+    ~TypeEnumerated();
+
     static std::shared_ptr<const TypeEnumerated>
     make(std::span<const std::string> constant_names);
 
@@ -325,6 +327,7 @@ private:
     friend class TypeBuiltin;
 };
 
+export
 class FieldList;
 struct Variant;
 
@@ -577,7 +580,7 @@ private:
 export
 class TypeSetAny final : public TypeBuiltin<TypeSetAny> {
 public:
-    static inline constexpr std::string_view NAME = "[packed] set of <???>"sv;
+    static inline constexpr std::string_view NAME = "[packed] set of <??\?>"sv;
 
     bool
     isAssignmentCompatibleWith(const Type &other) const override {
@@ -618,7 +621,7 @@ private:
 export
 class TypePointerAny final : public TypeBuiltin<TypePointerAny> {
 public:
-    static inline constexpr std::string_view NAME = "^<???>"sv;
+    static inline constexpr std::string_view NAME = "^<??\?>"sv;
 
     bool
     isAssignmentCompatibleWith(const Type &other) const override {

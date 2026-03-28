@@ -6,6 +6,7 @@ module;
 #include <ranges>
 #include <string>
 #include <variant>
+#include <vector>
 
 module semantics;
 
@@ -53,6 +54,8 @@ sem::VariantPart::addVariant(
         variant_indexes_by_ordinal_[case_constant->ordinalNumber()]
             = variants_.size() - 1;
 }
+
+sem::TypeEnumerated::~TypeEnumerated() = default;
 
 std::shared_ptr<const sem::TypeEnumerated>
 sem::TypeEnumerated::make(std::span<const std::string> constant_names) {
