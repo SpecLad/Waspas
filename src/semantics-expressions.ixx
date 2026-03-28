@@ -18,7 +18,7 @@ public:
     ~Expression() = default;
 
     virtual const Type &
-    type(const Scope &scope) const = 0;
+    valueType(const Scope &scope) const = 0;
 };
 
 export // export to work around VC++ ICE
@@ -44,7 +44,7 @@ public:
     using ExpressionId::ExpressionId;
 
     const Type &
-    type(const Scope &scope) const override;
+    valueType(const Scope &scope) const override;
 };
 
 class ExpressionConstant final : public Expression {
@@ -54,7 +54,7 @@ public:
         : constant_(constant) {}
 
     const Type &
-    type(const Scope &) const override { return *constant_->type(); }
+    valueType(const Scope &) const override { return *constant_->type(); }
 
 private:
     Constant::ptr_t constant_;
@@ -65,7 +65,7 @@ public:
     ExpressionNil() = default;
 
     const Type &
-    type(const Scope &) const override;
+    valueType(const Scope &) const override;
 };
 
 export
@@ -86,7 +86,7 @@ class ExpressionOperatorRelational : public ExpressionOperatorBinary {
     using ExpressionOperatorBinary::ExpressionOperatorBinary;
 
     const Type &
-    type(const Scope &scope) const override { return TypeBoolean::instance(); }
+    valueType(const Scope &scope) const override { return TypeBoolean::instance(); }
 };
 
 export
@@ -133,7 +133,7 @@ public:
     ) : operand_(std::move(operand)) {}
 
     const Type &
-    type(const Scope &scope) const override { return operand_->type(scope); }
+    valueType(const Scope &scope) const override { return operand_->valueType(scope); }
 
 private:
     std::unique_ptr<sem::Expression> operand_;
@@ -165,7 +165,7 @@ public:
     {}
 
     const Type &
-    type(const Scope &scope) const override;
+    valueType(const Scope &scope) const override;
 
 private:
     std::vector<member_designator_t> members_;
@@ -173,6 +173,12 @@ private:
 };
 
 class VariableAccess : public Expression {
+public:
+    virtual const Type &
+    variableType(const Scope &scope) const = 0;
+
+    const Type &
+    valueType(const Scope &scope) const override { return variableType(scope).promoted(); }
 };
 
 class VariableAccessActivationResult final : public ExpressionId<VariableAccess> {
@@ -180,7 +186,7 @@ public:
     using ExpressionId::ExpressionId;
 
     const Type &
-    type(const Scope &scope) const override;
+    variableType(const Scope &scope) const override;
 };
 
 class VariableAccessFieldDesignatorId final : public ExpressionId<VariableAccess> {
@@ -188,7 +194,7 @@ public:
     using ExpressionId::ExpressionId;
 
     const Type &
-    type(const Scope &scope) const override;
+    variableType(const Scope &scope) const override;
 };
 
 class VariableAccessParameterId final : public ExpressionId<VariableAccess> {
@@ -196,7 +202,7 @@ public:
     using ExpressionId::ExpressionId;
 
     const Type &
-    type(const Scope &scope) const override;
+    variableType(const Scope &scope) const override;
 };
 
 class VariableAccessVariableId final : public ExpressionId<VariableAccess> {
@@ -204,7 +210,7 @@ public:
     using ExpressionId::ExpressionId;
 
     const Type &
-    type(const Scope &scope) const override;
+    variableType(const Scope &scope) const override;
 };
 
 class VariableAccessBuffer final : public VariableAccess {
@@ -215,7 +221,7 @@ public:
     ) : file_(std::move(file)) {}
 
     const Type &
-    type(const Scope &scope) const override;
+    variableType(const Scope &scope) const override;
 
 private:
     std::unique_ptr<VariableAccess> file_;
@@ -229,7 +235,7 @@ public:
     ) : pointer_(std::move(pointer)) {}
 
     const Type &
-    type(const Scope &scope) const override;
+    variableType(const Scope &scope) const override;
 
 private:
     std::unique_ptr<VariableAccess> pointer_;
@@ -243,7 +249,7 @@ public:
     ) : record_(std::move(record)), field_name_(field_name) {}
 
     const Type &
-    type(const Scope &scope) const override;
+    variableType(const Scope &scope) const override;
 
     const VariableAccess &
     record() const { return *record_; }
@@ -264,7 +270,7 @@ public:
     ) : array_(std::move(array)), index_(std::move(index)) {}
 
     const Type &
-    type(const Scope &scope) const override;
+    variableType(const Scope &scope) const override;
 
     const VariableAccess &
     array() const { return *array_; }

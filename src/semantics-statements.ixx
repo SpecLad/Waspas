@@ -200,7 +200,7 @@ public:
         : scope_(&parent_scope, this)
         , variable_(std::move(variable))
         , variable_type_(dynamic_cast<const TypeRecord &>(
-            variable_->type(parent_scope)))
+            variable_->variableType(parent_scope)))
     {}
 
     Scope &

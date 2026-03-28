@@ -1150,7 +1150,7 @@ public:
         const std::vector<std::unique_ptr<nodes::VariableModifier>> &modifier_nodes
     ) {
         for (auto &modifier_node : modifier_nodes) {
-            const auto &access_type = access->type(scope);
+            const auto &access_type = access->variableType(scope);
 
             visit(*modifier_node, overloaded{
                 [&](nodes::DereferencingModifier &deref_mod_node) {
@@ -1205,17 +1205,15 @@ public:
                                 = dynamic_cast<const sem::TypeArray *>(current_access_type)
                         ) {
                             auto index = resolveExpression(scope, index_node);
-                            const auto &index_type = index->type(scope);
-                            const auto &index_type_promoted = index_type.promoted();
+                            const auto &index_type = index->valueType(scope);
 
-                            if (!index_type_promoted.isAssignmentCompatibleWith(
-                                *array_type->indexType())
+                            if (!index_type.isAssignmentCompatibleWith(*array_type->indexType())
                             ) {
                                 reporter_.err(index_node.view.data(),
                                     ec::TYPE_MISMATCH,
                                     "index expression type \"{}\" is not assignment-compatible"
                                     " with the array index type \"{}\"",
-                                    index_type_promoted.str(), array_type->indexType()->str());
+                                    index_type.str(), array_type->indexType()->str());
                                 return;
                             }
 
@@ -1230,7 +1228,7 @@ public:
                             return;
                         }
 
-                        current_access_type = &access->type(scope);
+                        current_access_type = &access->variableType(scope);
                     }
                 },
             });
@@ -1327,17 +1325,15 @@ public:
 
         auto smallest0 = resolveExpression(
             scope, set_constructor_node.members.front().smallest);
-        auto &smallest0_type = smallest0->type(scope);
-        auto &smallest0_type_promoted = smallest0_type.promoted();
+        auto &smallest0_type = smallest0->valueType(scope);
 
-        auto *smallest0_type_ordinal = dynamic_cast<const sem::TypeOrdinal *>(
-            &smallest0_type_promoted);
+        auto *smallest0_type_ordinal = dynamic_cast<const sem::TypeOrdinal *>(&smallest0_type);
 
         if (!smallest0_type_ordinal) {
             reporter_.err(set_constructor_node.members.front().smallest.view.data(),
                 ec::NON_ORDINAL_TYPE,
                 "member has non-ordinal type \"{}\"",
-                smallest0_type_promoted.str());
+                smallest0_type.str());
             return std::make_unique<sem::ExpressionSetConstructor>();
         }
 
@@ -1346,13 +1342,12 @@ public:
         if (set_constructor_node.members.front().largest) {
             auto largest0 = resolveExpression(scope,
                 *set_constructor_node.members.front().largest);
-            auto &largest0_type = largest0->type(scope);
-            auto &largest0_type_promoted = largest0_type.promoted();
-            if (&largest0_type_promoted != &smallest0_type_promoted) {
+            auto &largest0_type = largest0->valueType(scope);
+            if (&largest0_type != &smallest0_type) {
                 reporter_.err(set_constructor_node.members.front().largest->view.data(),
                     ec::TYPE_MISMATCH,
                     "member type \"{}\" is different from first member type \"{}\"",
-                    largest0_type_promoted.str(), smallest0_type_promoted.str());
+                    largest0_type.str(), smallest0_type.str());
                 return std::make_unique<sem::ExpressionSetConstructor>();
             }
 
@@ -1364,27 +1359,25 @@ public:
 
         for (const auto &member_node : std::views::drop(set_constructor_node.members, 1)) {
             auto smallest = resolveExpression(scope, member_node.smallest);
-            auto &smallest_type = smallest->type(scope);
-            auto &smallest_type_promoted = smallest_type.promoted();
+            auto &smallest_type = smallest->valueType(scope);
 
-            if (&smallest_type_promoted != &smallest0_type_promoted) {
+            if (&smallest_type != &smallest0_type) {
                 reporter_.err(member_node.smallest.view.data(),
                     ec::TYPE_MISMATCH,
                     "member type \"{}\" is different from first member type \"{}\"",
-                    smallest_type_promoted.str(), smallest0_type_promoted.str());
+                    smallest_type.str(), smallest0_type.str());
                 return std::make_unique<sem::ExpressionSetConstructor>();
             }
 
             if (member_node.largest) {
                 auto largest = resolveExpression(scope, *member_node.largest);
-                auto &largest_type = largest->type(scope);
-                auto &largest_type_promoted = largest_type.promoted();
+                auto &largest_type = largest->valueType(scope);
 
-                if (&largest_type_promoted != &smallest0_type_promoted) {
+                if (&largest_type != &smallest0_type) {
                     reporter_.err(member_node.largest->view.data(),
                         ec::TYPE_MISMATCH,
                         "member type \"{}\" is different from first member type \"{}\"",
-                        largest_type_promoted.str(), smallest0_type_promoted.str());
+                        largest_type.str(), smallest0_type.str());
                     return std::make_unique<sem::ExpressionSetConstructor>();
                 }
 
@@ -1466,17 +1459,16 @@ public:
         const nodes::SimpleExpression &simple_expression_node
     ) {
         auto expression = resolveTerm(scope, simple_expression_node.operand);
-        auto &expression_type = expression->type(scope);
-        auto &expression_type_promoted = expression_type.promoted();
+        auto &expression_type = expression->valueType(scope);
 
         if (simple_expression_node.sign != nodes::Sign::NONE) {
-            if (&expression_type_promoted != &sem::TypeInteger::instance()
-                && &expression_type_promoted != &sem::TypeReal::instance()
+            if (&expression_type != &sem::TypeInteger::instance()
+                && &expression_type != &sem::TypeReal::instance()
             ) {
                 reporter_.err(simple_expression_node.operand.view.data(),
                     ec::TYPE_MISMATCH,
                     "operand type is \"{}\", which is neither \"integer\" nor \"real\"",
-                    expression_type_promoted.str());
+                    expression_type.str());
                 return expression;
             }
 
@@ -1530,39 +1522,34 @@ public:
         if (!expression_node.modifier)
             return expression;
 
-        auto &expression_type = expression->type(scope);
-        auto *expression_type_promoted = &expression_type.promoted();
+        auto *expression_type = &expression->valueType(scope);
 
         auto operand = resolveSimpleExpression(scope, expression_node.modifier->operand);
-        auto &operand_type = operand->type(scope);
-        auto *operand_type_promoted = &operand_type.promoted();
+        auto *operand_type = &operand->valueType(scope);
 
         if (expression_node.modifier->operator_ == nodes::RelationalOperator::IN) {
             const sem::TypeOrdinal *base_type = nullptr;
 
-            if (auto *set_type
-                = dynamic_cast<const sem::TypeSet *>(operand_type_promoted)
-            ) {
+            if (auto *set_type = dynamic_cast<const sem::TypeSet *>(operand_type)) {
                 base_type = set_type->baseType().get();
             }
-            else if (auto *set_type
-                = dynamic_cast<const sem::TypeSetIncomplete *>(operand_type_promoted)
+            else if (auto *set_type = dynamic_cast<const sem::TypeSetIncomplete *>(operand_type)
             ) {
                 base_type = &set_type->baseType();
             }
-            else if (operand_type_promoted != &sem::TypeSetAny::instance()) {
+            else if (operand_type != &sem::TypeSetAny::instance()) {
                 reporter_.err(expression_node.modifier->operand.view.data(),
                     ec::NON_SET_TYPE,
-                    "operand has non-set type \"{}\"", operand_type_promoted->str());
+                    "operand has non-set type \"{}\"", operand_type->str());
                 return std::make_unique<sem::ExpressionConstant>(
                     staticPtr(sem::ConstantBoolean::instanceFalse()));
             }
 
-            if (base_type && expression_type_promoted != base_type) {
+            if (base_type && expression_type != base_type) {
                 reporter_.err(expression_node.modifier->operand.view.data(),
                     ec::TYPE_MISMATCH,
                     "set base type \"{}\" is different from left-hand side type \"{}\"",
-                    base_type->str(), expression_type_promoted->str());
+                    base_type->str(), expression_type->str());
                 return std::make_unique<sem::ExpressionConstant>(
                     staticPtr(sem::ConstantBoolean::instanceFalse()));
             }
@@ -1571,23 +1558,23 @@ public:
                 std::move(expression), std::move(operand));
         }
 
-        synchronizeOperandTypes(expression_type_promoted, operand_type_promoted);
+        synchronizeOperandTypes(expression_type, operand_type);
 
         bool is_simple_or_string =
-            dynamic_cast<const sem::TypeOrdinal *>(expression_type_promoted)
-            || expression_type_promoted == &sem::TypeReal::instance();
+            dynamic_cast<const sem::TypeOrdinal *>(expression_type)
+            || expression_type == &sem::TypeReal::instance();
 
         if (auto *array_type
-            = dynamic_cast<const sem::TypeArray *>(expression_type_promoted)
+            = dynamic_cast<const sem::TypeArray *>(expression_type)
         )
             is_simple_or_string = array_type->isString();
 
-        bool is_pointer = dynamic_cast<const sem::TypePointer *>(expression_type_promoted)
-            || expression_type_promoted == &sem::TypePointerAny::instance();
+        bool is_pointer = dynamic_cast<const sem::TypePointer *>(expression_type)
+            || expression_type == &sem::TypePointerAny::instance();
 
-        bool is_set = dynamic_cast<const sem::TypeSet *>(expression_type_promoted)
-            || dynamic_cast<const sem::TypeSetIncomplete *>(expression_type_promoted)
-            || expression_type_promoted == &sem::TypeSetAny::instance();
+        bool is_set = dynamic_cast<const sem::TypeSet *>(expression_type)
+            || dynamic_cast<const sem::TypeSetIncomplete *>(expression_type)
+            || expression_type == &sem::TypeSetAny::instance();
 
         switch (expression_node.modifier->operator_) {
         case nodes::RelationalOperator::EQUAL:
@@ -1596,7 +1583,7 @@ public:
                 reporter_.err(expression_node.operand.view.data(),
                     ec::TYPE_MISMATCH,
                     "operand type \"{}\" is neither a simple, string, pointer nor set type",
-                    expression_type_promoted->str());
+                    expression_type->str());
                 return std::make_unique<sem::ExpressionConstant>(
                     staticPtr(sem::ConstantBoolean::instanceFalse()));
             }
@@ -1608,7 +1595,7 @@ public:
                 reporter_.err(expression_node.operand.view.data(),
                     ec::TYPE_MISMATCH,
                     "operand type \"{}\" is neither a simple nor a string type",
-                    expression_type_promoted->str());
+                    expression_type->str());
                 return std::make_unique<sem::ExpressionConstant>(
                     staticPtr(sem::ConstantBoolean::instanceFalse()));
             }
@@ -1620,18 +1607,18 @@ public:
                 reporter_.err(expression_node.operand.view.data(),
                     ec::TYPE_MISMATCH,
                     "operand type \"{}\" is neither a simple, string, nor set type",
-                    expression_type_promoted->str());
+                    expression_type->str());
                 return std::make_unique<sem::ExpressionConstant>(
                     staticPtr(sem::ConstantBoolean::instanceFalse()));
             }
             break;
         }
 
-        if (!expression_type_promoted->isCompatibleWith(*operand_type_promoted)) {
+        if (!expression_type->isCompatibleWith(*operand_type)) {
             reporter_.err(expression_node.modifier->operand.view.data(),
                 ec::TYPE_MISMATCH,
                 "right-hand side type \"{}\" is different from left-hand side type \"{}\"",
-                operand_type_promoted->str(), expression_type_promoted->str());
+                operand_type->str(), expression_type->str());
             return std::make_unique<sem::ExpressionConstant>(
                 staticPtr(sem::ConstantBoolean::instanceFalse()));
         }
@@ -1741,7 +1728,7 @@ public:
             "variable, field designator or current function");
         if (!access)
             return fallbackStatement();
-        const auto &access_type = access->type(scope);
+        const auto &access_type = access->variableType(scope);
 
         threatenVariable(
             scope,
@@ -1749,15 +1736,14 @@ public:
             context.used_control_variables);
 
         auto expression = resolveExpression(scope, assignment_statement_node.expression);
-        const auto &expression_type = expression->type(scope);
-        const auto &expression_type_promoted = expression_type.promoted();
+        const auto &expression_type = expression->valueType(scope);
 
-        if (!expression_type_promoted.isAssignmentCompatibleWith(access_type)) {
+        if (!expression_type.isAssignmentCompatibleWith(access_type)) {
             reporter_.err(assignment_statement_node.expression.view.data(),
                 ec::TYPE_MISMATCH,
                 "right-hand side expression type \"{}\" is assignment-incompatible"
                     " with left-hand side type \"{}\"",
-                expression_type_promoted.str(), access_type.str());
+                expression_type.str(), access_type.str());
             return fallbackStatement();
         }
 
@@ -1782,14 +1768,13 @@ public:
         const StatementAnalysisContext &context
     ) {
         auto case_index = resolveExpression(scope, case_statement_node.case_index);
-        const auto &case_index_type = case_index->type(scope);
-        const auto &case_index_type_promoted = case_index_type.promoted();
+        const auto &case_index_type = case_index->valueType(scope);
 
-        if (!dynamic_cast<const sem::TypeOrdinal *>(&case_index_type_promoted)) {
+        if (!dynamic_cast<const sem::TypeOrdinal *>(&case_index_type)) {
             reporter_.err(case_statement_node.case_index.view.data(),
                 ec::NON_ORDINAL_TYPE,
                 "case index has non-ordinal type \"{}\"",
-                case_index_type_promoted.str());
+                case_index_type.str());
 
             return fallbackStatement();
         }
@@ -1807,11 +1792,11 @@ public:
 
                 auto constant_type = constant->type();
 
-                if (constant_type.get() != &case_index_type_promoted) {
+                if (constant_type.get() != &case_index_type) {
                     reporter_.err(constant_node->view.data(), ec::TYPE_MISMATCH,
                         "case constant has type \"{}\","
                             " which is different from the type of the case index (\"{}\")",
-                        constant_type->str(), case_index_type_promoted.str());
+                        constant_type->str(), case_index_type.str());
                     continue;
                 }
 
@@ -1936,25 +1921,25 @@ public:
             context.used_control_variables);
 
         auto initial_value = resolveExpression(scope, for_statement_node.initial_value);
-        const auto &initial_value_type = initial_value->type(scope);
-        if (!initial_value_type.promoted().isCompatibleWith(*control_variable_type)) {
+        const auto &initial_value_type = initial_value->valueType(scope);
+        if (!initial_value_type.isCompatibleWith(*control_variable_type)) {
             reporter_.err(for_statement_node.initial_value.view.data(),
                 ec::TYPE_MISMATCH,
                 "initial value type \"{}\" is incompatible"
                     " with the control variable type \"{}\"",
-                initial_value_type.promoted().str(), control_variable_type->str());
+                initial_value_type.str(), control_variable_type->str());
             return fallbackStatement();
         }
 
         auto final_value = resolveExpression(scope, for_statement_node.final_value);
-        const auto &final_value_type = final_value->type(scope);
+        const auto &final_value_type = final_value->valueType(scope);
 
-        if (!final_value_type.promoted().isCompatibleWith(*control_variable_type)) {
+        if (!final_value_type.isCompatibleWith(*control_variable_type)) {
             reporter_.err(for_statement_node.final_value.view.data(),
                 ec::TYPE_MISMATCH,
                 "final value type \"{}\" is incompatible"
                     " with the control variable type \"{}\"",
-                final_value_type.promoted().str(), control_variable_type->str());
+                final_value_type.str(), control_variable_type->str());
             return fallbackStatement();
         }
 
@@ -2004,12 +1989,11 @@ public:
     std::unique_ptr<sem::Expression>
     resolveCondition(sem::Scope &scope, const nodes::Expression &expression_node) {
         auto condition = resolveExpression(scope, expression_node);
-        const auto &condition_type = condition->type(scope);
-        const auto &condition_type_promoted = condition_type.promoted();
-        if (&condition_type_promoted != &sem::TypeBoolean::instance()) {
+        const auto &condition_type = condition->valueType(scope);
+        if (&condition_type != &sem::TypeBoolean::instance()) {
             reporter_.err(expression_node.view.data(),
                 ec::NON_BOOLEAN_TYPE,
-                "condition has non-boolean type \"{}\"", condition_type_promoted.str());
+                "condition has non-boolean type \"{}\"", condition_type.str());
 
             return std::make_unique<sem::ExpressionConstant>(
                 staticPtr(sem::ConstantBoolean::instanceFalse()));
@@ -2185,7 +2169,7 @@ public:
                 auto access = resolveExpressionAsVariableAccess(
                     scope, parameter_node.value);
                 if (!access) continue;
-                const auto &access_type = access->type(scope);
+                const auto &access_type = access->variableType(scope);
 
                 if (type_is_schema) {
                     if (!checkActualParameterIsConformable(
@@ -2210,7 +2194,7 @@ public:
                     = dynamic_cast<sem::VariableAccessField *>(access.get())
                 ) {
                     const auto &record_type = dynamic_cast<const sem::TypeRecord &>(
-                        field_access->record().type(scope));
+                        field_access->record().variableType(scope));
 
                     if (record_type.isPacked()) {
                         reporter_.err(parameter_node.value.view.data(),
@@ -2230,7 +2214,7 @@ public:
                     = dynamic_cast<sem::VariableAccessIndexed *>(access.get())
                 ) {
                     const auto &array_type = dynamic_cast<const sem::TypeArray &>(
-                        indexed_access->array().type(scope));
+                        indexed_access->array().variableType(scope));
 
                     if (array_type.isPacked()) {
                         reporter_.err(parameter_node.value.view.data(),
@@ -2264,7 +2248,7 @@ public:
                 checkNoFormattingSpecification(parameter_node);
 
                 auto expression = resolveExpression(scope, parameter_node.value);
-                const auto &expression_type = expression->type(scope);
+                const auto &expression_type = expression->valueType(scope);
 
                 if (type_is_schema) {
                     if (!checkActualParameterIsConformable(
@@ -2288,13 +2272,12 @@ public:
                     }
                 }
                 else {
-                    const auto &expression_type_promoted = expression_type.promoted();
-                    if (!expression_type_promoted.isAssignmentCompatibleWith(*rps.type())) {
+                    if (!expression_type.isAssignmentCompatibleWith(*rps.type())) {
                         reporter_.err(parameter_node.value.view.data(),
                             ec::TYPE_MISMATCH,
                             "type of actual parameter (\"{}\") is assignment-incompatible"
                                 " with type of formal parameter (\"{}\")",
-                            expression_type_promoted.str(), rps.type()->str());
+                            expression_type.str(), rps.type()->str());
                         continue;
                     }
                 }
@@ -2609,7 +2592,7 @@ public:
         if (!variable)
             return fallbackStatement();
 
-        const auto &variable_type = variable->type(scope);
+        const auto &variable_type = variable->variableType(scope);
         auto *record_type = dynamic_cast<const sem::TypeRecord *>(
             &variable_type);
         if (!record_type) {
@@ -2737,7 +2720,7 @@ public:
         auto file_variable = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
         if (!file_variable) return fallbackStatement();
 
-        auto &file_variable_type = file_variable->type(scope);
+        auto &file_variable_type = file_variable->variableType(scope);
 
         if (!dynamic_cast<const sem::TypeFileLike *>(&file_variable_type)) {
             reporter_.err(actual_parameter_nodes[0].value.view.data(),
@@ -2863,7 +2846,7 @@ public:
             scope, actual_parameter_nodes[0].value);
         if (!pointer) return fallbackStatement();
 
-        auto &pointer_type = pointer->type(scope);
+        auto &pointer_type = pointer->variableType(scope);
         auto *pointer_type_pointer
             = dynamic_cast<const sem::TypePointer *>(&pointer_type);
 
@@ -2981,7 +2964,7 @@ public:
             scope, actual_parameter_nodes[0].value);
         if (!source) return fallbackStatement();
 
-        auto &source_type = source->type(scope);
+        auto &source_type = source->variableType(scope);
         auto *source_type_array
             = dynamic_cast<const sem::TypeArray *>(&source_type);
 
@@ -3011,16 +2994,15 @@ public:
         }
 
         auto start_index = resolveExpression(scope, actual_parameter_nodes[1].value);
-        auto &start_index_type = start_index->type(scope);
-        auto &start_index_type_promoted = start_index_type.promoted();
+        auto &start_index_type = start_index->valueType(scope);
 
-        if (!start_index_type_promoted.isAssignmentCompatibleWith(
+        if (!start_index_type.isAssignmentCompatibleWith(
             *source_type_array->indexType())
         ) {
             reporter_.err(actual_parameter_nodes[1].value.view.data(),
                 ec::TYPE_MISMATCH,
                 "value type \"{}\" is assignment-incompatible with array index type \"{}\"",
-                start_index_type_promoted.str(), source_type_array->indexType()->str());
+                start_index_type.str(), source_type_array->indexType()->str());
             return fallbackStatement();
         }
 
@@ -3037,7 +3019,7 @@ public:
             scope, actual_parameter_nodes[2].value);
         if (!dest) return fallbackStatement();
 
-        auto &dest_type = dest->type(scope);
+        auto &dest_type = dest->variableType(scope);
         auto *dest_type_array
             = dynamic_cast<const sem::TypeArray *>(&dest_type);
 
@@ -3098,7 +3080,7 @@ public:
         }
 
         file = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
-        auto &file_type = file->type(scope);
+        auto &file_type = file->variableType(scope);
 
         if (&file_type != &sem::TypeText::instance()) {
             reporter_.err(actual_parameter_nodes[0].value.view.data(),
@@ -3171,7 +3153,7 @@ public:
             scope, actual_parameter_nodes[0].value);
         if (!parameter0) return fallbackStatement();
 
-        auto &parameter0_type = parameter0->type(scope);
+        auto &parameter0_type = parameter0->variableType(scope);
 
         std::unique_ptr<sem::VariableAccess> file;
         std::vector<std::unique_ptr<sem::VariableAccess>> variables;
@@ -3196,7 +3178,7 @@ public:
                     *variable, parameter_node.value.view.data(),
                     context.used_control_variables);
 
-                auto &variable_type = variable->type(scope);
+                auto &variable_type = variable->variableType(scope);
                 if (!file_type->componentType()->isAssignmentCompatibleWith(variable_type)) {
                     reporter_.err(parameter_node.value.view.data(),
                         ec::TYPE_MISMATCH,
@@ -3254,7 +3236,7 @@ public:
                 context.used_control_variables);
 
             if (checkReadParameterValidity(
-                parameter_node, *variable, variable->type(scope))
+                parameter_node, *variable, variable->variableType(scope))
             )
                 variables.push_back(std::move(variable));
         }
@@ -3289,7 +3271,7 @@ public:
             scope, actual_parameter_nodes[0].value);
         if (!parameter0) return fallbackStatement();
 
-        auto &parameter0_type = parameter0->type(scope);
+        auto &parameter0_type = parameter0->variableType(scope);
 
         if (dynamic_cast<const sem::TypeText *>(&parameter0_type)) {
             checkNoFormattingSpecification(actual_parameter_nodes[0]);
@@ -3320,7 +3302,7 @@ public:
                 context.used_control_variables);
 
             if (checkReadParameterValidity(
-                parameter_node, *variable, variable->type(scope))
+                parameter_node, *variable, variable->variableType(scope))
             )
                 variables.push_back(std::move(variable));
         }
@@ -3347,7 +3329,7 @@ public:
             scope, actual_parameter_nodes[0].value);
         if (!source) return fallbackStatement();
 
-        auto &source_type = source->type(scope);
+        auto &source_type = source->variableType(scope);
         auto *source_type_array
             = dynamic_cast<const sem::TypeArray *>(&source_type);
 
@@ -3380,7 +3362,7 @@ public:
             scope, actual_parameter_nodes[1].value);
         if (!dest) return fallbackStatement();
 
-        auto &dest_type = dest->type(scope);
+        auto &dest_type = dest->variableType(scope);
         auto *dest_type_array
             = dynamic_cast<const sem::TypeArray *>(&dest_type);
 
@@ -3420,16 +3402,15 @@ public:
         }
 
         auto start_index = resolveExpression(scope, actual_parameter_nodes[2].value);
-        auto &start_index_type = start_index->type(scope);
-        auto &start_index_type_promoted = start_index_type.promoted();
+        auto &start_index_type = start_index->valueType(scope);
 
-        if (!start_index_type_promoted.isAssignmentCompatibleWith(
+        if (!start_index_type.isAssignmentCompatibleWith(
             *dest_type_array->indexType())
         ) {
             reporter_.err(actual_parameter_nodes[2].value.view.data(),
                 ec::TYPE_MISMATCH,
                 "value type \"{}\" is assignment-incompatible with array index type \"{}\"",
-                start_index_type_promoted.str(), dest_type_array->indexType()->str());
+                start_index_type.str(), dest_type_array->indexType()->str());
             return fallbackStatement();
         }
 
@@ -3466,7 +3447,7 @@ public:
         // `resolveBuiltinWrite`. The same expression cannot have different types
         // when resolved as an expression or as a variable reference.
         auto &file_variable_type
-            = dynamic_cast<const sem::TypeFile &>(file->type(scope));
+            = dynamic_cast<const sem::TypeFile &>(file->variableType(scope));
 
         if (actual_parameter_nodes.size() < 2) {
             reporter_.err(actual_parameter_end_location,
@@ -3481,16 +3462,13 @@ public:
             checkNoFormattingSpecification(parameter_node);
 
             auto parameter = resolveExpression(scope, parameter_node.value);
-            auto &parameter_type = parameter->type(scope);
-            auto &parameter_type_promoted = parameter_type.promoted();
+            auto &parameter_type = parameter->valueType(scope);
 
-            if (!parameter_type_promoted.isAssignmentCompatibleWith(
-                *file_variable_type.componentType()
-            )) {
+            if (!parameter_type.isAssignmentCompatibleWith(*file_variable_type.componentType())) {
                 reporter_.err(parameter_node.value.view.data(),
                     ec::TYPE_MISMATCH,
                     "value of type \"{}\" is incompatible with file of type \"{}\"",
-                    parameter_type_promoted.str(),
+                    parameter_type.str(),
                     file_variable_type.componentType()->str());
                 continue;
             }
@@ -3512,30 +3490,29 @@ public:
         std::unique_ptr<sem::Expression> &&value,
         std::vector<sem::WriteParameter> &parameters
     ) {
-        auto &value_type = value->type(scope);
-        auto &value_type_promoted = value_type.promoted();
+        auto &value_type = value->valueType(scope);
 
         bool can_have_frac_digits;
         pascal_integer_t total_width_default;
 
         if (
-            &value_type_promoted == &sem::TypeInteger::instance()
-                || &value_type_promoted == &sem::TypeBoolean::instance()
+            &value_type == &sem::TypeInteger::instance()
+                || &value_type == &sem::TypeBoolean::instance()
         ) {
             can_have_frac_digits = false;
             total_width_default = 0;
         }
-        else if (&value_type_promoted == &sem::TypeReal::instance()) {
+        else if (&value_type == &sem::TypeReal::instance()) {
             can_have_frac_digits = true;
             total_width_default = 0;
         }
-        else if (&value_type_promoted == &sem::TypeChar::instance()) {
+        else if (&value_type == &sem::TypeChar::instance()) {
             can_have_frac_digits = false;
             total_width_default = 1;
         }
         else if (
             auto *array_type
-                = dynamic_cast<const sem::TypeArray *>(&value_type_promoted);
+                = dynamic_cast<const sem::TypeArray *>(&value_type);
             array_type && array_type->isString()
         ) {
             can_have_frac_digits = false;
@@ -3546,7 +3523,7 @@ public:
                 ec::TYPE_MISMATCH,
                 "value type \"{}\" is not \"integer\", \"real\", \"char\","
                     " \"boolean\" or a string type",
-                value_type_promoted.str());
+                value_type.str());
             return;
         }
 
@@ -3554,15 +3531,14 @@ public:
             auto total_width = resolveExpression(
                 scope, format_spec_node->total_width);
 
-            auto &total_width_type = total_width->type(scope);
-            auto &total_width_type_promoted = total_width_type.promoted();
+            auto &total_width_type = total_width->valueType(scope);
 
-            if (&total_width_type_promoted != &sem::TypeInteger::instance()) {
+            if (&total_width_type != &sem::TypeInteger::instance()) {
                 reporter_.err(
                     format_spec_node->total_width.view.data(),
                     ec::TYPE_MISMATCH,
                     "total width has type \"{}\" instead of \"integer\"",
-                    total_width_type_promoted.str());
+                    total_width_type.str());
                 parameters.push_back(sem::WriteParameter(std::move(value)));
                 return;
             }
@@ -3571,15 +3547,14 @@ public:
                 auto frac_digits = resolveExpression(
                     scope, *format_spec_node->frac_digits);
 
-                auto &frac_digits_type = frac_digits->type(scope);
-                auto &frac_digits_type_promoted = frac_digits_type.promoted();
+                auto &frac_digits_type = frac_digits->valueType(scope);
 
-                if (&frac_digits_type_promoted != &sem::TypeInteger::instance()) {
+                if (&frac_digits_type != &sem::TypeInteger::instance()) {
                     reporter_.err(format_spec_node->frac_digits->view.data(),
                         ec::TYPE_MISMATCH,
                         "number of fractional digits has type \"{}\""
                             " instead of \"integer\"",
-                        frac_digits_type_promoted.str());
+                        frac_digits_type.str());
                     parameters.push_back(sem::WriteParameter(
                         std::move(value), std::move(total_width)));
                     return;
@@ -3595,7 +3570,7 @@ public:
                         ec::DISALLOWED_PARAMETER_FORM,
                         "number of fractional digits in a parameter of type \"{}\""
                             " that is not \"real\"",
-                        value_type_promoted.str());
+                        value_type.str());
                 }
 
                 parameters.push_back(sem::WriteParameter(
@@ -3630,7 +3605,7 @@ public:
         reporter_.hold();
 
         auto parameter0 = resolveExpression(scope, actual_parameter_nodes[0].value);
-        auto &parameter0_type = parameter0->type(scope);
+        auto &parameter0_type = parameter0->valueType(scope);
 
         if (dynamic_cast<const sem::TypeFile *>(&parameter0_type)) {
             reporter_.unholdDiscard();
@@ -3702,7 +3677,7 @@ public:
         reporter_.hold();
 
         auto parameter0 = resolveExpression(scope, actual_parameter_nodes[0].value);
-        auto &parameter0_type = parameter0->type(scope);
+        auto &parameter0_type = parameter0->valueType(scope);
 
         if (dynamic_cast<const sem::TypeText *>(&parameter0_type)) {
             reporter_.unholdDiscard();

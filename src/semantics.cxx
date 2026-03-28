@@ -276,43 +276,43 @@ sem::Signature::isCongruousWith(const Signature &other) const {
 }
 
 const sem::Type &
-sem::ExpressionBound::type(const Scope &scope) const {
+sem::ExpressionBound::valueType(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     auto *subroutine = block->containingSubroutine();
     assert(subroutine);
-    return *subroutine->signature().boundType(id());
+    return subroutine->signature().boundType(id())->promoted();
 }
 
 // this is only defined out-of-line because TypeBuiltin::instance is.
 const sem::Type &
-sem::ExpressionNil::type(const Scope &) const {
+sem::ExpressionNil::valueType(const Scope &) const {
     return TypePointerAny::instance();
 }
 
 // ditto
 const sem::Type &
-sem::ExpressionSetConstructor::type(const Scope &scope) const {
+sem::ExpressionSetConstructor::valueType(const Scope &scope) const {
     if (type_) return *type_;
     return TypeSetAny::instance();
 }
 
 const sem::Type &
-sem::VariableAccessActivationResult::type(const Scope &scope) const {
+sem::VariableAccessActivationResult::variableType(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     return *block->subroutine(id()).signature().resultType();
 }
 
 const sem::Type &
-sem::VariableAccessFieldDesignatorId::type(const Scope &scope) const {
+sem::VariableAccessFieldDesignatorId::variableType(const Scope &scope) const {
     auto *with = scope.parent(scopeIndex()).statementWith();
     assert(with);
     return *with->variableType().fieldList().fieldType(id());
 }
 
 const sem::Type &
-sem::VariableAccessParameterId::type(const Scope &scope) const {
+sem::VariableAccessParameterId::variableType(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     auto *subroutine = block->containingSubroutine();
@@ -321,40 +321,40 @@ sem::VariableAccessParameterId::type(const Scope &scope) const {
 }
 
 const sem::Type &
-sem::VariableAccessVariableId::type(const Scope &scope) const {
+sem::VariableAccessVariableId::variableType(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);
     return *block->variableType(id());
 }
 
 const sem::Type &
-sem::VariableAccessBuffer::type(const Scope &scope) const {
+sem::VariableAccessBuffer::variableType(const Scope &scope) const {
     const auto &file_type = dynamic_cast<const TypeFileLike &>(
-        file_->type(scope));
+        file_->variableType(scope));
 
     return *file_type.componentType();
 }
 
 const sem::Type &
-sem::VariableAccessDereference::type(const Scope &scope) const {
+sem::VariableAccessDereference::variableType(const Scope &scope) const {
     const auto &pointer_type = dynamic_cast<const TypePointer &>(
-        pointer_->type(scope));
+        pointer_->variableType(scope));
 
     return *pointer_type.domainType();
 }
 
 const sem::Type &
-sem::VariableAccessField::type(const Scope &scope) const {
+sem::VariableAccessField::variableType(const Scope &scope) const {
     const auto &record_type = dynamic_cast<const TypeRecord &>(
-        record_->type(scope));
+        record_->variableType(scope));
 
     return *record_type.fieldList().fieldType(field_name_);
 }
 
 const sem::Type &
-sem::VariableAccessIndexed::type(const Scope &scope) const {
+sem::VariableAccessIndexed::variableType(const Scope &scope) const {
     const auto &array_type = dynamic_cast<const TypeArray &>(
-        array_->type(scope));
+        array_->variableType(scope));
 
     return *array_type.componentType();
 }
