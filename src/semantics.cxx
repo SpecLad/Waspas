@@ -249,7 +249,7 @@ sem::Signature::isCongruousWith(const Signature &other) const {
         return false;
 
     return std::ranges::all_of(
-        std::views::iota(std::size_t(0), parameters_.size()), [&](size_t i) {
+        std::views::iota(std::size_t(0), parameters_.size()), [&](std::size_t i) {
             return parameters_[i].v.index() == other.parameters_[i].v.index()
                 && std::visit(overloaded{
                     [&](const RegularParameterSection &rps) {
