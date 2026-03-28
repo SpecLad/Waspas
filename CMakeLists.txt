@@ -1,0 +1,52 @@
+cmake_minimum_required(VERSION 4.2 FATAL_ERROR)
+
+project(Waspas LANGUAGES CXX)
+include(CTest)
+
+find_package(Python COMPONENTS Interpreter)
+
+set(CMAKE_CXX_STANDARD 23)
+
+add_custom_command(
+    OUTPUT parsing-nodes.ixx
+    COMMAND Python::Interpreter --
+        "${CMAKE_CURRENT_SOURCE_DIR}/generate-nodes.py" > parsing-nodes.ixx
+    MAIN_DEPENDENCY generate-nodes.py
+    VERBATIM
+    CODEGEN
+)
+
+add_executable(waspas
+    src/io.cxx
+    src/lexing.cxx
+    src/main.cxx
+    src/parsing.cxx
+    src/semantics.cxx
+    src/semantics-analyze.cxx
+)
+
+target_sources(waspas
+    PRIVATE
+    FILE_SET CXX_MODULES
+    FILES
+        src/io.ixx
+        src/lexing.ixx
+        src/parsing.ixx
+        src/parsing-core.ixx
+        "${CMAKE_CURRENT_BINARY_DIR}/parsing-nodes.ixx"
+        src/reporting.ixx
+        src/semantics.ixx
+        src/semantics-builtins.ixx
+        src/semantics-constants.ixx
+        src/semantics-core.ixx
+        src/semantics-expressions.ixx
+        src/semantics-statements.ixx
+        src/semantics-types.ixx
+        src/utilities.ixx
+)
+
+add_test(
+    NAME "Python tests"
+    COMMAND "${CMAKE_COMMAND}" -E env WASPAS_TEST_EXE_PATH=$<TARGET_FILE:waspas> --
+        $<TARGET_FILE:Python::Interpreter> -- "${CMAKE_CURRENT_SOURCE_DIR}/test/run_tests.py"
+)
