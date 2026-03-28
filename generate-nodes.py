@@ -245,6 +245,7 @@ def generate(enumerations, node_types):
     print('#include <cstdlib>')
     print('#include <memory>')
     print('#include <optional>')
+    print('#include <string>')
     print('#include <string_view>')
     print('#include <vector>')
     print('export module parsing:nodes;')
