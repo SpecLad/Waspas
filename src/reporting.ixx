@@ -4,15 +4,11 @@
 
 module;
 
-#include <algorithm>
 #include <cassert>
-#include <cstdlib>
-#include <filesystem>
-#include <format>
-#include <string_view>
-#include <vector>
 
 export module reporting;
+
+import std;
 
 import io;
 

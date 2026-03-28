@@ -4,12 +4,13 @@
 
 module;
 
-#include <memory>
-#include <vector>
+#include <cassert>
 
 export module lexing;
 
 export import :tokens;
+
+import std;
 
 import reporting;
 

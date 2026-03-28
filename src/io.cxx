@@ -9,13 +9,9 @@ module;
 #include <windows.h>
 
 #include <io.h>
+#include <stdio.h>
 
 #include <cassert>
-#include <cstdio>
-#include <limits>
-#include <stdexcept>
-#include <string_view>
-#include <vector>
 #endif
 
 module io;

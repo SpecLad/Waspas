@@ -4,14 +4,7 @@
 
 module;
 
-#include <algorithm>
 #include <cassert>
-#include <memory>
-#include <ranges>
-#include <string>
-#include <utility>
-#include <variant>
-#include <vector>
 
 module semantics;
 

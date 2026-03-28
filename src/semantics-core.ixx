@@ -5,13 +5,10 @@
 module;
 
 #include <cassert>
-#include <memory>
-#include <optional>
-#include <string>
-#include <variant>
-#include <unordered_map>
 
 export module semantics:core;
+
+import std;
 
 import parsing;
 import utilities;

@@ -2,17 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-module;
-
-#include <algorithm>
-#include <cctype>
-#include <format>
-#include <memory>
-#include <ranges>
-#include <string>
-#include <string_view>
-
 export module utilities;
+
+import std;
 
 export
 template <typename T>

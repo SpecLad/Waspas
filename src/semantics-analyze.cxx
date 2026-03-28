@@ -4,19 +4,7 @@
 
 module;
 
-#include <algorithm>
 #include <cassert>
-#include <memory>
-#include <optional>
-#include <span>
-#include <string>
-#include <string_view>
-#include <ranges>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-#include <variant>
-#include <vector>
 
 module semantics;
 

@@ -5,15 +5,10 @@
 module;
 
 #include <cassert>
-#include <cctype>
-#include <charconv>
-#include <concepts>
-#include <memory>
-#include <optional>
-#include <string>
-#include <string_view>
 
 export module lexing:tokens;
+
+import std;
 
 import utilities;
 

@@ -572,15 +572,9 @@ def main() -> None:
         return
 
     print(textwrap.dedent("""\
-        module;
-
-        #include <cstdint>
-        #include <memory>
-        #include <string_view>
-
         module lexing:tables;
-
         import :tokens;
+        import std;
 
         template <typename R>
         struct State {

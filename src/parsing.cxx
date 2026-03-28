@@ -5,15 +5,6 @@
 module;
 
 #include <cassert>
-#include <cstdint>
-#include <memory>
-#include <optional>
-#include <set>
-#include <span>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 module parsing;
 

@@ -2,16 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-#include <algorithm>
 #include <cassert>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <ranges>
-#include <span>
-#include <stdexcept>
-#include <string>
+
+import std;
 
 import io;
 import lexing;

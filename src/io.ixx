@@ -5,12 +5,10 @@
 module;
 
 #include <cstdio>
-#include <format>
-#include <iostream>
-#include <string_view>
-#include <utility>
 
 export module io;
+
+import std;
 
 #if _WIN32
 

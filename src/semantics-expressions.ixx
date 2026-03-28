@@ -2,17 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-module;
-
-#include <memory>
-#include <string>
-#include <variant>
-#include <vector>
-
 export module semantics:expressions;
 
 export import :core;
 export import :types;
+
+import std;
 
 namespace sem {
 

@@ -2,18 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-module;
-
-#include <cstdint>
-#include <limits>
-#include <memory>
-#include <optional>
-#include <span>
-#include <string_view>
-#include <type_traits>
-#include <vector>
-
 export module parsing:core;
+
+import std;
 
 using namespace std::literals;
 

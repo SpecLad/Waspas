@@ -5,18 +5,12 @@
 module;
 
 #include <cassert>
-#include <format>
-#include <memory>
-#include <optional>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <unordered_map>
 
 export module semantics:types;
 
 export import :core;
+
+import std;
 
 import parsing;
 import utilities;

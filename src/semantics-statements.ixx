@@ -2,17 +2,12 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-module;
-
-#include <memory>
-#include <span>
-#include <string>
-#include <vector>
-
 export module semantics:statements;
 
 export import :expressions;
 export import :types;
+
+import std;
 
 import parsing;
 

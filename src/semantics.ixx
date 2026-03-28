@@ -5,15 +5,6 @@
 module;
 
 #include <cassert>
-#include <format>
-#include <memory>
-#include <ranges>
-#include <optional>
-#include <span>
-#include <string>
-#include <string_view>
-#include <unordered_map>
-#include <variant>
 
 export module semantics;
 
@@ -23,6 +14,8 @@ export import :core;
 export import :expressions;
 export import :statements;
 export import :types;
+
+import std;
 
 import parsing;
 import reporting;

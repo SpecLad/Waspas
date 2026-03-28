@@ -5,13 +5,13 @@
 module;
 
 #include <cassert>
-#include <memory>
-#include <string>
 
 export module semantics:constants;
 
 export import :core;
 export import :types;
+
+import std;
 
 import parsing;
 
