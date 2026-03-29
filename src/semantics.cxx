@@ -298,6 +298,17 @@ sem::ExpressionSetConstructor::valueType(const Scope &scope) const {
 }
 
 const sem::Type &
+sem::ExpressionOperatorCommonType::valueType(const Scope &scope) const {
+    const Type &left_type = left().valueType(scope);
+    const Type &right_type = right().valueType(scope);
+
+    if (left_type.isAssignmentCompatibleWith(right_type))
+        return right_type;
+    else
+        return left_type;
+}
+
+const sem::Type &
 sem::VariableAccessActivationResult::variableType(const Scope &scope) const {
     auto *block = scope.parent(scopeIndex()).block();
     assert(block);

@@ -76,13 +76,19 @@ public:
         std::unique_ptr<sem::Expression> &&right
     ) : left_(std::move(left)), right_(std::move(right)) {}
 
+    const sem::Expression &
+    left() const { return *left_; }
+
+    const sem::Expression &
+    right() const { return *right_; }
+
 private:
     std::unique_ptr<sem::Expression> left_;
     std::unique_ptr<sem::Expression> right_;
 };
 
 export
-class ExpressionOperatorRelational : public ExpressionOperatorBinary {
+class ExpressionOperatorBoolean : public ExpressionOperatorBinary {
     using ExpressionOperatorBinary::ExpressionOperatorBinary;
 
     const Type &
@@ -90,38 +96,61 @@ class ExpressionOperatorRelational : public ExpressionOperatorBinary {
 };
 
 export
-class ExpressionOperatorEqual : public ExpressionOperatorRelational {
-    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+class ExpressionOperatorEqual : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
 };
 
 export
-class ExpressionOperatorGreater : public ExpressionOperatorRelational {
-    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+class ExpressionOperatorGreater : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
 };
 
 export
-class ExpressionOperatorGreaterOrEqual : public ExpressionOperatorRelational {
-    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+class ExpressionOperatorGreaterOrEqual : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
 };
 
 export
-class ExpressionOperatorIn : public ExpressionOperatorRelational {
-    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+class ExpressionOperatorIn : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
 };
 
 export
-class ExpressionOperatorLess : public ExpressionOperatorRelational {
-    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+class ExpressionOperatorLess : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
 };
 
 export
-class ExpressionOperatorLessOrEqual : public ExpressionOperatorRelational {
-    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+class ExpressionOperatorLessOrEqual : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
 };
 
 export
-class ExpressionOperatorNotEqual : public ExpressionOperatorRelational {
-    using ExpressionOperatorRelational::ExpressionOperatorRelational;
+class ExpressionOperatorNotEqual : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
+};
+
+export
+class ExpressionOperatorOr : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
+};
+
+export
+class ExpressionOperatorCommonType : public ExpressionOperatorBinary {
+    using ExpressionOperatorBinary::ExpressionOperatorBinary;
+
+    const Type &
+    valueType(const Scope &scope) const override;
+};
+
+export
+class ExpressionOperatorAdd : public ExpressionOperatorCommonType {
+    using ExpressionOperatorCommonType::ExpressionOperatorCommonType;
+};
+
+export
+class ExpressionOperatorSubtract : public ExpressionOperatorCommonType {
+    using ExpressionOperatorCommonType::ExpressionOperatorCommonType;
 };
 
 export

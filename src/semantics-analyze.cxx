@@ -1434,6 +1434,14 @@ public:
             std::make_shared<sem::ConstantInteger>(0));
     }
 
+    static void
+    synchronizeOperandTypes(const sem::Type *&left, const sem::Type *&right) {
+        if (left->isAssignmentCompatibleWith(*right))
+            left = right;
+        else if (right->isAssignmentCompatibleWith(*left))
+            right = left;
+    }
+
     std::unique_ptr<sem::Expression>
     resolveTerm(
         sem::Scope &scope,
@@ -1459,57 +1467,95 @@ public:
         const nodes::SimpleExpression &simple_expression_node
     ) {
         auto expression = resolveTerm(scope, simple_expression_node.operand);
-        auto &expression_type = expression->valueType(scope);
 
-        if (simple_expression_node.sign != nodes::Sign::NONE) {
-            if (&expression_type != &sem::TypeInteger::instance()
-                && &expression_type != &sem::TypeReal::instance()
-            ) {
+        {
+            auto &expression_type = expression->valueType(scope);
+
+            if (simple_expression_node.sign != nodes::Sign::NONE) {
+                if (&expression_type != &sem::TypeInteger::instance()
+                    && &expression_type != &sem::TypeReal::instance()
+                ) {
+                    reporter_.err(simple_expression_node.operand.view.data(),
+                        ec::TYPE_MISMATCH,
+                        "operand type is \"{}\", which is neither \"integer\" nor \"real\"",
+                        expression_type.str());
+                    return expression;
+                }
+
+                if (simple_expression_node.sign == nodes::Sign::MINUS)
+                    expression = std::make_unique<sem::ExpressionOperatorNegate>(
+                        std::move(expression));
+            }
+        }
+
+        for (auto &modifier : simple_expression_node.modifiers) {
+            auto *expression_type = &expression->valueType(scope);
+            auto operand = resolveTerm(scope, modifier.operand);
+            auto *operand_type = &operand->valueType(scope);
+
+            if (modifier.operator_ == nodes::AddingOperator::OR) {
+                if (expression_type != &sem::TypeBoolean::instance()) {
+                    reporter_.err(simple_expression_node.view.data(),
+                        ec::NON_BOOLEAN_TYPE,
+                        "operand has non-boolean type \"{}\"",
+                        expression_type->str());
+
+                    return std::make_unique<sem::ExpressionConstant>(
+                        staticPtr(sem::ConstantBoolean::instanceFalse()));
+                }
+
+                if (operand_type != &sem::TypeBoolean::instance()) {
+                    reporter_.err(modifier.operand.view.data(),
+                        ec::NON_BOOLEAN_TYPE,
+                        "operand has non-boolean type \"{}\"",
+                        operand_type->str());
+
+                    return std::make_unique<sem::ExpressionConstant>(
+                        staticPtr(sem::ConstantBoolean::instanceFalse()));
+                }
+
+                expression = std::make_unique<sem::ExpressionOperatorOr>(
+                    std::move(expression), std::move(operand));
+                continue;
+            }
+
+            synchronizeOperandTypes(expression_type, operand_type);
+
+            bool is_number = expression_type == &sem::TypeInteger::instance()
+                || expression_type == &sem::TypeReal::instance();
+
+            bool is_set = sem::TypeSetAny::instance()
+                .isAssignmentCompatibleWith(*expression_type);
+
+            if (!(is_number || is_set)) {
                 reporter_.err(simple_expression_node.operand.view.data(),
                     ec::TYPE_MISMATCH,
-                    "operand type is \"{}\", which is neither \"integer\" nor \"real\"",
-                    expression_type.str());
-                return expression;
+                    "operand type \"{}\" is neither \"integer\", \"real\", nor a set type",
+                    expression_type->str());
+                continue;
             }
 
-            if (simple_expression_node.sign == nodes::Sign::MINUS)
-                expression = std::make_unique<sem::ExpressionOperatorNegate>(
-                    std::move(expression));
-        }
+            if (!expression_type->isCompatibleWith(*operand_type)) {
+                reporter_.err(modifier.operand.view.data(),
+                    ec::TYPE_MISMATCH,
+                    "right-hand side type \"{}\" is different from left-hand side type \"{}\"",
+                    operand_type->str(), expression_type->str());
+                continue;
+            }
 
-        if (!simple_expression_node.modifiers.empty())
-            reporter_.err(simple_expression_node.modifiers[0].view.data(),
-                ec::UNSUPPORTED_FEATURE,
-                "operators are not supported");
+            switch (modifier.operator_) {
+            case nodes::AddingOperator::PLUS:
+                expression = std::make_unique<sem::ExpressionOperatorAdd>(
+                    std::move(expression), std::move(operand));
+                break;
+            case nodes::AddingOperator::MINUS:
+                expression = std::make_unique<sem::ExpressionOperatorSubtract>(
+                    std::move(expression), std::move(operand));
+                break;
+            }
+        }
 
         return expression;
-    }
-
-    void
-    synchronizeOperandTypes(const sem::Type *&left, const sem::Type *&right) {
-        for (auto &[super, sub] : {std::tie(left, right), std::tie(right, left)}) {
-            if (super == &sem::TypeReal::instance()) {
-                if (sub == &sem::TypeInteger::instance())
-                    sub = super;
-            }
-            else if (dynamic_cast<const sem::TypePointer *>(super)) {
-                if (sub == &sem::TypePointerAny::instance())
-                    sub = super;
-            }
-            else if (auto *super_set = dynamic_cast<const sem::TypeSet *>(super)) {
-                if (sub == &sem::TypeSetAny::instance())
-                    sub = super;
-                else if (
-                    auto *sub_set = dynamic_cast<const sem::TypeSetIncomplete *>(sub);
-                    sub_set && &sub_set->baseType() == super_set->baseType().get()
-                )
-                    sub = super;
-            }
-            else if (auto *super_set = dynamic_cast<const sem::TypeSetIncomplete *>(super)) {
-                if (sub == &sem::TypeSetAny::instance())
-                    sub = super;
-            }
-        }
     }
 
     std::unique_ptr<sem::Expression>
@@ -1569,12 +1615,11 @@ public:
         )
             is_simple_or_string = array_type->isString();
 
-        bool is_pointer = dynamic_cast<const sem::TypePointer *>(expression_type)
-            || expression_type == &sem::TypePointerAny::instance();
+        bool is_pointer = sem::TypePointerAny::instance()
+            .isAssignmentCompatibleWith(*expression_type);
 
-        bool is_set = dynamic_cast<const sem::TypeSet *>(expression_type)
-            || dynamic_cast<const sem::TypeSetIncomplete *>(expression_type)
-            || expression_type == &sem::TypeSetAny::instance();
+        bool is_set = sem::TypeSetAny::instance()
+            .isAssignmentCompatibleWith(*expression_type);
 
         switch (expression_node.modifier->operator_) {
         case nodes::RelationalOperator::EQUAL:
