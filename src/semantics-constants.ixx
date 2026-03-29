@@ -16,11 +16,11 @@ using namespace std::literals;
 namespace sem {
 
 export
-template <typename T, typename Value, typename Base = Constant>
-class ConstantImpl : public Base {
+template <typename Value>
+class ConstantValueMixin {
 public:
     explicit constexpr
-    ConstantImpl(const Value &value) : value_(value)
+    ConstantValueMixin(const Value &value) : value_(value)
     {}
 
     Value
@@ -32,11 +32,11 @@ protected:
 
 export
 class ConstantBoolean final
-    : public ConstantImpl<ConstantBoolean, bool, ConstantOrdinal>
+    : public ConstantOrdinal, public ConstantValueMixin<bool>
 {
 private:
     explicit constexpr
-    ConstantBoolean(bool value) : ConstantImpl(value) {}
+    ConstantBoolean(bool value) : ConstantValueMixin(value) {}
 
 public:
     TypeOrdinal::ptr_t
@@ -63,11 +63,11 @@ public:
 
 export
 class ConstantInteger final
-    : public ConstantImpl<ConstantInteger, pascal_integer_t, ConstantOrdinal>
+    : public ConstantOrdinal, public ConstantValueMixin<pascal_integer_t>
 {
 public:
     explicit constexpr
-    ConstantInteger(pascal_integer_t value) : ConstantImpl(value) {
+    ConstantInteger(pascal_integer_t value) : ConstantValueMixin(value) {
         // Standard Pascal does not support integers lower than -maxint.
         assert(value >= -PASCAL_INTEGER_MAX);
     }
@@ -90,9 +90,9 @@ public:
 
 export
 class ConstantReal final
-    : public ConstantImpl<ConstantReal, pascal_real_t>
+    : public Constant, public ConstantValueMixin<pascal_real_t>
 {
-    using ConstantImpl::ConstantImpl;
+    using ConstantValueMixin::ConstantValueMixin;
 
     Type::ptr_t
     type() const override { return staticPtr(TypeReal::instance()); }
@@ -100,9 +100,9 @@ class ConstantReal final
 
 export
 class ConstantChar final
-    : public ConstantImpl<ConstantChar, char, ConstantOrdinal>
+    : public ConstantOrdinal, public ConstantValueMixin<char>
 {
-    using ConstantImpl::ConstantImpl;
+    using ConstantValueMixin::ConstantValueMixin;
 
     TypeOrdinal::ptr_t
     typeOrdinal() const override { return staticPtr(TypeChar::instance()); }
@@ -121,12 +121,12 @@ class ConstantChar final
 
 export
 class ConstantString final
-    : public ConstantImpl<ConstantString, std::string>
+    : public Constant, public ConstantValueMixin<std::string>
 {
 public:
     explicit
     ConstantString(const std::string &value)
-        : ConstantImpl(value)
+        : ConstantValueMixin(value)
         , type_(std::make_shared<TypeArray>(
             std::make_shared<TypeSubrange>(
                 std::make_shared<ConstantInteger>(1),
