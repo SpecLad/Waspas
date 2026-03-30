@@ -50,6 +50,8 @@ inline constexpr ErrorCode MISSING_SEPARATOR{"missing-separator"sv};
 inline constexpr ErrorCode NON_ARRAY_TYPE{"non-array-type"sv};
 inline constexpr ErrorCode NON_ASCII_CHAR{"non-ascii-char"sv};
 inline constexpr ErrorCode NON_BOOLEAN_TYPE{"non-boolean-type"sv};
+inline constexpr ErrorCode NON_INTEGER_TYPE{"non-integer-type"sv};
+inline constexpr ErrorCode NON_NUMERIC_TYPE{"non-numeric-type"sv};
 inline constexpr ErrorCode NON_ORDINAL_TYPE{"non-ordinal-type"sv};
 inline constexpr ErrorCode NON_RECORD_TYPE{"non-record-type"sv};
 inline constexpr ErrorCode NON_SET_TYPE{"non-set-type"sv};

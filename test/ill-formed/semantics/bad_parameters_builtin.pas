@@ -291,25 +291,25 @@ begin
             {^ error:type-mismatch }
 
     write(t, 1:1.1);
-              {^ error:type-mismatch }
+              {^ error:non-integer-type }
 
     write(t, 1:1:1.1);
                 {^ error:disallowed-parameter-form }
 
     write(t, 1.1:1:1.1);
-                  {^ error:type-mismatch }
+                  {^ error:non-integer-type }
 
     write(pi);
          {^ error:type-mismatch }
 
     write(1:1.1);
-           {^ error:type-mismatch }
+           {^ error:non-integer-type }
 
     write(1:1:1.1);
              {^ error:disallowed-parameter-form }
 
     write(1.1:1:1.1);
-               {^ error:type-mismatch }
+               {^ error:non-integer-type }
 
     { writeln }
 
@@ -323,23 +323,23 @@ begin
               {^ error:type-mismatch }
 
     writeln(t, 1:1.1);
-                {^ error:type-mismatch }
+                {^ error:non-integer-type }
 
     writeln(t, 1:1:1.1);
                   {^ error:disallowed-parameter-form }
 
     writeln(t, 1.1:1:1.1);
-                    {^ error:type-mismatch }
+                    {^ error:non-integer-type }
 
     writeln(fi);
            {^ error:type-mismatch }
 
     writeln(1:1.1);
-             {^ error:type-mismatch }
+             {^ error:non-integer-type }
 
     writeln(1:1:1.1);
                {^ error:disallowed-parameter-form }
 
     writeln(1.1:1:1.1);
-                 {^ error:type-mismatch }
+                 {^ error:non-integer-type }
 end.

@@ -1476,7 +1476,7 @@ public:
                     && &expression_type != &sem::TypeReal::instance()
                 ) {
                     reporter_.err(simple_expression_node.operand.view.data(),
-                        ec::TYPE_MISMATCH,
+                        ec::NON_NUMERIC_TYPE,
                         "operand type is \"{}\", which is neither \"integer\" nor \"real\"",
                         expression_type.str());
                     return expression;
@@ -3571,7 +3571,7 @@ public:
             if (&total_width_type != &sem::TypeInteger::instance()) {
                 reporter_.err(
                     format_spec_node->total_width.view.data(),
-                    ec::TYPE_MISMATCH,
+                    ec::NON_INTEGER_TYPE,
                     "total width has type \"{}\" instead of \"integer\"",
                     total_width_type.str());
                 parameters.push_back(sem::WriteParameter(std::move(value)));
@@ -3586,7 +3586,7 @@ public:
 
                 if (&frac_digits_type != &sem::TypeInteger::instance()) {
                     reporter_.err(format_spec_node->frac_digits->view.data(),
-                        ec::TYPE_MISMATCH,
+                        ec::NON_INTEGER_TYPE,
                         "number of fractional digits has type \"{}\""
                             " instead of \"integer\"",
                         frac_digits_type.str());

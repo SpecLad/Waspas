@@ -84,10 +84,10 @@ begin
             {^ error:type-mismatch }
 
     b := +b;
-         {^ error:type-mismatch }
+         {^ error:non-numeric-type }
 
     b := -b;
-         {^ error:type-mismatch }
+         {^ error:non-numeric-type }
 
     b := +i                      or i;
         {^ error:non-boolean-type }{^ error:non-boolean-type }
