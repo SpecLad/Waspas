@@ -89,11 +89,8 @@ begin
     b := -b;
          {^ error:type-mismatch }
 
-    b := +i or b;
-        {^ error:non-boolean-type }
-
-    b := b or i;
-             {^ error:non-boolean-type }
+    b := +i                      or i;
+        {^ error:non-boolean-type }{^ error:non-boolean-type }
 
     a := a + i;
         {^ error:type-mismatch }

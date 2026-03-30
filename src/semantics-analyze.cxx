@@ -1494,25 +1494,15 @@ public:
             auto *operand_type = &operand->valueType(scope);
 
             if (modifier.operator_ == nodes::AddingOperator::OR) {
-                if (expression_type != &sem::TypeBoolean::instance()) {
-                    reporter_.err(simple_expression_node.view.data(),
-                        ec::NON_BOOLEAN_TYPE,
-                        "operand has non-boolean type \"{}\"",
-                        expression_type->str());
-
-                    return std::make_unique<sem::ExpressionConstant>(
-                        staticPtr(sem::ConstantBoolean::instanceFalse()));
-                }
-
-                if (operand_type != &sem::TypeBoolean::instance()) {
-                    reporter_.err(modifier.operand.view.data(),
-                        ec::NON_BOOLEAN_TYPE,
-                        "operand has non-boolean type \"{}\"",
-                        operand_type->str());
-
-                    return std::make_unique<sem::ExpressionConstant>(
-                        staticPtr(sem::ConstantBoolean::instanceFalse()));
-                }
+                for (auto &[type, node] : {
+                    std::tie(expression_type, static_cast<const Node &>(simple_expression_node)),
+                    std::tie(operand_type, static_cast<const Node &>(modifier.operand)),
+                })
+                    if (type != &sem::TypeBoolean::instance())
+                        reporter_.err(node.view.data(),
+                            ec::NON_BOOLEAN_TYPE,
+                            "operand has non-boolean type \"{}\"",
+                            type->str());
 
                 expression = std::make_unique<sem::ExpressionOperatorOr>(
                     std::move(expression), std::move(operand));
