@@ -189,8 +189,8 @@ public:
         std::unique_ptr<sem::Expression> &&operand
     ) : operand_(std::move(operand)) {}
 
-    const Type &
-    valueType(const Scope &scope) const override { return operand_->valueType(scope); }
+    const sem::Expression &
+    operand() const { return *operand_; }
 
 private:
     std::unique_ptr<sem::Expression> operand_;
@@ -200,6 +200,9 @@ export
 class ExpressionOperatorNegate : public ExpressionOperatorUnary {
 public:
     using ExpressionOperatorUnary::ExpressionOperatorUnary;
+
+    const Type &
+    valueType(const Scope &scope) const override { return operand().valueType(scope); }
 };
 
 using member_designator_t = std::variant<
