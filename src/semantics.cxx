@@ -292,7 +292,7 @@ sem::ExpressionNil::valueType(const Scope &) const {
 
 // ditto
 const sem::Type &
-sem::ExpressionSetConstructor::valueType(const Scope &scope) const {
+sem::ExpressionSetConstructor::valueType(const Scope &) const {
     if (type_) return *type_;
     return TypeSetAny::instance();
 }

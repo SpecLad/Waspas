@@ -195,7 +195,8 @@ class NodeType:
 
     def generate_out_of_line_members(self, node_types, derived_node_types):
         print('void')
-        print(f'{self.name}::describeFields(NodeFieldReceiver &receiver) const {{')
+        param_name = "receiver" if self.bases or self.fields else ""
+        print(f'{self.name}::describeFields(NodeFieldReceiver &{param_name}) const {{')
 
         for base in self.bases:
             print(f'    {base}::describeFields(receiver);')

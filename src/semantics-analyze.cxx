@@ -10,6 +10,7 @@ module;
 #include <ranges>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -252,14 +253,14 @@ public:
 
     sem::Constant::ptr_t
     resolveSignableConstant(
-        sem::Scope &scope, nodes::UnsignedIntegerConstant &uic_node
+        sem::Scope &, nodes::UnsignedIntegerConstant &uic_node
     ) {
         return std::make_shared<sem::ConstantInteger>(uic_node.value);
     }
 
     sem::Constant::ptr_t
     resolveSignableConstant(
-        sem::Scope &scope, nodes::UnsignedRealConstant &urc_node
+        sem::Scope &, nodes::UnsignedRealConstant &urc_node
     ) {
         return std::make_shared<sem::ConstantReal>(urc_node.value);
     }
@@ -957,7 +958,7 @@ public:
                             )
                         );
                     },
-                    [&](nodes::FunctionIdentification &function_id_node) {
+                    [&](nodes::FunctionIdentification &) {
                         return optional_signature_t(FUNCTION);
                     },
                     [&](nodes::ProcedureHeading &procedure_head_node) {
@@ -1306,7 +1307,7 @@ public:
     }
 
     std::unique_ptr<sem::Expression>
-    resolveFactor(sem::Scope &, nodes::Nil &nil_node) {
+    resolveFactor(sem::Scope &, nodes::Nil &) {
         return std::make_unique<sem::ExpressionNil>();
     }
 
@@ -1424,10 +1425,7 @@ public:
     }
 
     std::unique_ptr<sem::Expression>
-    resolveFactor(
-        sem::Scope &scope,
-        auto &factor_node
-    ) {
+    resolveFactor(sem::Scope &, auto &factor_node) {
         reporter_.err(factor_node.view.data(), ec::UNSUPPORTED_FEATURE,
             "factor type not supported");
         return std::make_unique<sem::ExpressionConstant>(
@@ -1582,7 +1580,8 @@ public:
             auto operand = resolveTerm(scope, modifier.operand);
             auto *operand_type = &operand->valueType(scope);
 
-            if (modifier.operator_ == nodes::AddingOperator::OR) {
+            switch (modifier.operator_) {
+            case nodes::AddingOperator::OR:
                 for (auto &[type, node] : {
                     std::tie(expression_type, static_cast<const Node &>(simple_expression_node)),
                     std::tie(operand_type, static_cast<const Node &>(modifier.operand)),
@@ -1595,41 +1594,41 @@ public:
 
                 expression = std::make_unique<sem::ExpressionOperatorOr>(
                     std::move(expression), std::move(operand));
-                continue;
-            }
-
-            synchronizeOperandTypes(expression_type, operand_type);
-
-            bool is_number = expression_type == &sem::TypeInteger::instance()
-                || expression_type == &sem::TypeReal::instance();
-
-            bool is_set = sem::TypeSetAny::instance()
-                .isAssignmentCompatibleWith(*expression_type);
-
-            if (!(is_number || is_set)) {
-                reporter_.err(simple_expression_node.operand.view.data(),
-                    ec::TYPE_MISMATCH,
-                    "operand type \"{}\" is neither \"integer\", \"real\", nor a set type",
-                    expression_type->str());
-                continue;
-            }
-
-            if (!expression_type->isCompatibleWith(*operand_type)) {
-                reporter_.err(modifier.operand.view.data(),
-                    ec::TYPE_MISMATCH,
-                    "right-hand side type \"{}\" is different from left-hand side type \"{}\"",
-                    operand_type->str(), expression_type->str());
-                continue;
-            }
-
-            switch (modifier.operator_) {
-            case nodes::AddingOperator::PLUS:
-                expression = std::make_unique<sem::ExpressionOperatorAdd>(
-                    std::move(expression), std::move(operand));
                 break;
+
+            case nodes::AddingOperator::PLUS:
             case nodes::AddingOperator::MINUS:
-                expression = std::make_unique<sem::ExpressionOperatorSubtract>(
-                    std::move(expression), std::move(operand));
+                synchronizeOperandTypes(expression_type, operand_type);
+
+                bool is_number = expression_type == &sem::TypeInteger::instance()
+                    || expression_type == &sem::TypeReal::instance();
+
+                bool is_set = sem::TypeSetAny::instance()
+                    .isAssignmentCompatibleWith(*expression_type);
+
+                if (!(is_number || is_set)) {
+                    reporter_.err(simple_expression_node.operand.view.data(),
+                        ec::TYPE_MISMATCH,
+                        "operand type \"{}\" is neither \"integer\", \"real\", nor a set type",
+                        expression_type->str());
+                    continue;
+                }
+
+                if (!expression_type->isCompatibleWith(*operand_type)) {
+                    reporter_.err(modifier.operand.view.data(),
+                        ec::TYPE_MISMATCH,
+                        "right-hand side type \"{}\" is different from left-hand side type \"{}\"",
+                        operand_type->str(), expression_type->str());
+                    continue;
+                }
+
+                if (modifier.operator_ == nodes::AddingOperator::PLUS)
+                    expression = std::make_unique<sem::ExpressionOperatorAdd>(
+                        std::move(expression), std::move(operand));
+                else
+                    expression = std::make_unique<sem::ExpressionOperatorSubtract>(
+                        std::move(expression), std::move(operand));
+
                 break;
             }
         }
@@ -1736,6 +1735,8 @@ public:
                     staticPtr(sem::ConstantBoolean::instanceFalse()));
             }
             break;
+        case nodes::RelationalOperator::IN:
+            std::unreachable();
         }
 
         if (!expression_type->isCompatibleWith(*operand_type)) {
@@ -1766,6 +1767,8 @@ public:
         case nodes::RelationalOperator::GREATER_OR_EQUAL:
             return std::make_unique<sem::ExpressionOperatorGreaterOrEqual>(
                 std::move(expression), std::move(operand));
+        case nodes::RelationalOperator::IN:
+            std::unreachable();
         }
 
         return expression;
@@ -2261,7 +2264,7 @@ public:
         const char *actual_parameter_end_location,
         const StatementAnalysisContext &context
     ) {
-        if (actual_parameter_end - actual_parameter_it < rps.names().size()) {
+        if (std::size_t(actual_parameter_end - actual_parameter_it) < rps.names().size()) {
             reporter_.err(actual_parameter_end_location,
                 ec::PARAMETER_COUNT_MISMATCH,
                 "missing actual parameter corresponding to formal parameter \"{}\"",
@@ -2577,7 +2580,7 @@ public:
         sem::SubroutineReference::Kind kind;
 
         if (lookup_result) {
-            if (auto *block = lookup_result->scope->block())
+            if (auto *block = lookup_result->scope->block()) {
                 if (block->hasSubroutine(id)) {
                     signature = &block->subroutine(id).signature();
                     kind = sem::SubroutineReference::REGULAR;
@@ -2588,6 +2591,7 @@ public:
                         kind = sem::SubroutineReference::PARAMETER;
                     }
                 }
+            }
         }
         else {
             if (BUILTIN_PROCEDURES.contains(id)) {
@@ -2808,7 +2812,7 @@ public:
 
         for (; ; lookup_scope = lookup_scope->parent()) {
             if (auto *block = lookup_scope->block())
-                if (auto *program = block->containingProgram())
+                if (auto *program = block->containingProgram()) {
                     if (program->parameters_.contains(id)) {
                         return std::make_unique<sem::VariableAccessVariableId>(
                             id, scope_index);
@@ -2819,6 +2823,7 @@ public:
                             "program parameter \"{}\" is not defined", id);
                         return nullptr;
                     }
+                }
 
             // There has to be one program block in the scope chain,
             // so we shouldn't be able to reach the end of the chain.
@@ -3228,7 +3233,6 @@ public:
     bool
     checkReadParameterValidity(
         const nodes::ActualParameter &parameter_node,
-        const sem::VariableAccess &variable,
         const sem::Type &variable_type
     ) {
         bool type_is_valid = false;
@@ -3344,9 +3348,7 @@ public:
                 *parameter0, actual_parameter_nodes[0].value.view.data(),
                 context.used_control_variables);
 
-            if (checkReadParameterValidity(
-                actual_parameter_nodes[0], *parameter0, parameter0_type)
-            )
+            if (checkReadParameterValidity(actual_parameter_nodes[0], parameter0_type))
                 variables.push_back(std::move(parameter0));
         }
 
@@ -3359,9 +3361,7 @@ public:
                 *variable, parameter_node.value.view.data(),
                 context.used_control_variables);
 
-            if (checkReadParameterValidity(
-                parameter_node, *variable, variable->variableType(scope))
-            )
+            if (checkReadParameterValidity(parameter_node, variable->variableType(scope)))
                 variables.push_back(std::move(variable));
         }
 
@@ -3410,9 +3410,7 @@ public:
                 *parameter0, actual_parameter_nodes[0].value.view.data(),
                 context.used_control_variables);
 
-            if (checkReadParameterValidity(
-                actual_parameter_nodes[0], *parameter0, parameter0_type)
-            )
+            if (checkReadParameterValidity(actual_parameter_nodes[0], parameter0_type))
                 variables.push_back(std::move(parameter0));
         }
 
@@ -3425,9 +3423,7 @@ public:
                 *variable, parameter_node.value.view.data(),
                 context.used_control_variables);
 
-            if (checkReadParameterValidity(
-                parameter_node, *variable, variable->variableType(scope))
-            )
+            if (checkReadParameterValidity(parameter_node, variable->variableType(scope)))
                 variables.push_back(std::move(variable));
         }
 

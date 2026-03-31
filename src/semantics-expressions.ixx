@@ -93,7 +93,7 @@ class ExpressionOperatorSingleType : public ExpressionOperatorBinary {
     using ExpressionOperatorBinary::ExpressionOperatorBinary;
 
     const Type &
-    valueType(const Scope &scope) const override { return T::instance(); }
+    valueType(const Scope &) const override { return T::instance(); }
 };
 
 using ExpressionOperatorBoolean = ExpressionOperatorSingleType<sem::TypeBoolean>;

@@ -7,6 +7,10 @@ find_package(Python COMPONENTS Interpreter)
 
 set(CMAKE_CXX_STANDARD 23)
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "^GNU$|Clang$")
+add_compile_options(-Wall -Wextra)
+endif()
+
 add_custom_command(
     OUTPUT parsing-nodes.ixx
     COMMAND Python::Interpreter --
