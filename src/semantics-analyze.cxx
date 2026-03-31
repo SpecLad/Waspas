@@ -1432,6 +1432,15 @@ public:
             std::make_shared<sem::ConstantInteger>(0));
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveAnyFactor(sem::Scope &scope, nodes::Factor &factor_node) {
+        return visit(factor_node,
+            [&](auto &factor_node) {
+                return resolveFactor(scope, factor_node);
+            }
+        );
+    }
+
     static void
     synchronizeOperandTypes(const sem::Type *&left, const sem::Type *&right) {
         if (left->isAssignmentCompatibleWith(*right))
@@ -1445,19 +1454,11 @@ public:
         sem::Scope &scope,
         const nodes::Term &term_node
     ) {
-        auto expression = visit(*term_node.operand,
-            [&](auto &factor_node) {
-                return resolveFactor(scope, factor_node);
-            }
-        );
+        auto expression = resolveAnyFactor(scope, *term_node.operand);
 
         for (auto &modifier : term_node.modifiers) {
             auto *expression_type = &expression->valueType(scope);
-            auto operand = visit(*modifier.operand,
-                [&](auto &factor_node) {
-                    return resolveFactor(scope, factor_node);
-                }
-            );
+            auto operand = resolveAnyFactor(scope, *modifier.operand);
             auto *operand_type = &operand->valueType(scope);
 
             switch (modifier.operator_) {
