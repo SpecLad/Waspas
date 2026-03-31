@@ -1425,6 +1425,20 @@ public:
     }
 
     std::unique_ptr<sem::Expression>
+    resolveFactor(sem::Scope &scope, nodes::NotExpression &not_expression_node) {
+        auto expression = resolveAnyFactor(scope, *not_expression_node.operand);
+        auto &expression_type = expression->valueType(scope);
+
+        if (&expression_type != &sem::TypeBoolean::instance()) {
+            reporter_.err(not_expression_node.operand->view.data(),
+                ec::NON_BOOLEAN_TYPE, "operand has non-boolean type \"{}\"",
+                expression_type.str());
+        }
+
+        return std::make_unique<sem::ExpressionOperatorNot>(std::move(expression));
+    }
+
+    std::unique_ptr<sem::Expression>
     resolveFactor(sem::Scope &, auto &factor_node) {
         reporter_.err(factor_node.view.data(), ec::UNSUPPORTED_FEATURE,
             "factor type not supported");

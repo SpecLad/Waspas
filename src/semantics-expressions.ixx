@@ -205,6 +205,15 @@ public:
     valueType(const Scope &scope) const override { return operand().valueType(scope); }
 };
 
+export
+class ExpressionOperatorNot : public ExpressionOperatorUnary {
+public:
+    using ExpressionOperatorUnary::ExpressionOperatorUnary;
+
+    const Type &
+    valueType(const Scope &) const override { return sem::TypeBoolean::instance(); }
+};
+
 using member_designator_t = std::variant<
     std::unique_ptr<Expression>,
     std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>

@@ -90,6 +90,9 @@ begin
     b := -b;
          {^ error:non-numeric-type }
 
+    b := not i;
+            {^ error:non-boolean-type }
+
     b := +i                      or i;
         {^ error:non-boolean-type }{^ error:non-boolean-type }
 
