@@ -88,11 +88,19 @@ private:
 };
 
 export
-class ExpressionOperatorBoolean : public ExpressionOperatorBinary {
+template <typename T>
+class ExpressionOperatorSingleType : public ExpressionOperatorBinary {
     using ExpressionOperatorBinary::ExpressionOperatorBinary;
 
     const Type &
-    valueType(const Scope &scope) const override { return TypeBoolean::instance(); }
+    valueType(const Scope &scope) const override { return T::instance(); }
+};
+
+using ExpressionOperatorBoolean = ExpressionOperatorSingleType<sem::TypeBoolean>;
+
+export
+class ExpressionOperatorAnd : public ExpressionOperatorBoolean {
+    using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
 };
 
 export
@@ -149,8 +157,28 @@ class ExpressionOperatorAdd : public ExpressionOperatorCommonType {
 };
 
 export
+class ExpressionOperatorMultiply : public ExpressionOperatorCommonType {
+    using ExpressionOperatorCommonType::ExpressionOperatorCommonType;
+};
+
+export
 class ExpressionOperatorSubtract : public ExpressionOperatorCommonType {
     using ExpressionOperatorCommonType::ExpressionOperatorCommonType;
+};
+
+export
+class ExpressionOperatorDivideReal : public ExpressionOperatorSingleType<TypeReal> {
+    using ExpressionOperatorSingleType::ExpressionOperatorSingleType;
+};
+
+export
+class ExpressionOperatorDivideInteger : public ExpressionOperatorSingleType<TypeInteger> {
+    using ExpressionOperatorSingleType::ExpressionOperatorSingleType;
+};
+
+export
+class ExpressionOperatorModulo : public ExpressionOperatorSingleType<TypeInteger> {
+    using ExpressionOperatorSingleType::ExpressionOperatorSingleType;
 };
 
 export

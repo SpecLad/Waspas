@@ -1453,10 +1453,99 @@ public:
             }
         );
 
-        if (!term_node.modifiers.empty())
-            reporter_.err(term_node.modifiers[0].view.data(),
-                ec::UNSUPPORTED_FEATURE,
-                "operators are not supported");
+        for (auto &modifier : term_node.modifiers) {
+            auto *expression_type = &expression->valueType(scope);
+            auto operand = visit(*modifier.operand,
+                [&](auto &factor_node) {
+                    return resolveFactor(scope, factor_node);
+                }
+            );
+            auto *operand_type = &operand->valueType(scope);
+
+            switch (modifier.operator_) {
+            case nodes::MultiplyingOperator::AND:
+                for (auto &[type, node] : {
+                    std::tie(expression_type, term_node.operand),
+                    std::tie(operand_type, modifier.operand),
+                })
+                    if (type != &sem::TypeBoolean::instance())
+                        reporter_.err(node->view.data(),
+                            ec::NON_BOOLEAN_TYPE,
+                            "operand has non-boolean type \"{}\"",
+                            type->str());
+
+                expression = std::make_unique<sem::ExpressionOperatorAnd>(
+                    std::move(expression), std::move(operand));
+                break;
+
+            case nodes::MultiplyingOperator::MULTIPLY:
+                {
+                    synchronizeOperandTypes(expression_type, operand_type);
+
+                    bool is_number = expression_type == &sem::TypeInteger::instance()
+                        || expression_type == &sem::TypeReal::instance();
+
+                    bool is_set = sem::TypeSetAny::instance()
+                        .isAssignmentCompatibleWith(*expression_type);
+
+                    if (!(is_number || is_set)) {
+                        reporter_.err(term_node.operand->view.data(),
+                            ec::TYPE_MISMATCH,
+                            "operand type \"{}\" is neither \"integer\", \"real\", nor a set type",
+                            expression_type->str());
+                        continue;
+                    }
+
+                    if (!expression_type->isCompatibleWith(*operand_type)) {
+                        reporter_.err(modifier.operand->view.data(),
+                            ec::TYPE_MISMATCH,
+                            "right-hand side type \"{}\" is different from left-hand side type \"{}\"",
+                            operand_type->str(), expression_type->str());
+                        continue;
+                    }
+
+                    expression = std::make_unique<sem::ExpressionOperatorMultiply>(
+                        std::move(expression), std::move(operand));
+                }
+                break;
+
+            case nodes::MultiplyingOperator::DIVIDE_REAL:
+                for (auto &[type, node] : {
+                    std::tie(expression_type, term_node.operand),
+                    std::tie(operand_type, modifier.operand),
+                })
+                    if (type != &sem::TypeInteger::instance() && type != &sem::TypeReal::instance())
+                        reporter_.err(node->view.data(),
+                            ec::NON_NUMERIC_TYPE,
+                            "operand type \"{}\" is neither \"integer\" nor \"real\"",
+                            type->str());
+
+                expression = std::make_unique<sem::ExpressionOperatorDivideReal>(
+                    std::move(expression), std::move(operand));
+                break;
+
+            case nodes::MultiplyingOperator::DIVIDE_INTEGER:
+            case nodes::MultiplyingOperator::MODULO:
+                for (auto &[type, node] : {
+                    std::tie(expression_type, term_node.operand),
+                    std::tie(operand_type, modifier.operand),
+                })
+                    if (type != &sem::TypeInteger::instance())
+                        reporter_.err(node->view.data(),
+                            ec::NON_INTEGER_TYPE,
+                            "operand has type \"{}\" instead of \"integer\"",
+                            type->str());
+
+                if (modifier.operator_ == nodes::MultiplyingOperator::DIVIDE_INTEGER)
+                    expression = std::make_unique<sem::ExpressionOperatorDivideInteger>(
+                        std::move(expression), std::move(operand));
+                else
+                    expression = std::make_unique<sem::ExpressionOperatorModulo>(
+                        std::move(expression), std::move(operand));
+
+                break;
+            }
+        }
 
         return expression;
     }

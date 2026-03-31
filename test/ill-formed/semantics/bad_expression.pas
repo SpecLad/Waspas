@@ -7,6 +7,7 @@ type
 var
     b: boolean;
     i: integer;
+    x: real;
     r: rec;
     a: array [1..10] of integer;
     s: set of integer;
@@ -97,6 +98,24 @@ begin
 
     i := i + a                     + a;
             {^ error:type-mismatch }{^ error:type-mismatch }
+
+    b := i                      and i;
+        {^ error:non-boolean-type }{^ error:non-boolean-type }
+
+    a := a * i;
+        {^ error:type-mismatch }
+
+    i := i * a                     * a;
+            {^ error:type-mismatch }{^ error:type-mismatch }
+
+    x := a                        / a;
+        {^ error:non-numeric-type }{^ error:non-numeric-type }
+
+    i := x                      div x;
+        {^ error:non-integer-type }{^ error:non-integer-type }
+
+    i := x                      mod x;
+        {^ error:non-integer-type }{^ error:non-integer-type }
 
     s := [1.1];
          {^ error:non-ordinal-type }
