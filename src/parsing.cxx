@@ -900,7 +900,7 @@ public:
         // as a variable access, so we can assume that a parameter list
         // is present.
         token_reader_.consume<TokenLeftParenthesis>();
-        parseSeparatedList<TokenComma>(fd.parameters, &Parser::parseExpression);
+        parseSeparatedList<TokenComma>(fd.parameters, &Parser::parseActualParameter);
         token_reader_.consume<TokenRightParenthesis>();
     }
 

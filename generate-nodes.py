@@ -427,7 +427,10 @@ NODE_TYPES = (
 
     NodeType('FunctionDesignator', bases=('Factor',), fields=(
         NodeField('function', 'Identifier'),
-        NodeListField('parameters', 'Expression'),
+        # This could've been a list of Expressions,
+        # but using ActualParameter lets us reuse the same parameter matching logic
+        # between procedures and functions.
+        NodeListField('parameters', 'ActualParameter'),
     )),
 
     NodeType('FunctionHeading', bases=(
