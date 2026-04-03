@@ -39,27 +39,12 @@ applyFallback(sem::Constant::ptr_t &ptr)
         ptr = std::make_shared<sem::ConstantInteger>(0);
 }
 
-class ProgramBuilder {
+using label_set_t = std::unordered_set<pascal_integer_t>;
+
+class Builder {
 public:
-    ProgramBuilder(Reporter &reporter) : reporter_(reporter)
+    Builder(Reporter &reporter) : reporter_(reporter)
     {}
-
-    void
-    analyzeLabelDeclarations(const nodes::Block &block_node, sem::Block &block) {
-        for (auto &label_node : block_node.label_declarations) {
-            auto label_location = label_node.view.data();
-
-            auto [it, success] = block.labels_.try_emplace(
-                label_node.value, label_location, nullptr);
-
-            if (!success) {
-                reporter_.err(label_location, ec::DUPLICATE_LABEL,
-                    "label \"{}\" already defined", label_node.value);
-                reporter_.note(it->second.defining_occurrence,
-                    "defining point of \"{}\"", label_node.value);
-            }
-        }
-    }
 
     void
     applySignToConstant(sem::Constant::ptr_t &v, nodes::Sign sign, const char *location) {
@@ -78,106 +63,6 @@ public:
             reporter_.err(location, ec::TYPE_MISMATCH,
                 "a sign cannot be applied to a constant of type \"{}\"", v->type()->str());
         }
-    }
-
-    static void
-    collectDefiningOccurrencesInFieldList(
-        sem::Scope &scope,
-        nodes::FieldList &field_list_node
-    ) {
-        for (const auto &fixed_section : field_list_node.fixed_sections)
-            collectDefiningOccurrencesInTypeDenoter(scope, *fixed_section.field_type);
-
-        if (field_list_node.variant_part)
-            for (auto &variant : field_list_node.variant_part->variants)
-                collectDefiningOccurrencesInFieldList(scope, variant.fields);
-    }
-
-    static void
-    collectDefiningOccurrencesInTypeDenoter(
-        sem::Scope &scope,
-        nodes::TypeDenoter &denoter_node
-    ) {
-        visit(denoter_node, overloaded{
-            [&scope](nodes::EnumeratedType &enum_node) {
-                for (auto &identifier_node : enum_node.constants)
-                    scope.add(identifier_node);
-            },
-            [](nodes::Identifier &) {},
-            [](nodes::NewPointerType &) {},
-            [&scope](nodes::NewStructuredType &structured_node) {
-                visit(*structured_node.unpacked, overloaded{
-                    [&scope](nodes::ArrayType &array_node) {
-                        for (const auto &index_type : array_node.index_types)
-                            collectDefiningOccurrencesInTypeDenoter(scope, *index_type);
-
-                        collectDefiningOccurrencesInTypeDenoter(
-                            scope, *array_node.component_type);
-                    },
-                    [&scope](nodes::FileType &file_node) {
-                        collectDefiningOccurrencesInTypeDenoter(
-                            scope, *file_node.component_type);
-                    },
-                    [&scope](nodes::RecordType &record_node) {
-                        collectDefiningOccurrencesInFieldList(scope, record_node.fields);
-                    },
-                    [&scope](nodes::SetType &set_node) {
-                        collectDefiningOccurrencesInTypeDenoter(
-                            scope, *set_node.base_type);
-                    },
-                });
-            },
-            [](nodes::SubrangeType &) {},
-        });
-    }
-
-    static void
-    collectDefiningOccurrencesInBlock(
-        sem::Scope &scope,
-        const nodes::Block &block_node
-    ) {
-        for (auto &constant_def_node : block_node.constant_definitions)
-            scope.add(constant_def_node.name);
-
-        for (auto &type_def_node : block_node.type_definitions) {
-            scope.add(type_def_node.name, sem::DefiningOccurrence::TYPE);
-            collectDefiningOccurrencesInTypeDenoter(scope, *type_def_node.denoter);
-        }
-
-        for (auto &variable_decl_node : block_node.variable_declarations) {
-            for (auto &identifier_node : variable_decl_node.var_names)
-                scope.add(identifier_node);
-            collectDefiningOccurrencesInTypeDenoter(scope, *variable_decl_node.var_type);
-        }
-
-        for (auto &subroutine_decl_node : block_node.subroutine_declarations) {
-            // Function identifications do not introduce defining occurrences.
-            // Strictly speaking, this check is unnecessary, since if a function
-            // identification for a given name occurs before the corresponding
-            // function heading, that's an error (and we'll catch that error later),
-            // and if it occurs after, collectDefiningOccurrence will ignore it.
-            // We do the check anyway, just so that we can point at the real
-            // defining occurrence of the function if we need to.
-            if (!dynamic_cast<nodes::FunctionIdentification *>(subroutine_decl_node.heading.get()))
-                scope.add(subroutine_decl_node.heading->name);
-        }
-    }
-
-    bool
-    checkDuplicateIdentifier(
-        const sem::Scope &scope, const nodes::Identifier &id_node
-    ) {
-        const auto &occurrence = scope.lookupShallowUnsafe(id_node.spelling);
-
-        if (occurrence.location != id_node.view.data()) {
-            reporter_.err(id_node.view.data(), ec::DUPLICATE_IDENTIFIER,
-                "identifier \"{}\" already defined", id_node.spelling);
-            reporter_.note(occurrence.location,
-                "defining point of \"{}\"", id_node.spelling);
-            return true;
-        }
-
-        return false;
     }
 
     template <typename T>
@@ -240,15 +125,6 @@ public:
     ) {
         return lookupIdentifier(scope, applied_occurrence_node,
             &sem::Block::constants_, "constant");
-    }
-
-    sem::Type::ptr_t *
-    lookupType(
-        sem::Scope &scope,
-        const nodes::Identifier &applied_occurrence_node
-    ) {
-        return lookupIdentifier(scope, applied_occurrence_node,
-            &sem::Block::types_, "type");
     }
 
     sem::Constant::ptr_t
@@ -314,759 +190,35 @@ public:
         return constant;
     }
 
-    void
-    analyzeConstantDefinitions(
-        const nodes::Block &block_node,
-        sem::Block &block
-    ) {
-        for (auto &constant_def_node : block_node.constant_definitions) {
-            if (checkDuplicateIdentifier(block.scope_, constant_def_node.name))
-                continue;
-
-            // For circular definition detection to work, we must first add
-            // the new constant to block.constants_, and _then_ resolve the value.
-            auto &constant = block.constants_[constant_def_node.name.spelling];
-            constant = resolveConstant(block.scope_, *constant_def_node.value);
-            applyFallback(constant);
-        }
-    }
-
-    std::shared_ptr<const sem::TypeArray>
-    resolveStructuredType(
-        sem::Scope &scope, nodes::ArrayType &array_type_node, bool is_packed
-    ) {
-        auto component_type = resolveType(scope, *array_type_node.component_type);
-        if (!component_type) return nullptr;
-
-        std::shared_ptr<const sem::TypeArray> array_type;
-
-        for (auto &index_type_node : std::views::reverse(array_type_node.index_types)) {
-            auto index_type = resolveType(scope, *index_type_node);
-            if (!index_type) return nullptr;
-
-            auto index_type_ordinal
-                = std::dynamic_pointer_cast<const sem::TypeOrdinal>(index_type);
-
-            if (!index_type_ordinal) {
-                reporter_.err(index_type_node->view.data(), ec::NON_ORDINAL_TYPE,
-                    "array index type is non-ordinal");
-                return nullptr;
-            }
-
-            array_type = std::make_shared<sem::TypeArray>(
-                index_type_ordinal, component_type, is_packed);
-            component_type = array_type;
-        }
-
-        // The grammar requires at least one index type, so the loop should
-        // execute at least once.
-        assert(array_type);
-
-        return array_type;
-    }
-
-    std::shared_ptr<const sem::TypeFile>
-    resolveStructuredType(
-        sem::Scope &scope, nodes::FileType &file_type_node, bool is_packed
-    ) {
-        auto component_type = resolveType(scope, *file_type_node.component_type);
-        if (!component_type) return nullptr;
-
-        if (!component_type->canBeFileComponent()) {
-            reporter_.err(file_type_node.component_type->view.data(),
-                ec::DISALLOWED_FILE_COMPONENT,
-                "disallowed type used as file component");
-            return nullptr;
-        }
-
-        return std::make_shared<sem::TypeFile>(component_type, is_packed);
-    }
-
-    static void
-    collectFieldDefiningOccurrences(
-        sem::Scope &scope,
-        nodes::FieldList &field_list_node
-    ) {
-        // Not to be confused with collectOccurrencesInFieldList -
-        // that collects identifiers scoped to the block, this collects
-        // field names.
-
-        for (const auto &fixed_section : field_list_node.fixed_sections)
-            for (const auto &field_name : fixed_section.field_names)
-                scope.add(field_name);
-
-        if (auto &variant_part = field_list_node.variant_part) {
-            if (variant_part->tag_field)
-                scope.add(*variant_part->tag_field);
-
-            for (auto &variant : variant_part->variants)
-                collectFieldDefiningOccurrences(scope, variant.fields);
-        }
-    }
-
-    sem::FieldList
-    resolveFieldList(
-        sem::Scope &scope,
-        nodes::FieldList &field_list_node
-    ) {
-        sem::FieldList field_list;
-
-        for (const auto &fixed_section : field_list_node.fixed_sections) {
-            auto type = resolveType(scope, *fixed_section.field_type);
-            if (!type) continue;
-
-            for (const auto &field_name : fixed_section.field_names) {
-                if (checkDuplicateIdentifier(scope, field_name))
-                    continue;
-
-                field_list.addField(field_name.spelling, type);
-            }
-        }
-
-        if (auto &variant_part_node = field_list_node.variant_part) {
-            auto tag_type_node = variant_part_node->tag_type;
-            auto tag_type = resolveTypeDenoter(scope, tag_type_node);
-            if (!tag_type) return field_list;
-
-            auto tag_type_ordinal
-                = std::dynamic_pointer_cast<const sem::TypeOrdinal>(tag_type);
-            if (!tag_type_ordinal) {
-                reporter_.err(tag_type_node.view.data(), ec::NON_ORDINAL_TYPE,
-                    "variant part tag type is not ordinal");
-                return field_list;
-            }
-
-            sem::VariantPart variant_part(tag_type_ordinal);
-
-            if (auto &tag_field_node = variant_part_node->tag_field) {
-                if (checkDuplicateIdentifier(scope, *tag_field_node))
-                    return field_list;
-
-                variant_part.setTagField(tag_field_node->spelling);
-            }
-
-            pascal_integer_t tag_smallest_ordinal = tag_type_ordinal->smallestOrdinal();
-            pascal_integer_t tag_largest_ordinal = tag_type_ordinal->largestOrdinal();
-
-            assert(tag_smallest_ordinal >= -PASCAL_INTEGER_MAX);
-            pascal_integer_t counter = tag_smallest_ordinal - 1;
-
-            std::unordered_map<pascal_integer_t, const char *> used_ordinals;
-
-            for (auto &variant : variant_part_node->variants) {
-                std::vector<sem::ConstantOrdinal::ptr_t> case_constants;
-
-                for (auto &constant_node : variant.case_constants) {
-                    auto constant = resolveConstant(scope, *constant_node);
-                    if (!constant) return field_list;
-
-                    if (!constant->type()->isCompatibleWith(*tag_type_ordinal)) {
-                        reporter_.err(constant_node->view.data(), ec::TYPE_MISMATCH,
-                            "case constant type (\"{}\") is incompatible with tag type (\"{}\")",
-                            constant->type()->str(), tag_type_ordinal->str());
-                        return field_list;
-                    }
-
-                    auto ordinal_constant
-                        = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
-                    assert(ordinal_constant); // the type check above guarantees this
-
-                    auto ordinal = ordinal_constant->ordinalNumber();
-                    if (!(tag_smallest_ordinal <= ordinal && ordinal <= tag_largest_ordinal)) {
-                        reporter_.err(constant_node->view.data(), ec::OUT_OF_RANGE,
-                            "case constant is not within the range of values of the tag type");
-                        return field_list;
-                    }
-
-                    if (auto it = used_ordinals.find(ordinal); it != used_ordinals.end()) {
-                        reporter_.err(constant_node->view.data(), ec::DUPLICATE_CASE,
-                            "case constant already used");
-                        reporter_.note(it->second, "previous occurrence of the case constant");
-                        return field_list;
-                    }
-                    used_ordinals.insert_or_assign(ordinal, constant_node->view.data());
-
-                    case_constants.push_back(ordinal_constant);
-
-                    // If the counter reached PASCAL_INTEGER_MAX, then every constant
-                    // between tag_smallest_ordinal and tag_largest_ordinal has
-                    // already been used, so we shouldn't be able to reach this again.
-                    assert(counter != PASCAL_INTEGER_MAX);
-                    ++counter;
-                }
-
-                auto variant_fields = resolveFieldList(scope, variant.fields);
-
-                variant_part.addVariant(case_constants, variant_fields);
-            }
-
-            // This could only be false if there were no case constants,
-            // which the grammar isn't supposed to allow.
-            assert(counter >= tag_smallest_ordinal);
-
-            if (counter != tag_largest_ordinal) {
-                reporter_.err(variant_part_node->view.data(), ec::MISSING_CASE,
-                    "at least one value of the tag type is not covered by a case constant");
-                return field_list;
-            }
-
-            field_list.setVariantPart(variant_part);
-        }
-
-        return field_list;
-    }
-
-    std::shared_ptr<const sem::TypeRecord>
-    resolveStructuredType(
-        sem::Scope &scope, nodes::RecordType &record_type_node, bool is_packed
-    ) {
-        sem::Scope record_scope(&scope);
-        collectFieldDefiningOccurrences(record_scope, record_type_node.fields);
-
-        return std::make_shared<sem::TypeRecord>(
-            resolveFieldList(record_scope, record_type_node.fields),
-            is_packed);
-    }
-
-    std::shared_ptr<const sem::TypeSet>
-    resolveStructuredType(
-        sem::Scope &scope, nodes::SetType &set_type_node, bool is_packed
-    ) {
-        auto base_type = resolveType(scope, *set_type_node.base_type);
-        if (!base_type) return nullptr;
-
-        auto base_type_ordinal
-            = std::dynamic_pointer_cast<const sem::TypeOrdinal>(base_type);
-        if (!base_type_ordinal) {
-            reporter_.err(set_type_node.base_type->view.data(),
-                ec::NON_ORDINAL_TYPE, "set base type is non-ordinal");
-            return nullptr;
-        }
-
-        return std::make_shared<sem::TypeSet>(base_type_ordinal, is_packed);
-    }
-
-    std::shared_ptr<const sem::TypeEnumerated>
-    resolveTypeDenoter(
-        sem::Scope &scope, nodes::EnumeratedType &enumerated_type_node
-    ) {
-        if (enumerated_type_node.constants.size()
-            > std::size_t(PASCAL_INTEGER_MAX) + 1
-        ) {
-            reporter_.err(enumerated_type_node.view.data(), ec::TOO_MANY_ELEMENTS,
-                "number of constants ({}) greater than maximum allowed ({})",
-                enumerated_type_node.constants.size(),
-                std::size_t(PASCAL_INTEGER_MAX) + 1);
-            return nullptr;
-        }
-
-        std::vector<std::string> constant_names;
-
-        for (auto &id_node : enumerated_type_node.constants) {
-            if (checkDuplicateIdentifier(scope, id_node))
-                continue;
-
-            constant_names.push_back(id_node.spelling);
-        }
-
-        if (constant_names.empty())
-            return nullptr;
-
-        auto enumerated_type = sem::TypeEnumerated::make(constant_names);
-
-        for (const auto &constant : enumerated_type->constants())
-            scope.closestContainingBlock().constants_.emplace(constant->str(), constant);
-
-        return enumerated_type;
-    }
-
-    sem::Type::ptr_t
-    resolveTypeDenoter(
-        sem::Scope &scope, nodes::Identifier &id_node
-    ) {
-        auto *ref_type = lookupType(scope, id_node);
-        if (!ref_type) return nullptr;
-
-        if (!*ref_type) {
-            reporter_.err(id_node.view.data(), ec::CIRCULAR_DEFINITION,
-                "type \"{}\" used in its own definition", id_node.spelling);
-            return nullptr;
-        }
-
-        return *ref_type;
-    }
-
-    std::shared_ptr<const sem::TypePointer>
-    resolveTypeDenoter(
-        sem::Scope &scope, nodes::NewPointerType &pointer_type_node
-    ) {
-        const std::string &domain_type_name
-            = pointer_type_node.domain_type.spelling;
-
-        // Pointer types can refer to types that haven't been defined
-        // yet, so we can't resolve the domain type the normal way.
-        // Instead, we'll just find the block that contains the domain
-        // type and store the reference to that block in the pointer type.
-        // This will allow the domain type to be resolved after the block
-        // is fully analyzed.
-
-        auto lookup_result = scope.lookup(domain_type_name);
-        if (!lookup_result) {
-            reporter_.err(pointer_type_node.domain_type.view.data(),
-                ec::UNDEFINED_IDENTIFIER,
-                "undefined type identifier \"{}\"", domain_type_name);
-            return nullptr;
-        }
-
-        auto *defining_scope = lookup_result->scope;
-        auto &defining_occurrence = lookup_result->defining_occurrence;
-
-        if (defining_occurrence.kind != sem::DefiningOccurrence::TYPE) {
-            reporter_.err(pointer_type_node.domain_type.view.data(),
-                ec::WRONG_IDENTIFIER_KIND,
-                "identifier \"{}\" is not a type identifier",
-                domain_type_name);
-
-            // the location might be null
-            // if the scope is for the builtin block
-            if (defining_occurrence.location)
-                reporter_.note(defining_occurrence.location,
-                    "defining point of \"{}\"", domain_type_name);
-
-            return nullptr;
-        }
-
-        assert(defining_scope->block());
-
-        return std::make_shared<sem::TypePointer>(
-            *defining_scope->block(), domain_type_name);
-    }
-
-    sem::Type::ptr_t
-    resolveTypeDenoter(
-        sem::Scope &scope, nodes::NewStructuredType &structured_type_node
-    ) {
-        return visit(*structured_type_node.unpacked,
-            [&](auto &node) -> sem::Type::ptr_t {
-                return resolveStructuredType(scope, node, structured_type_node.is_packed);
-            }
-        );
-    }
-
-    std::shared_ptr<const sem::TypeSubrange>
-    resolveTypeDenoter(
-        sem::Scope &scope, nodes::SubrangeType &subrange_type_node
-    ) {
-        auto smallest = resolveConstant(scope, *subrange_type_node.smallest);
-        auto largest = resolveConstant(scope, *subrange_type_node.largest);
-
-        if (!smallest || !largest) return nullptr;
-
-        auto smallest_ordinal =
-            std::dynamic_pointer_cast<const sem::ConstantOrdinal>(smallest);
-
-        if (!smallest_ordinal) {
-            reporter_.err(subrange_type_node.smallest->view.data(),
-                ec::NON_ORDINAL_TYPE,
-                "subrange bound has non-ordinal type \"{}\"", smallest->type()->str());
-            return nullptr;
-        }
-
-        if (largest->type() != smallest->type()) {
-            reporter_.err(subrange_type_node.largest->view.data(),
-                ec::TYPE_MISMATCH,
-                "largest subrange value has different type (\"{}\") "
-                    "from smallest value type (\"{}\")",
-                largest->type()->str(), smallest->type()->str());
-            return nullptr;
-        }
-
-        auto largest_ordinal =
-            std::dynamic_pointer_cast<const sem::ConstantOrdinal>(largest);
-
-        // Since both constants have the same type,
-        // it should be impossible for largest_ordinal to be null.
-        assert(largest_ordinal);
-
-        if (largest_ordinal->ordinalNumber() < smallest_ordinal->ordinalNumber()) {
-            reporter_.err(subrange_type_node.largest->view.data(),
-                ec::INVERTED_SUBRANGE_BOUNDS,
-                "largest subrange value is less than smallest value");
-            return nullptr;
-        }
-
-        return std::make_shared<sem::TypeSubrange>(smallest_ordinal, largest_ordinal);
-    }
-
-    sem::Type::ptr_t
-    resolveType(sem::Scope &scope, nodes::TypeDenoter &type_denoter_node) {
-        return visit(type_denoter_node,
-            [&](auto &node) -> sem::Type::ptr_t {
-                return resolveTypeDenoter(scope, node);
-            }
-        );
-    }
-
-    void
-    analyzeTypeDefinitions(
-        const nodes::Block &block_node,
-        sem::Block &block
-    ) {
-        for (auto &type_def_node : block_node.type_definitions) {
-            if (checkDuplicateIdentifier(block.scope_, type_def_node.name))
-                continue;
-
-            auto &type = block.types_[type_def_node.name.spelling];
-            type = resolveType(block.scope_, *type_def_node.denoter);
-            applyFallback(type);
-        }
-    }
-
-    void
-    analyzeVariableDeclarations(
-        const nodes::Block &block_node,
-        sem::Block &block
-    ) {
-        for (auto &var_decl_node : block_node.variable_declarations) {
-            auto type = resolveType(block.scope_, *var_decl_node.var_type);
-            applyFallback(type);
-
-            for (auto &var_name_node : var_decl_node.var_names) {
-                if (checkDuplicateIdentifier(block.scope_, var_name_node))
-                    continue;
-
-                block.variables_.try_emplace(var_name_node.spelling, type);
-            }
-        }
-    }
-
-    static void
-    collectBoundDefiningOccurrences(
-        sem::Scope &scope,
-        nodes::FormalParameterTypeOrSchema &type_or_schema_node
-    ) {
-        visit(type_or_schema_node, overloaded{
-            [&](const nodes::ConformantArraySchema &schema_node) {
-                for (auto &index_type_node : schema_node.index_types) {
-                    scope.add(index_type_node.smallest);
-                    scope.add(index_type_node.largest);
-                }
-
-                collectBoundDefiningOccurrences(scope, *schema_node.component_type);
-            },
-            [](const nodes::Identifier &) {},
-        });
-    }
-
-    sem::Type::ptr_t
-    resolveTypeOrSchema(
-        sem::Scope &scope, nodes::FormalParameterTypeOrSchema &type_or_schema_node
-    ) {
-        return visit(type_or_schema_node, overloaded{
-            [&](nodes::ConformantArraySchema &schema_node)
-                -> sem::Type::ptr_t
-            {
-                auto component_type = resolveTypeOrSchema(scope, *schema_node.component_type);
-                if (!component_type) return nullptr;
-
-                std::shared_ptr<const sem::TypeArray> schema;
-
-                for (auto &index_type_node : std::views::reverse(schema_node.index_types)) {
-                    if (checkDuplicateIdentifier(scope, index_type_node.smallest))
-                        return nullptr;
-
-                    if (checkDuplicateIdentifier(scope, index_type_node.largest))
-                        return nullptr;
-
-                    auto bound_type = resolveType(scope, index_type_node.bound_type);
-                    if (!bound_type) return nullptr;
-
-                    auto bound_type_ordinal
-                        = std::dynamic_pointer_cast<const sem::TypeOrdinal>(bound_type);
-
-                    if (!bound_type_ordinal) {
-                        reporter_.err(index_type_node.bound_type.view.data(), ec::NON_ORDINAL_TYPE,
-                            "bound type is non-ordinal");
-                        return nullptr;
-                    }
-
-                    schema = std::make_shared<sem::TypeArray>(
-                        std::make_shared<sem::TypeSubrangeDynamic>(
-                            index_type_node.smallest.spelling,
-                            index_type_node.largest.spelling,
-                            bound_type_ordinal),
-                        component_type, schema_node.is_packed);
-
-                    component_type = schema;
-                }
-
-                // The grammar requires at least one index type, so the loop should
-                // execute at least once.
-                assert(schema);
-
-                return schema;
-            },
-            [&](nodes::Identifier &id_node) {
-                return resolveTypeDenoter(scope, id_node);
-            },
-        });
-    }
-
-    struct SignatureWithScope {
-        sem::Signature signature;
-        sem::Scope scope;
+protected:
+    Reporter &reporter_;
+};
+
+class StatementBuilder : public Builder {
+public:
+    struct ControlVariable {
+        std::string name;
+        const char *location;
     };
 
-    SignatureWithScope
-    resolveSignature(
-        sem::Scope &scope,
-        std::span<std::unique_ptr<nodes::FormalParameterSection>> parameter_section_nodes,
-        nodes::Identifier *result_type_node
-    ) {
-        sem::Scope parameter_list_scope(&scope);
-        std::vector<sem::FormalParameterSection> parameters;
+    StatementBuilder(
+        Reporter &reporter,
+        linked_list_ptr_t<label_set_t> allowed_goto_targets,
+        linked_list_ptr_t<ControlVariable> used_control_variables
+    )
+        : Builder(reporter)
+        , allowed_goto_targets_(allowed_goto_targets)
+        , used_control_variables_(used_control_variables)
+    {}
 
-        for (auto &parameter_section_node : parameter_section_nodes) {
-            visit(*parameter_section_node, overloaded{
-                [&](nodes::SubroutineHeading &heading_node) {
-                    parameter_list_scope.add(heading_node.name);
-                },
-                [&](nodes::RegularParameterSection &rps_node) {
-                    for (auto &id_node : rps_node.parameter_names)
-                        parameter_list_scope.add(id_node);
-
-                    collectBoundDefiningOccurrences(
-                        parameter_list_scope, *rps_node.parameter_type);
-                },
-            });
-        }
-
-        for (auto &parameter_section_node : parameter_section_nodes) {
-            visit(*parameter_section_node, overloaded{
-                [&](nodes::FunctionHeading &heading_node) {
-                    if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
-                        return;
-
-                    auto sws = resolveSignature(
-                        parameter_list_scope,
-                        heading_node.parameters, &heading_node.result_type);
-
-                    parameters.push_back(sem::FormalParameterSection{
-                        sem::SubroutineParameterSpecification(
-                            heading_node.name.spelling, sws.signature)});
-                },
-                [&](nodes::ProcedureHeading &heading_node) {
-                    if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
-                        return;
-
-                    auto sws = resolveSignature(
-                        parameter_list_scope,
-                        heading_node.parameters, nullptr);
-
-                    parameters.push_back(sem::FormalParameterSection{
-                        sem::SubroutineParameterSpecification(
-                            heading_node.name.spelling, sws.signature)});
-                },
-                [&](nodes::RegularParameterSection &rps_node) {
-                    std::vector<std::string> names;
-
-                    for (auto &id_node : rps_node.parameter_names) {
-                        if (checkDuplicateIdentifier(parameter_list_scope, id_node))
-                            continue;
-
-                        names.push_back(id_node.spelling);
-                    }
-
-                    if (names.empty()) return;
-
-                    auto type = resolveTypeOrSchema(
-                        parameter_list_scope, *rps_node.parameter_type);
-
-                    if (type && !rps_node.is_variable && !type->canBeFileComponent()) {
-                        reporter_.err(rps_node.parameter_type->view.data(),
-                            ec::DISALLOWED_PARAMETER_TYPE,
-                            "disallowed type \"{}\" used as value parameter type",
-                            type->str());
-                        type = nullptr;
-                    }
-
-                    applyFallback(type);
-
-                    parameters.push_back(sem::FormalParameterSection{
-                        sem::RegularParameterSection(
-                            rps_node.is_variable, names, type)});
-                },
-            });
-        }
-
-        sem::Type::ptr_t result_type;
-
-        if (result_type_node) {
-            if (auto type = resolveTypeDenoter(scope, *result_type_node)) {
-                if (dynamic_cast<const sem::TypeOrdinal *>(type.get())
-                    || dynamic_cast<const sem::TypeReal *>(type.get())
-                    || dynamic_cast<const sem::TypePointer *>(type.get())
-                ) {
-                    result_type = type;
-                }
-                else {
-                    reporter_.err(result_type_node->view.data(),
-                        ec::DISALLOWED_RESULT_TYPE,
-                        "result type \"{}\" is neither a simple nor a pointer type",
-                        type->str());
-                }
-            }
-
-            // If result_type is nullptr, we can't just leave it as that,
-            // since that would turn the function into a procedure
-            // and cause more errors down the line.
-            applyFallback(result_type);
-        }
-
-        return {
-            sem::Signature(parameters, result_type),
-            parameter_list_scope,
-        };
+    StatementBuilder
+    withNewAllowedGotoTargets(linked_list_ptr_t<label_set_t> new_targets) const {
+        return StatementBuilder(reporter_, new_targets, used_control_variables_);
     }
 
-    using label_set_t = std::unordered_set<pascal_integer_t>;
-
-    void
-    analyzeSubroutineDeclarations(
-        const nodes::Block &block_node,
-        sem::Block &block,
-        const label_set_t &allowed_goto_targets
-    ) {
-        std::unordered_set<std::string> forward_declarations;
-
-        for (auto &subr_decl_node : block_node.subroutine_declarations) {
-            const auto &subr_name_node = subr_decl_node.heading->name;
-            const auto &subr_name = subr_name_node.spelling;
-
-            enum SubroutineType { PROCEDURE = 0, FUNCTION = 1 };
-            static constexpr std::string_view SUBROUTINE_TYPE_STRS[] = {"procedure"sv, "function"sv};
-            using optional_signature_t = std::variant<SignatureWithScope, SubroutineType>;
-
-            optional_signature_t opt_sig = visit(
-                *subr_decl_node.heading, overloaded{
-                    [&](nodes::FunctionHeading &function_head_node) {
-                        return optional_signature_t(
-                            resolveSignature(
-                                block.scope_,
-                                function_head_node.parameters,
-                                &function_head_node.result_type
-                            )
-                        );
-                    },
-                    [&](nodes::FunctionIdentification &) {
-                        return optional_signature_t(FUNCTION);
-                    },
-                    [&](nodes::ProcedureHeading &procedure_head_node) {
-                        bool is_delayed = forward_declarations.contains(subr_name)
-                            && procedure_head_node.parameters.empty();
-
-                        if (is_delayed) return optional_signature_t(PROCEDURE);
-
-                        return optional_signature_t(
-                            resolveSignature(
-                                block.scope_,
-                                procedure_head_node.parameters,
-                                nullptr
-                            )
-                        );
-                    },
-                }
-            );
-
-            sem::Subroutine *subroutine = std::visit(overloaded{
-                [&](const SignatureWithScope &sws) -> sem::Subroutine * {
-                    // this is the first declaration of this subroutine
-
-                    if (checkDuplicateIdentifier(block.scope_, subr_name_node))
-                        return nullptr;
-
-                    auto [it, success] = block.subroutines_.try_emplace(
-                        subr_name, subr_name_node.view.data(), sws.signature, block);
-
-                    it->second.block_.scope_.mergeFrom(sws.scope);
-                    return &it->second;
-                },
-                [&](SubroutineType subr_type) -> sem::Subroutine * {
-                    // this is a delayed declaration of this subroutine
-
-                    auto it = block.subroutines_.find(subr_name);
-
-                    if (!forward_declarations.contains(subr_name)) {
-                        if (it == block.subroutines_.end()) {
-                            reporter_.err(subr_name_node.view.data(),
-                                ec::MISSING_FORWARD_DECLARATION,
-                                "delayed declaration with no preceding forward declaration");
-                        }
-                        else {
-                            reporter_.err(subr_name_node.view.data(),
-                                ec::DUPLICATE_SUBROUTINE_DECLARATION,
-                                "duplicate declaration for \"{}\"", subr_name);
-                            reporter_.note(it->second.last_declaration_location_,
-                                "last declaration of \"{}\"", subr_name);
-                        }
-
-                        return nullptr;
-                    }
-
-                    assert(it != block.subroutines_.end());
-                    auto &previous_subroutine = it->second;
-                    SubroutineType previous_subroutine_type
-                        = previous_subroutine.signature().resultType() ? FUNCTION : PROCEDURE;
-
-                    if (previous_subroutine_type != subr_type) {
-                        reporter_.err(subr_name_node.view.data(),
-                            ec::MISMATCHED_SUBROUTINE_DECLARATION,
-                            "\"{}\" declared as a {} when it had previously been declared as a {}",
-                            subr_name,
-                            SUBROUTINE_TYPE_STRS[subr_type],
-                            SUBROUTINE_TYPE_STRS[previous_subroutine_type]);
-                        reporter_.note(previous_subroutine.last_declaration_location_,
-                            "last declaration of \"{}\"", subr_name);
-                        return nullptr;
-                    }
-
-                    previous_subroutine.last_declaration_location_ = subr_name_node.view.data();
-                    forward_declarations.erase(subr_name);
-                    return &previous_subroutine;
-                },
-            }, opt_sig);
-
-            if (!subroutine) continue;
-
-            if (subr_decl_node.block) {
-                buildBlock(
-                    *subr_decl_node.block, subroutine->block_, allowed_goto_targets);
-
-                if (
-                    subroutine->signature_.resultType()
-                    && !subroutine->contains_result_assignment_
-                )
-                    reporter_.err(subr_decl_node.block->view.data(),
-                        ec::MISSING_RESULT_ASSIGNMENT,
-                        "function block does not contain an assignment"
-                            " to the function identifier \"{}\"",
-                        subr_name);
-            }
-            else {
-                forward_declarations.insert(subr_name);
-            }
-        }
-
-        std::vector<const char *> missing_declaration_locations;
-        for (const auto &name : forward_declarations)
-            missing_declaration_locations.push_back(
-                block.scope_.lookupShallowUnsafe(name).location);
-
-        std::ranges::sort(missing_declaration_locations);
-
-        for (const char *error_location : missing_declaration_locations)
-            reporter_.err(error_location, ec::MISSING_DELAYED_DECLARATION,
-                "forward declaration with no following delayed declaration");
+    StatementBuilder
+    withNewUsedControlVariable(linked_list_ptr_t<ControlVariable> new_variable) const {
+        return StatementBuilder(reporter_, allowed_goto_targets_, new_variable);
     }
 
     static std::unique_ptr<sem::VariableAccess>
@@ -1789,34 +941,6 @@ public:
         return expression;
     }
 
-    struct ControlVariable {
-        std::string name;
-        const char *location;
-    };
-
-    struct StatementAnalysisContext {
-        StatementAnalysisContext(
-            linked_list_ptr_t<label_set_t> allowed_goto_targets,
-            linked_list_ptr_t<ControlVariable> used_control_variables
-        )
-            : allowed_goto_targets(allowed_goto_targets)
-            , used_control_variables(used_control_variables)
-        {}
-
-        StatementAnalysisContext
-        withNewAllowedGotoTargets(linked_list_ptr_t<label_set_t> new_targets) const {
-            return StatementAnalysisContext(new_targets, used_control_variables);
-        }
-
-        StatementAnalysisContext
-        withNewUsedControlVariable(linked_list_ptr_t<ControlVariable> new_variable) const {
-            return StatementAnalysisContext(allowed_goto_targets, new_variable);
-        }
-
-        linked_list_ptr_t<label_set_t> allowed_goto_targets;
-        linked_list_ptr_t<ControlVariable> used_control_variables;
-    };
-
     static
     std::unique_ptr<sem::Statement>
     fallbackStatement() {
@@ -1862,8 +986,7 @@ public:
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::AssignmentStatement &assignment_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::AssignmentStatement &assignment_statement_node
     ) {
         auto access = resolveVariableAccessLike(scope, assignment_statement_node.access,
             &resolveVariableFdOrCurrentFunctionIdentifier,
@@ -1875,7 +998,7 @@ public:
         threatenVariable(
             scope,
             *access, assignment_statement_node.access.view.data(),
-            context.used_control_variables);
+            used_control_variables_);
 
         auto expression = resolveExpression(scope, assignment_statement_node.expression);
         const auto &expression_type = expression->valueType(scope);
@@ -1906,8 +1029,7 @@ public:
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::CaseStatement &case_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::CaseStatement &case_statement_node
     ) {
         auto case_index = resolveExpression(scope, case_statement_node.case_index);
         const auto &case_index_type = case_index->valueType(scope);
@@ -1959,7 +1081,7 @@ public:
                 case_constants.push_back(ordinal_constant);
             }
 
-            auto statement = resolveStatement(scope, element_node.statement, context);
+            auto statement = resolveStatement(scope, element_node.statement);
 
             if (!case_constants.empty())
                 case_list_elements.emplace_back(case_constants, std::move(statement));
@@ -1974,21 +1096,20 @@ public:
     std::unique_ptr<sem::StatementCompound>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::CompoundStatement &compound_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::CompoundStatement &compound_statement_node
     ) {
         std::vector<std::unique_ptr<sem::Statement>> statements;
-        LinkedListNode<label_set_t> new_allowed_targets(context.allowed_goto_targets);
+        LinkedListNode<label_set_t> new_allowed_targets(allowed_goto_targets_);
 
         for (auto &statement_node : compound_statement_node.statements)
             if (statement_node.label)
                 new_allowed_targets.value.insert(statement_node.label->value);
 
-        const auto &new_context = new_allowed_targets.value.empty()
-            ? context : context.withNewAllowedGotoTargets(&new_allowed_targets);
+        auto new_builder = new_allowed_targets.value.empty()
+            ? *this : withNewAllowedGotoTargets(&new_allowed_targets);
 
         for (auto &statement_node : compound_statement_node.statements) {
-            statements.push_back(resolveStatement(scope, statement_node, new_context));
+            statements.push_back(new_builder.resolveStatement(scope, statement_node));
         }
 
         return std::make_unique<sem::StatementCompound>(std::move(statements));
@@ -1996,7 +1117,7 @@ public:
 
     std::unique_ptr<sem::StatementEmpty>
     resolveUnlabeledStatement(
-        sem::Scope &, const nodes::EmptyStatement &, const StatementAnalysisContext &
+        sem::Scope &, const nodes::EmptyStatement &
     ) {
         return std::make_unique<sem::StatementEmpty>();
     }
@@ -2004,11 +1125,10 @@ public:
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::ForStatement &for_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::ForStatement &for_statement_node
     ) {
         LinkedListNode<ControlVariable> control_variable(
-            context.used_control_variables,
+            used_control_variables_,
             for_statement_node.control_variable.spelling,
             for_statement_node.control_variable.view.data());
 
@@ -2060,7 +1180,7 @@ public:
         threatenVariable(scope,
             sem::VariableAccessVariableId(control_variable.value.name, scope_index),
             control_variable.value.location,
-            context.used_control_variables);
+            used_control_variables_);
 
         auto initial_value = resolveExpression(scope, for_statement_node.initial_value);
         const auto &initial_value_type = initial_value->valueType(scope);
@@ -2090,15 +1210,14 @@ public:
             std::move(initial_value),
             for_statement_node.direction,
             std::move(final_value),
-            resolveStatement(scope, for_statement_node.body,
-                context.withNewUsedControlVariable(&control_variable)));
+            withNewUsedControlVariable(&control_variable).resolveStatement(
+                scope, for_statement_node.body));
     }
 
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::GotoStatement &goto_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::GotoStatement &goto_statement_node
     ) {
         pascal_integer_t label = goto_statement_node.label.value;
         std::size_t scope_index = 0;
@@ -2111,7 +1230,7 @@ public:
             if (sem::Block *block = lookup_scope->block()) {
                 auto it = block->labels_.find(label);
                 if (it != block->labels_.end()) {
-                    for (const auto &allowed_targets : context.allowed_goto_targets)
+                    for (const auto &allowed_targets : allowed_goto_targets_)
                         if (allowed_targets.contains(label))
                             return std::make_unique<sem::StatementGoto>(label, scope_index);
 
@@ -2147,17 +1266,16 @@ public:
     std::unique_ptr<sem::StatementIf>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::IfStatement &if_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::IfStatement &if_statement_node
     ) {
         // These variables shouldn't be inlined in the `make_unique` call,
         // because we need to make sure that the true branch is resolved before
         // the false branch (and thus the error messages from it are emitted first).
         auto condition = resolveCondition(scope, if_statement_node.condition);
         auto true_branch = resolveStatement(
-            scope, if_statement_node.true_branch, context);
+            scope, if_statement_node.true_branch);
         auto false_branch = if_statement_node.false_branch
-            ? resolveStatement(scope, *if_statement_node.false_branch, context)
+            ? resolveStatement(scope, *if_statement_node.false_branch)
             : nullptr;
 
         return std::make_unique<sem::StatementIf>(
@@ -2276,8 +1394,7 @@ public:
         const sem::RegularParameterSection &rps,
         std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_it,
         const std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_end,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &context
+        const char *actual_parameter_end_location
     ) {
         if (std::size_t(actual_parameter_end - actual_parameter_it) < rps.names().size()) {
             reporter_.err(actual_parameter_end_location,
@@ -2369,7 +1486,7 @@ public:
                 threatenVariable(
                     scope,
                     *access, parameter_node.value.view.data(),
-                    context.used_control_variables);
+                    used_control_variables_);
 
                 if (accesses.empty()) {
                     first_good_parameter_type = &access_type;
@@ -2488,8 +1605,7 @@ public:
         const sem::SubroutineParameterSpecification &sps,
         std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_it,
         const std::vector<nodes::ActualParameter>::const_iterator &actual_parameter_end,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        const char *actual_parameter_end_location
     ) {
         if (actual_parameter_it == actual_parameter_end) {
             reporter_.err(actual_parameter_end_location,
@@ -2534,8 +1650,7 @@ public:
         sem::Scope &scope,
         const sem::Signature &signature,
         const std::vector<nodes::ActualParameter> &actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &context
+        const char *actual_parameter_end_location
     ) {
         std::vector<sem::actual_parameter_section_t> actual_parameters;
 
@@ -2547,8 +1662,7 @@ public:
             auto actual_parameter_section = std::visit([&](const auto &s) {
                 return resolveActualParameterSection(
                     scope, s, node_it, actual_parameter_nodes.end(),
-                    actual_parameter_end_location,
-                    context);
+                    actual_parameter_end_location);
             }, parameter_section.v);
 
             // This indicates that there weren't enough actual parameters
@@ -2568,11 +1682,10 @@ public:
     }
 
     using builtin_procedure_call_f
-        = std::unique_ptr<sem::Statement>(ProgramBuilder:: *)(
+        = std::unique_ptr<sem::Statement>(StatementBuilder:: *)(
             sem::Scope &scope,
             std::span<const nodes::ActualParameter> actual_parameter_nodes,
-            const char *actual_parameter_end_location,
-            const StatementAnalysisContext &context
+            const char *actual_parameter_end_location
         );
 
     static const std::unordered_map<std::string_view, builtin_procedure_call_f>
@@ -2638,8 +1751,7 @@ public:
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::ProcedureStatement &procedure_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::ProcedureStatement &procedure_statement_node
     ) {
         const std::string &procedure_name = procedure_statement_node.procedure.spelling;
 
@@ -2658,7 +1770,7 @@ public:
                 [&](const BuiltinMarker &) {
                     return (this->*BUILTIN_PROCEDURES.at(procedure_name))(
                         scope, procedure_statement_node.parameters,
-                        actual_parameter_end_location, context);
+                        actual_parameter_end_location);
                 },
                 [&](const std::pair<sem::SubroutineReference, const sem::Signature *> &p)
                     -> std::unique_ptr<sem::Statement>
@@ -2667,7 +1779,7 @@ public:
 
                     auto actual_parameters = resolveActualParameters(
                         scope, *signature, procedure_statement_node.parameters,
-                        actual_parameter_end_location, context);
+                        actual_parameter_end_location);
 
                     if (actual_parameters.size() != signature->parameters().size())
                         return fallbackStatement();
@@ -2684,21 +1796,20 @@ public:
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::RepeatStatement &repeat_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::RepeatStatement &repeat_statement_node
     ) {
         std::vector<std::unique_ptr<sem::Statement>> statements;
-        LinkedListNode<label_set_t> new_allowed_targets(context.allowed_goto_targets);
+        LinkedListNode<label_set_t> new_allowed_targets(allowed_goto_targets_);
 
         for (auto &statement_node : repeat_statement_node.statements)
             if (statement_node.label)
                 new_allowed_targets.value.insert(statement_node.label->value);
 
-        const auto &new_context = new_allowed_targets.value.empty()
-            ? context : context.withNewAllowedGotoTargets(&new_allowed_targets);
+        auto new_builder = new_allowed_targets.value.empty()
+            ? *this : withNewAllowedGotoTargets(&new_allowed_targets);
 
         for (auto &statement_node : repeat_statement_node.statements) {
-            statements.push_back(resolveStatement(scope, statement_node, new_context));
+            statements.push_back(new_builder.resolveStatement(scope, statement_node));
         }
 
         auto condition = resolveCondition(scope, repeat_statement_node.condition);
@@ -2710,11 +1821,10 @@ public:
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::WhileStatement &while_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::WhileStatement &while_statement_node
     ) {
         auto condition = resolveCondition(scope, while_statement_node.condition);
-        auto body = resolveStatement(scope, while_statement_node.body, context);
+        auto body = resolveStatement(scope, while_statement_node.body);
 
         return std::make_unique<sem::StatementWhile>(
             std::move(condition), std::move(body));
@@ -2724,11 +1834,10 @@ public:
     resolveWithStatementHelper(
         sem::Scope &scope,
         const nodes::WithStatement &with_statement_node,
-        std::size_t variable_index,
-        const StatementAnalysisContext &context
+        std::size_t variable_index
     ) {
         if (variable_index == with_statement_node.variables.size())
-            return resolveStatement(scope, with_statement_node.body, context);
+            return resolveStatement(scope, with_statement_node.body);
 
         auto &variable_node = with_statement_node.variables[variable_index];
         auto variable = resolveVariableAccess(scope, variable_node);
@@ -2755,7 +1864,7 @@ public:
         }
 
         with_statement->setBody(resolveWithStatementHelper(
-            with_scope, with_statement_node, variable_index + 1, context));
+            with_scope, with_statement_node, variable_index + 1));
 
         return with_statement;
     }
@@ -2763,19 +1872,17 @@ public:
     std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
-        const nodes::WithStatement &with_statement_node,
-        const StatementAnalysisContext &context
+        const nodes::WithStatement &with_statement_node
     ) {
-        return resolveWithStatementHelper(scope, with_statement_node, 0, context);
+        return resolveWithStatementHelper(scope, with_statement_node, 0);
     }
 
     std::unique_ptr<sem::Statement>
     resolveStatement(
         sem::Scope &scope,
-        const nodes::Statement &statement_node,
-        const StatementAnalysisContext &context
+        const nodes::Statement &statement_node
     ) {
-        LinkedListNode<label_set_t> new_allowed_targets(context.allowed_goto_targets);
+        LinkedListNode<label_set_t> new_allowed_targets(allowed_goto_targets_);
 
         if (statement_node.label) {
             pascal_integer_t label_value = statement_node.label->value;
@@ -2806,9 +1913,9 @@ public:
 
         auto statement = visit(*statement_node.unlabeled,
             [&](auto &node) -> std::unique_ptr<sem::Statement> {
-                const auto &new_context = new_allowed_targets.value.empty()
-                    ? context : context.withNewAllowedGotoTargets(&new_allowed_targets);
-                return resolveUnlabeledStatement(scope, node, new_context);
+                auto new_builder = new_allowed_targets.value.empty()
+                    ? *this : withNewAllowedGotoTargets(&new_allowed_targets);
+                return new_builder.resolveUnlabeledStatement(scope, node);
             });
 
         if (!new_allowed_targets.value.empty())
@@ -2890,8 +1997,7 @@ public:
     resolveBuiltinCallGetLike(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        const char *actual_parameter_end_location
     ) {
         return resolveBuiltinCallGetLike(
             scope,
@@ -3075,8 +2181,7 @@ public:
     resolveBuiltinCallNewLike(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        const char *actual_parameter_end_location
     ) {
         return resolveBuiltinCallNewLike(
             scope,
@@ -3094,8 +2199,7 @@ public:
     resolveBuiltinCallPack(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        const char *actual_parameter_end_location
     ) {
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
@@ -3210,8 +2314,7 @@ public:
     resolveBuiltinCallPage(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        const char *actual_parameter_end_location
     ) {
         std::unique_ptr<sem::VariableAccess> file;
 
@@ -3282,8 +2385,7 @@ public:
     resolveBuiltinCallRead(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &context
+        const char *actual_parameter_end_location
     ) {
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
@@ -3319,7 +2421,7 @@ public:
 
                 threatenVariable(scope,
                     *variable, parameter_node.value.view.data(),
-                    context.used_control_variables);
+                    used_control_variables_);
 
                 auto &variable_type = variable->variableType(scope);
                 if (!file_type->componentType()->isAssignmentCompatibleWith(variable_type)) {
@@ -3361,7 +2463,7 @@ public:
 
             threatenVariable(scope,
                 *parameter0, actual_parameter_nodes[0].value.view.data(),
-                context.used_control_variables);
+                used_control_variables_);
 
             if (checkReadParameterValidity(actual_parameter_nodes[0], parameter0_type))
                 variables.push_back(std::move(parameter0));
@@ -3374,7 +2476,7 @@ public:
 
             threatenVariable(scope,
                 *variable, parameter_node.value.view.data(),
-                context.used_control_variables);
+                used_control_variables_);
 
             if (checkReadParameterValidity(parameter_node, variable->variableType(scope)))
                 variables.push_back(std::move(variable));
@@ -3391,8 +2493,7 @@ public:
     resolveBuiltinCallReadln(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &context
+        const char *actual_parameter_end_location
     ) {
         std::unique_ptr<sem::VariableAccess> file;
         std::vector<std::unique_ptr<sem::VariableAccess>> variables;
@@ -3423,7 +2524,7 @@ public:
 
             threatenVariable(scope,
                 *parameter0, actual_parameter_nodes[0].value.view.data(),
-                context.used_control_variables);
+                used_control_variables_);
 
             if (checkReadParameterValidity(actual_parameter_nodes[0], parameter0_type))
                 variables.push_back(std::move(parameter0));
@@ -3436,7 +2537,7 @@ public:
 
             threatenVariable(scope,
                 *variable, parameter_node.value.view.data(),
-                context.used_control_variables);
+                used_control_variables_);
 
             if (checkReadParameterValidity(parameter_node, variable->variableType(scope)))
                 variables.push_back(std::move(variable));
@@ -3450,8 +2551,7 @@ public:
     resolveBuiltinCallUnpack(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        const char *actual_parameter_end_location
     ) {
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
@@ -3727,8 +2827,7 @@ public:
     resolveBuiltinCallWrite(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        const char *actual_parameter_end_location
     ) {
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
@@ -3795,8 +2894,7 @@ public:
     resolveBuiltinCallWriteln(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location,
-        const StatementAnalysisContext &
+        const char *actual_parameter_end_location
     ) {
         std::unique_ptr<sem::VariableAccess> file;
         std::vector<sem::WriteParameter> parameters;
@@ -3841,6 +2939,911 @@ public:
             std::move(file), std::move(parameters));
     }
 
+private:
+    linked_list_ptr_t<label_set_t> allowed_goto_targets_;
+    linked_list_ptr_t<ControlVariable> used_control_variables_;
+};
+
+const std::unordered_map<std::string_view, StatementBuilder::builtin_procedure_call_f>
+StatementBuilder::BUILTIN_PROCEDURES = {
+    {"dispose"sv, &StatementBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureDispose>},
+    {"get"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureGet>},
+    {"new"sv, &StatementBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureNew>},
+    {"pack"sv, &StatementBuilder::resolveBuiltinCallPack},
+    {"page"sv, &StatementBuilder::resolveBuiltinCallPage},
+    {"put"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
+    {"read"sv, &StatementBuilder::resolveBuiltinCallRead},
+    {"readln"sv, &StatementBuilder::resolveBuiltinCallReadln},
+    {"reset"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureReset>},
+    {"rewrite"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureRewrite>},
+    {"unpack"sv, &StatementBuilder::resolveBuiltinCallUnpack},
+    {"write"sv, &StatementBuilder::resolveBuiltinCallWrite},
+    {"writeln"sv, &StatementBuilder::resolveBuiltinCallWriteln},
+};
+
+class ProgramBuilder : public Builder {
+public:
+    using Builder::Builder;
+
+    void
+    analyzeLabelDeclarations(const nodes::Block &block_node, sem::Block &block) {
+        for (auto &label_node : block_node.label_declarations) {
+            auto label_location = label_node.view.data();
+
+            auto [it, success] = block.labels_.try_emplace(
+                label_node.value, label_location, nullptr);
+
+            if (!success) {
+                reporter_.err(label_location, ec::DUPLICATE_LABEL,
+                    "label \"{}\" already defined", label_node.value);
+                reporter_.note(it->second.defining_occurrence,
+                    "defining point of \"{}\"", label_node.value);
+            }
+        }
+    }
+
+    static void
+    collectDefiningOccurrencesInFieldList(
+        sem::Scope &scope,
+        nodes::FieldList &field_list_node
+    ) {
+        for (const auto &fixed_section : field_list_node.fixed_sections)
+            collectDefiningOccurrencesInTypeDenoter(scope, *fixed_section.field_type);
+
+        if (field_list_node.variant_part)
+            for (auto &variant : field_list_node.variant_part->variants)
+                collectDefiningOccurrencesInFieldList(scope, variant.fields);
+    }
+
+    static void
+    collectDefiningOccurrencesInTypeDenoter(
+        sem::Scope &scope,
+        nodes::TypeDenoter &denoter_node
+    ) {
+        visit(denoter_node, overloaded{
+            [&scope](nodes::EnumeratedType &enum_node) {
+                for (auto &identifier_node : enum_node.constants)
+                    scope.add(identifier_node);
+            },
+            [](nodes::Identifier &) {},
+            [](nodes::NewPointerType &) {},
+            [&scope](nodes::NewStructuredType &structured_node) {
+                visit(*structured_node.unpacked, overloaded{
+                    [&scope](nodes::ArrayType &array_node) {
+                        for (const auto &index_type : array_node.index_types)
+                            collectDefiningOccurrencesInTypeDenoter(scope, *index_type);
+
+                        collectDefiningOccurrencesInTypeDenoter(
+                            scope, *array_node.component_type);
+                    },
+                    [&scope](nodes::FileType &file_node) {
+                        collectDefiningOccurrencesInTypeDenoter(
+                            scope, *file_node.component_type);
+                    },
+                    [&scope](nodes::RecordType &record_node) {
+                        collectDefiningOccurrencesInFieldList(scope, record_node.fields);
+                    },
+                    [&scope](nodes::SetType &set_node) {
+                        collectDefiningOccurrencesInTypeDenoter(
+                            scope, *set_node.base_type);
+                    },
+                });
+            },
+            [](nodes::SubrangeType &) {},
+        });
+    }
+
+    static void
+    collectDefiningOccurrencesInBlock(
+        sem::Scope &scope,
+        const nodes::Block &block_node
+    ) {
+        for (auto &constant_def_node : block_node.constant_definitions)
+            scope.add(constant_def_node.name);
+
+        for (auto &type_def_node : block_node.type_definitions) {
+            scope.add(type_def_node.name, sem::DefiningOccurrence::TYPE);
+            collectDefiningOccurrencesInTypeDenoter(scope, *type_def_node.denoter);
+        }
+
+        for (auto &variable_decl_node : block_node.variable_declarations) {
+            for (auto &identifier_node : variable_decl_node.var_names)
+                scope.add(identifier_node);
+            collectDefiningOccurrencesInTypeDenoter(scope, *variable_decl_node.var_type);
+        }
+
+        for (auto &subroutine_decl_node : block_node.subroutine_declarations) {
+            // Function identifications do not introduce defining occurrences.
+            // Strictly speaking, this check is unnecessary, since if a function
+            // identification for a given name occurs before the corresponding
+            // function heading, that's an error (and we'll catch that error later),
+            // and if it occurs after, collectDefiningOccurrence will ignore it.
+            // We do the check anyway, just so that we can point at the real
+            // defining occurrence of the function if we need to.
+            if (!dynamic_cast<nodes::FunctionIdentification *>(subroutine_decl_node.heading.get()))
+                scope.add(subroutine_decl_node.heading->name);
+        }
+    }
+
+    bool
+    checkDuplicateIdentifier(
+        const sem::Scope &scope, const nodes::Identifier &id_node
+    ) {
+        const auto &occurrence = scope.lookupShallowUnsafe(id_node.spelling);
+
+        if (occurrence.location != id_node.view.data()) {
+            reporter_.err(id_node.view.data(), ec::DUPLICATE_IDENTIFIER,
+                "identifier \"{}\" already defined", id_node.spelling);
+            reporter_.note(occurrence.location,
+                "defining point of \"{}\"", id_node.spelling);
+            return true;
+        }
+
+        return false;
+    }
+
+    sem::Type::ptr_t *
+    lookupType(
+        sem::Scope &scope,
+        const nodes::Identifier &applied_occurrence_node
+    ) {
+        return lookupIdentifier(scope, applied_occurrence_node,
+            &sem::Block::types_, "type");
+    }
+
+    void
+    analyzeConstantDefinitions(
+        const nodes::Block &block_node,
+        sem::Block &block
+    ) {
+        for (auto &constant_def_node : block_node.constant_definitions) {
+            if (checkDuplicateIdentifier(block.scope_, constant_def_node.name))
+                continue;
+
+            // For circular definition detection to work, we must first add
+            // the new constant to block.constants_, and _then_ resolve the value.
+            auto &constant = block.constants_[constant_def_node.name.spelling];
+            constant = resolveConstant(block.scope_, *constant_def_node.value);
+            applyFallback(constant);
+        }
+    }
+
+    std::shared_ptr<const sem::TypeArray>
+    resolveStructuredType(
+        sem::Scope &scope, nodes::ArrayType &array_type_node, bool is_packed
+    ) {
+        auto component_type = resolveType(scope, *array_type_node.component_type);
+        if (!component_type) return nullptr;
+
+        std::shared_ptr<const sem::TypeArray> array_type;
+
+        for (auto &index_type_node : std::views::reverse(array_type_node.index_types)) {
+            auto index_type = resolveType(scope, *index_type_node);
+            if (!index_type) return nullptr;
+
+            auto index_type_ordinal
+                = std::dynamic_pointer_cast<const sem::TypeOrdinal>(index_type);
+
+            if (!index_type_ordinal) {
+                reporter_.err(index_type_node->view.data(), ec::NON_ORDINAL_TYPE,
+                    "array index type is non-ordinal");
+                return nullptr;
+            }
+
+            array_type = std::make_shared<sem::TypeArray>(
+                index_type_ordinal, component_type, is_packed);
+            component_type = array_type;
+        }
+
+        // The grammar requires at least one index type, so the loop should
+        // execute at least once.
+        assert(array_type);
+
+        return array_type;
+    }
+
+    std::shared_ptr<const sem::TypeFile>
+    resolveStructuredType(
+        sem::Scope &scope, nodes::FileType &file_type_node, bool is_packed
+    ) {
+        auto component_type = resolveType(scope, *file_type_node.component_type);
+        if (!component_type) return nullptr;
+
+        if (!component_type->canBeFileComponent()) {
+            reporter_.err(file_type_node.component_type->view.data(),
+                ec::DISALLOWED_FILE_COMPONENT,
+                "disallowed type used as file component");
+            return nullptr;
+        }
+
+        return std::make_shared<sem::TypeFile>(component_type, is_packed);
+    }
+
+    static void
+    collectFieldDefiningOccurrences(
+        sem::Scope &scope,
+        nodes::FieldList &field_list_node
+    ) {
+        // Not to be confused with collectOccurrencesInFieldList -
+        // that collects identifiers scoped to the block, this collects
+        // field names.
+
+        for (const auto &fixed_section : field_list_node.fixed_sections)
+            for (const auto &field_name : fixed_section.field_names)
+                scope.add(field_name);
+
+        if (auto &variant_part = field_list_node.variant_part) {
+            if (variant_part->tag_field)
+                scope.add(*variant_part->tag_field);
+
+            for (auto &variant : variant_part->variants)
+                collectFieldDefiningOccurrences(scope, variant.fields);
+        }
+    }
+
+    sem::FieldList
+    resolveFieldList(
+        sem::Scope &scope,
+        nodes::FieldList &field_list_node
+    ) {
+        sem::FieldList field_list;
+
+        for (const auto &fixed_section : field_list_node.fixed_sections) {
+            auto type = resolveType(scope, *fixed_section.field_type);
+            if (!type) continue;
+
+            for (const auto &field_name : fixed_section.field_names) {
+                if (checkDuplicateIdentifier(scope, field_name))
+                    continue;
+
+                field_list.addField(field_name.spelling, type);
+            }
+        }
+
+        if (auto &variant_part_node = field_list_node.variant_part) {
+            auto tag_type_node = variant_part_node->tag_type;
+            auto tag_type = resolveTypeDenoter(scope, tag_type_node);
+            if (!tag_type) return field_list;
+
+            auto tag_type_ordinal
+                = std::dynamic_pointer_cast<const sem::TypeOrdinal>(tag_type);
+            if (!tag_type_ordinal) {
+                reporter_.err(tag_type_node.view.data(), ec::NON_ORDINAL_TYPE,
+                    "variant part tag type is not ordinal");
+                return field_list;
+            }
+
+            sem::VariantPart variant_part(tag_type_ordinal);
+
+            if (auto &tag_field_node = variant_part_node->tag_field) {
+                if (checkDuplicateIdentifier(scope, *tag_field_node))
+                    return field_list;
+
+                variant_part.setTagField(tag_field_node->spelling);
+            }
+
+            pascal_integer_t tag_smallest_ordinal = tag_type_ordinal->smallestOrdinal();
+            pascal_integer_t tag_largest_ordinal = tag_type_ordinal->largestOrdinal();
+
+            assert(tag_smallest_ordinal >= -PASCAL_INTEGER_MAX);
+            pascal_integer_t counter = tag_smallest_ordinal - 1;
+
+            std::unordered_map<pascal_integer_t, const char *> used_ordinals;
+
+            for (auto &variant : variant_part_node->variants) {
+                std::vector<sem::ConstantOrdinal::ptr_t> case_constants;
+
+                for (auto &constant_node : variant.case_constants) {
+                    auto constant = resolveConstant(scope, *constant_node);
+                    if (!constant) return field_list;
+
+                    if (!constant->type()->isCompatibleWith(*tag_type_ordinal)) {
+                        reporter_.err(constant_node->view.data(), ec::TYPE_MISMATCH,
+                            "case constant type (\"{}\") is incompatible with tag type (\"{}\")",
+                            constant->type()->str(), tag_type_ordinal->str());
+                        return field_list;
+                    }
+
+                    auto ordinal_constant
+                        = std::dynamic_pointer_cast<const sem::ConstantOrdinal>(constant);
+                    assert(ordinal_constant); // the type check above guarantees this
+
+                    auto ordinal = ordinal_constant->ordinalNumber();
+                    if (!(tag_smallest_ordinal <= ordinal && ordinal <= tag_largest_ordinal)) {
+                        reporter_.err(constant_node->view.data(), ec::OUT_OF_RANGE,
+                            "case constant is not within the range of values of the tag type");
+                        return field_list;
+                    }
+
+                    if (auto it = used_ordinals.find(ordinal); it != used_ordinals.end()) {
+                        reporter_.err(constant_node->view.data(), ec::DUPLICATE_CASE,
+                            "case constant already used");
+                        reporter_.note(it->second, "previous occurrence of the case constant");
+                        return field_list;
+                    }
+                    used_ordinals.insert_or_assign(ordinal, constant_node->view.data());
+
+                    case_constants.push_back(ordinal_constant);
+
+                    // If the counter reached PASCAL_INTEGER_MAX, then every constant
+                    // between tag_smallest_ordinal and tag_largest_ordinal has
+                    // already been used, so we shouldn't be able to reach this again.
+                    assert(counter != PASCAL_INTEGER_MAX);
+                    ++counter;
+                }
+
+                auto variant_fields = resolveFieldList(scope, variant.fields);
+
+                variant_part.addVariant(case_constants, variant_fields);
+            }
+
+            // This could only be false if there were no case constants,
+            // which the grammar isn't supposed to allow.
+            assert(counter >= tag_smallest_ordinal);
+
+            if (counter != tag_largest_ordinal) {
+                reporter_.err(variant_part_node->view.data(), ec::MISSING_CASE,
+                    "at least one value of the tag type is not covered by a case constant");
+                return field_list;
+            }
+
+            field_list.setVariantPart(variant_part);
+        }
+
+        return field_list;
+    }
+
+    std::shared_ptr<const sem::TypeRecord>
+    resolveStructuredType(
+        sem::Scope &scope, nodes::RecordType &record_type_node, bool is_packed
+    ) {
+        sem::Scope record_scope(&scope);
+        collectFieldDefiningOccurrences(record_scope, record_type_node.fields);
+
+        return std::make_shared<sem::TypeRecord>(
+            resolveFieldList(record_scope, record_type_node.fields),
+            is_packed);
+    }
+
+    std::shared_ptr<const sem::TypeSet>
+    resolveStructuredType(
+        sem::Scope &scope, nodes::SetType &set_type_node, bool is_packed
+    ) {
+        auto base_type = resolveType(scope, *set_type_node.base_type);
+        if (!base_type) return nullptr;
+
+        auto base_type_ordinal
+            = std::dynamic_pointer_cast<const sem::TypeOrdinal>(base_type);
+        if (!base_type_ordinal) {
+            reporter_.err(set_type_node.base_type->view.data(),
+                ec::NON_ORDINAL_TYPE, "set base type is non-ordinal");
+            return nullptr;
+        }
+
+        return std::make_shared<sem::TypeSet>(base_type_ordinal, is_packed);
+    }
+
+    std::shared_ptr<const sem::TypeEnumerated>
+    resolveTypeDenoter(
+        sem::Scope &scope, nodes::EnumeratedType &enumerated_type_node
+    ) {
+        if (enumerated_type_node.constants.size()
+            > std::size_t(PASCAL_INTEGER_MAX) + 1
+        ) {
+            reporter_.err(enumerated_type_node.view.data(), ec::TOO_MANY_ELEMENTS,
+                "number of constants ({}) greater than maximum allowed ({})",
+                enumerated_type_node.constants.size(),
+                std::size_t(PASCAL_INTEGER_MAX) + 1);
+            return nullptr;
+        }
+
+        std::vector<std::string> constant_names;
+
+        for (auto &id_node : enumerated_type_node.constants) {
+            if (checkDuplicateIdentifier(scope, id_node))
+                continue;
+
+            constant_names.push_back(id_node.spelling);
+        }
+
+        if (constant_names.empty())
+            return nullptr;
+
+        auto enumerated_type = sem::TypeEnumerated::make(constant_names);
+
+        for (const auto &constant : enumerated_type->constants())
+            scope.closestContainingBlock().constants_.emplace(constant->str(), constant);
+
+        return enumerated_type;
+    }
+
+    sem::Type::ptr_t
+    resolveTypeDenoter(
+        sem::Scope &scope, nodes::Identifier &id_node
+    ) {
+        auto *ref_type = lookupType(scope, id_node);
+        if (!ref_type) return nullptr;
+
+        if (!*ref_type) {
+            reporter_.err(id_node.view.data(), ec::CIRCULAR_DEFINITION,
+                "type \"{}\" used in its own definition", id_node.spelling);
+            return nullptr;
+        }
+
+        return *ref_type;
+    }
+
+    std::shared_ptr<const sem::TypePointer>
+    resolveTypeDenoter(
+        sem::Scope &scope, nodes::NewPointerType &pointer_type_node
+    ) {
+        const std::string &domain_type_name
+            = pointer_type_node.domain_type.spelling;
+
+        // Pointer types can refer to types that haven't been defined
+        // yet, so we can't resolve the domain type the normal way.
+        // Instead, we'll just find the block that contains the domain
+        // type and store the reference to that block in the pointer type.
+        // This will allow the domain type to be resolved after the block
+        // is fully analyzed.
+
+        auto lookup_result = scope.lookup(domain_type_name);
+        if (!lookup_result) {
+            reporter_.err(pointer_type_node.domain_type.view.data(),
+                ec::UNDEFINED_IDENTIFIER,
+                "undefined type identifier \"{}\"", domain_type_name);
+            return nullptr;
+        }
+
+        auto *defining_scope = lookup_result->scope;
+        auto &defining_occurrence = lookup_result->defining_occurrence;
+
+        if (defining_occurrence.kind != sem::DefiningOccurrence::TYPE) {
+            reporter_.err(pointer_type_node.domain_type.view.data(),
+                ec::WRONG_IDENTIFIER_KIND,
+                "identifier \"{}\" is not a type identifier",
+                domain_type_name);
+
+            // the location might be null
+            // if the scope is for the builtin block
+            if (defining_occurrence.location)
+                reporter_.note(defining_occurrence.location,
+                    "defining point of \"{}\"", domain_type_name);
+
+            return nullptr;
+        }
+
+        assert(defining_scope->block());
+
+        return std::make_shared<sem::TypePointer>(
+            *defining_scope->block(), domain_type_name);
+    }
+
+    sem::Type::ptr_t
+    resolveTypeDenoter(
+        sem::Scope &scope, nodes::NewStructuredType &structured_type_node
+    ) {
+        return visit(*structured_type_node.unpacked,
+            [&](auto &node) -> sem::Type::ptr_t {
+                return resolveStructuredType(scope, node, structured_type_node.is_packed);
+            }
+        );
+    }
+
+    std::shared_ptr<const sem::TypeSubrange>
+    resolveTypeDenoter(
+        sem::Scope &scope, nodes::SubrangeType &subrange_type_node
+    ) {
+        auto smallest = resolveConstant(scope, *subrange_type_node.smallest);
+        auto largest = resolveConstant(scope, *subrange_type_node.largest);
+
+        if (!smallest || !largest) return nullptr;
+
+        auto smallest_ordinal =
+            std::dynamic_pointer_cast<const sem::ConstantOrdinal>(smallest);
+
+        if (!smallest_ordinal) {
+            reporter_.err(subrange_type_node.smallest->view.data(),
+                ec::NON_ORDINAL_TYPE,
+                "subrange bound has non-ordinal type \"{}\"", smallest->type()->str());
+            return nullptr;
+        }
+
+        if (largest->type() != smallest->type()) {
+            reporter_.err(subrange_type_node.largest->view.data(),
+                ec::TYPE_MISMATCH,
+                "largest subrange value has different type (\"{}\") "
+                    "from smallest value type (\"{}\")",
+                largest->type()->str(), smallest->type()->str());
+            return nullptr;
+        }
+
+        auto largest_ordinal =
+            std::dynamic_pointer_cast<const sem::ConstantOrdinal>(largest);
+
+        // Since both constants have the same type,
+        // it should be impossible for largest_ordinal to be null.
+        assert(largest_ordinal);
+
+        if (largest_ordinal->ordinalNumber() < smallest_ordinal->ordinalNumber()) {
+            reporter_.err(subrange_type_node.largest->view.data(),
+                ec::INVERTED_SUBRANGE_BOUNDS,
+                "largest subrange value is less than smallest value");
+            return nullptr;
+        }
+
+        return std::make_shared<sem::TypeSubrange>(smallest_ordinal, largest_ordinal);
+    }
+
+    sem::Type::ptr_t
+    resolveType(sem::Scope &scope, nodes::TypeDenoter &type_denoter_node) {
+        return visit(type_denoter_node,
+            [&](auto &node) -> sem::Type::ptr_t {
+                return resolveTypeDenoter(scope, node);
+            }
+        );
+    }
+
+    void
+    analyzeTypeDefinitions(
+        const nodes::Block &block_node,
+        sem::Block &block
+    ) {
+        for (auto &type_def_node : block_node.type_definitions) {
+            if (checkDuplicateIdentifier(block.scope_, type_def_node.name))
+                continue;
+
+            auto &type = block.types_[type_def_node.name.spelling];
+            type = resolveType(block.scope_, *type_def_node.denoter);
+            applyFallback(type);
+        }
+    }
+
+    void
+    analyzeVariableDeclarations(
+        const nodes::Block &block_node,
+        sem::Block &block
+    ) {
+        for (auto &var_decl_node : block_node.variable_declarations) {
+            auto type = resolveType(block.scope_, *var_decl_node.var_type);
+            applyFallback(type);
+
+            for (auto &var_name_node : var_decl_node.var_names) {
+                if (checkDuplicateIdentifier(block.scope_, var_name_node))
+                    continue;
+
+                block.variables_.try_emplace(var_name_node.spelling, type);
+            }
+        }
+    }
+
+    static void
+    collectBoundDefiningOccurrences(
+        sem::Scope &scope,
+        nodes::FormalParameterTypeOrSchema &type_or_schema_node
+    ) {
+        visit(type_or_schema_node, overloaded{
+            [&](const nodes::ConformantArraySchema &schema_node) {
+                for (auto &index_type_node : schema_node.index_types) {
+                    scope.add(index_type_node.smallest);
+                    scope.add(index_type_node.largest);
+                }
+
+                collectBoundDefiningOccurrences(scope, *schema_node.component_type);
+            },
+            [](const nodes::Identifier &) {},
+        });
+    }
+
+    sem::Type::ptr_t
+    resolveTypeOrSchema(
+        sem::Scope &scope, nodes::FormalParameterTypeOrSchema &type_or_schema_node
+    ) {
+        return visit(type_or_schema_node, overloaded{
+            [&](nodes::ConformantArraySchema &schema_node)
+                -> sem::Type::ptr_t
+            {
+                auto component_type = resolveTypeOrSchema(scope, *schema_node.component_type);
+                if (!component_type) return nullptr;
+
+                std::shared_ptr<const sem::TypeArray> schema;
+
+                for (auto &index_type_node : std::views::reverse(schema_node.index_types)) {
+                    if (checkDuplicateIdentifier(scope, index_type_node.smallest))
+                        return nullptr;
+
+                    if (checkDuplicateIdentifier(scope, index_type_node.largest))
+                        return nullptr;
+
+                    auto bound_type = resolveType(scope, index_type_node.bound_type);
+                    if (!bound_type) return nullptr;
+
+                    auto bound_type_ordinal
+                        = std::dynamic_pointer_cast<const sem::TypeOrdinal>(bound_type);
+
+                    if (!bound_type_ordinal) {
+                        reporter_.err(index_type_node.bound_type.view.data(), ec::NON_ORDINAL_TYPE,
+                            "bound type is non-ordinal");
+                        return nullptr;
+                    }
+
+                    schema = std::make_shared<sem::TypeArray>(
+                        std::make_shared<sem::TypeSubrangeDynamic>(
+                            index_type_node.smallest.spelling,
+                            index_type_node.largest.spelling,
+                            bound_type_ordinal),
+                        component_type, schema_node.is_packed);
+
+                    component_type = schema;
+                }
+
+                // The grammar requires at least one index type, so the loop should
+                // execute at least once.
+                assert(schema);
+
+                return schema;
+            },
+            [&](nodes::Identifier &id_node) {
+                return resolveTypeDenoter(scope, id_node);
+            },
+        });
+    }
+
+    struct SignatureWithScope {
+        sem::Signature signature;
+        sem::Scope scope;
+    };
+
+    SignatureWithScope
+    resolveSignature(
+        sem::Scope &scope,
+        std::span<std::unique_ptr<nodes::FormalParameterSection>> parameter_section_nodes,
+        nodes::Identifier *result_type_node
+    ) {
+        sem::Scope parameter_list_scope(&scope);
+        std::vector<sem::FormalParameterSection> parameters;
+
+        for (auto &parameter_section_node : parameter_section_nodes) {
+            visit(*parameter_section_node, overloaded{
+                [&](nodes::SubroutineHeading &heading_node) {
+                    parameter_list_scope.add(heading_node.name);
+                },
+                [&](nodes::RegularParameterSection &rps_node) {
+                    for (auto &id_node : rps_node.parameter_names)
+                        parameter_list_scope.add(id_node);
+
+                    collectBoundDefiningOccurrences(
+                        parameter_list_scope, *rps_node.parameter_type);
+                },
+            });
+        }
+
+        for (auto &parameter_section_node : parameter_section_nodes) {
+            visit(*parameter_section_node, overloaded{
+                [&](nodes::FunctionHeading &heading_node) {
+                    if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
+                        return;
+
+                    auto sws = resolveSignature(
+                        parameter_list_scope,
+                        heading_node.parameters, &heading_node.result_type);
+
+                    parameters.push_back(sem::FormalParameterSection{
+                        sem::SubroutineParameterSpecification(
+                            heading_node.name.spelling, sws.signature)});
+                },
+                [&](nodes::ProcedureHeading &heading_node) {
+                    if (checkDuplicateIdentifier(parameter_list_scope, heading_node.name))
+                        return;
+
+                    auto sws = resolveSignature(
+                        parameter_list_scope,
+                        heading_node.parameters, nullptr);
+
+                    parameters.push_back(sem::FormalParameterSection{
+                        sem::SubroutineParameterSpecification(
+                            heading_node.name.spelling, sws.signature)});
+                },
+                [&](nodes::RegularParameterSection &rps_node) {
+                    std::vector<std::string> names;
+
+                    for (auto &id_node : rps_node.parameter_names) {
+                        if (checkDuplicateIdentifier(parameter_list_scope, id_node))
+                            continue;
+
+                        names.push_back(id_node.spelling);
+                    }
+
+                    if (names.empty()) return;
+
+                    auto type = resolveTypeOrSchema(
+                        parameter_list_scope, *rps_node.parameter_type);
+
+                    if (type && !rps_node.is_variable && !type->canBeFileComponent()) {
+                        reporter_.err(rps_node.parameter_type->view.data(),
+                            ec::DISALLOWED_PARAMETER_TYPE,
+                            "disallowed type \"{}\" used as value parameter type",
+                            type->str());
+                        type = nullptr;
+                    }
+
+                    applyFallback(type);
+
+                    parameters.push_back(sem::FormalParameterSection{
+                        sem::RegularParameterSection(
+                            rps_node.is_variable, names, type)});
+                },
+            });
+        }
+
+        sem::Type::ptr_t result_type;
+
+        if (result_type_node) {
+            if (auto type = resolveTypeDenoter(scope, *result_type_node)) {
+                if (dynamic_cast<const sem::TypeOrdinal *>(type.get())
+                    || dynamic_cast<const sem::TypeReal *>(type.get())
+                    || dynamic_cast<const sem::TypePointer *>(type.get())
+                ) {
+                    result_type = type;
+                }
+                else {
+                    reporter_.err(result_type_node->view.data(),
+                        ec::DISALLOWED_RESULT_TYPE,
+                        "result type \"{}\" is neither a simple nor a pointer type",
+                        type->str());
+                }
+            }
+
+            // If result_type is nullptr, we can't just leave it as that,
+            // since that would turn the function into a procedure
+            // and cause more errors down the line.
+            applyFallback(result_type);
+        }
+
+        return {
+            sem::Signature(parameters, result_type),
+            parameter_list_scope,
+        };
+    }
+
+    void
+    analyzeSubroutineDeclarations(
+        const nodes::Block &block_node,
+        sem::Block &block,
+        const label_set_t &allowed_goto_targets
+    ) {
+        std::unordered_set<std::string> forward_declarations;
+
+        for (auto &subr_decl_node : block_node.subroutine_declarations) {
+            const auto &subr_name_node = subr_decl_node.heading->name;
+            const auto &subr_name = subr_name_node.spelling;
+
+            enum SubroutineType { PROCEDURE = 0, FUNCTION = 1 };
+            static constexpr std::string_view SUBROUTINE_TYPE_STRS[] = {"procedure"sv, "function"sv};
+            using optional_signature_t = std::variant<SignatureWithScope, SubroutineType>;
+
+            optional_signature_t opt_sig = visit(
+                *subr_decl_node.heading, overloaded{
+                    [&](nodes::FunctionHeading &function_head_node) {
+                        return optional_signature_t(
+                            resolveSignature(
+                                block.scope_,
+                                function_head_node.parameters,
+                                &function_head_node.result_type
+                            )
+                        );
+                    },
+                    [&](nodes::FunctionIdentification &) {
+                        return optional_signature_t(FUNCTION);
+                    },
+                    [&](nodes::ProcedureHeading &procedure_head_node) {
+                        bool is_delayed = forward_declarations.contains(subr_name)
+                            && procedure_head_node.parameters.empty();
+
+                        if (is_delayed) return optional_signature_t(PROCEDURE);
+
+                        return optional_signature_t(
+                            resolveSignature(
+                                block.scope_,
+                                procedure_head_node.parameters,
+                                nullptr
+                            )
+                        );
+                    },
+                }
+            );
+
+            sem::Subroutine *subroutine = std::visit(overloaded{
+                [&](const SignatureWithScope &sws) -> sem::Subroutine * {
+                    // this is the first declaration of this subroutine
+
+                    if (checkDuplicateIdentifier(block.scope_, subr_name_node))
+                        return nullptr;
+
+                    auto [it, success] = block.subroutines_.try_emplace(
+                        subr_name, subr_name_node.view.data(), sws.signature, block);
+
+                    it->second.block_.scope_.mergeFrom(sws.scope);
+                    return &it->second;
+                },
+                [&](SubroutineType subr_type) -> sem::Subroutine * {
+                    // this is a delayed declaration of this subroutine
+
+                    auto it = block.subroutines_.find(subr_name);
+
+                    if (!forward_declarations.contains(subr_name)) {
+                        if (it == block.subroutines_.end()) {
+                            reporter_.err(subr_name_node.view.data(),
+                                ec::MISSING_FORWARD_DECLARATION,
+                                "delayed declaration with no preceding forward declaration");
+                        }
+                        else {
+                            reporter_.err(subr_name_node.view.data(),
+                                ec::DUPLICATE_SUBROUTINE_DECLARATION,
+                                "duplicate declaration for \"{}\"", subr_name);
+                            reporter_.note(it->second.last_declaration_location_,
+                                "last declaration of \"{}\"", subr_name);
+                        }
+
+                        return nullptr;
+                    }
+
+                    assert(it != block.subroutines_.end());
+                    auto &previous_subroutine = it->second;
+                    SubroutineType previous_subroutine_type
+                        = previous_subroutine.signature().resultType() ? FUNCTION : PROCEDURE;
+
+                    if (previous_subroutine_type != subr_type) {
+                        reporter_.err(subr_name_node.view.data(),
+                            ec::MISMATCHED_SUBROUTINE_DECLARATION,
+                            "\"{}\" declared as a {} when it had previously been declared as a {}",
+                            subr_name,
+                            SUBROUTINE_TYPE_STRS[subr_type],
+                            SUBROUTINE_TYPE_STRS[previous_subroutine_type]);
+                        reporter_.note(previous_subroutine.last_declaration_location_,
+                            "last declaration of \"{}\"", subr_name);
+                        return nullptr;
+                    }
+
+                    previous_subroutine.last_declaration_location_ = subr_name_node.view.data();
+                    forward_declarations.erase(subr_name);
+                    return &previous_subroutine;
+                },
+            }, opt_sig);
+
+            if (!subroutine) continue;
+
+            if (subr_decl_node.block) {
+                buildBlock(
+                    *subr_decl_node.block, subroutine->block_, allowed_goto_targets);
+
+                if (
+                    subroutine->signature_.resultType()
+                    && !subroutine->contains_result_assignment_
+                )
+                    reporter_.err(subr_decl_node.block->view.data(),
+                        ec::MISSING_RESULT_ASSIGNMENT,
+                        "function block does not contain an assignment"
+                            " to the function identifier \"{}\"",
+                        subr_name);
+            }
+            else {
+                forward_declarations.insert(subr_name);
+            }
+        }
+
+        std::vector<const char *> missing_declaration_locations;
+        for (const auto &name : forward_declarations)
+            missing_declaration_locations.push_back(
+                block.scope_.lookupShallowUnsafe(name).location);
+
+        std::ranges::sort(missing_declaration_locations);
+
+        for (const char *error_location : missing_declaration_locations)
+            reporter_.err(error_location, ec::MISSING_DELAYED_DECLARATION,
+                "forward declaration with no following delayed declaration");
+    }
+
     void
     buildBlock(
         const nodes::Block &block_node,
@@ -3868,9 +3871,8 @@ public:
         analyzeVariableDeclarations(block_node, block);
         analyzeSubroutineDeclarations(block_node, block, allowed_goto_targets.value);
 
-        block.statement_ = resolveUnlabeledStatement(
-            block.scope_, block_node.statement,
-            StatementAnalysisContext{&allowed_goto_targets, nullptr});
+        block.statement_ = StatementBuilder(reporter_, &allowed_goto_targets, nullptr)
+            .resolveUnlabeledStatement(block.scope_, block_node.statement);
 
         std::vector<const char *> nonprefixing_label_locations;
 
@@ -3920,26 +3922,6 @@ public:
                     parameter_name);
         }
     }
-
-private:
-    Reporter &reporter_;
-};
-
-const std::unordered_map<std::string_view, ProgramBuilder::builtin_procedure_call_f>
-ProgramBuilder::BUILTIN_PROCEDURES = {
-    {"dispose"sv, &ProgramBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureDispose>},
-    {"get"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureGet>},
-    {"new"sv, &ProgramBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureNew>},
-    {"pack"sv, &ProgramBuilder::resolveBuiltinCallPack},
-    {"page"sv, &ProgramBuilder::resolveBuiltinCallPage},
-    {"put"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
-    {"read"sv, &ProgramBuilder::resolveBuiltinCallRead},
-    {"readln"sv, &ProgramBuilder::resolveBuiltinCallReadln},
-    {"reset"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureReset>},
-    {"rewrite"sv, &ProgramBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureRewrite>},
-    {"unpack"sv, &ProgramBuilder::resolveBuiltinCallUnpack},
-    {"write"sv, &ProgramBuilder::resolveBuiltinCallWrite},
-    {"writeln"sv, &ProgramBuilder::resolveBuiltinCallWriteln},
 };
 
 std::unique_ptr<sem::Program>

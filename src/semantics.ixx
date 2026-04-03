@@ -26,7 +26,9 @@ import utilities;
 
 using namespace std::literals;
 
+class Builder;
 class ProgramBuilder;
+class StatementBuilder;
 struct BuiltinBlockInitializer;
 
 namespace sem {
@@ -103,7 +105,9 @@ private:
 
     std::unique_ptr<StatementCompound> statement_;
 
+    friend class ::Builder;
     friend class ::ProgramBuilder;
+    friend class ::StatementBuilder;
     friend struct ::BuiltinBlockInitializer;
 };
 
@@ -253,6 +257,7 @@ private:
     bool contains_result_assignment_;
 
     friend class ::ProgramBuilder;
+    friend class ::StatementBuilder;
 };
 
 export
@@ -265,6 +270,7 @@ private:
     Block block_;
 
     friend class ::ProgramBuilder;
+    friend class ::StatementBuilder;
 };
 
 }
