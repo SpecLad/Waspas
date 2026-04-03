@@ -951,8 +951,7 @@ public:
     threatenVariable(
         sem::Scope &scope,
         const sem::VariableAccess &access,
-        const char *location,
-        linked_list_ptr_t<ControlVariable> used_control_variables
+        const char *location
     ) {
         auto *variable_id_access
             = dynamic_cast<const sem::VariableAccessVariableId *>(&access);
@@ -963,7 +962,7 @@ public:
             = *scope.parent(variable_id_access->scopeIndex()).block();
 
         if (&variable_block == &closest_block) {
-            for (const auto &used_control_variable : used_control_variables)
+            for (const auto &used_control_variable : used_control_variables_)
                 if (variable_id_access->id() == used_control_variable.name) {
                     reporter_.err(location,
                         ec::THREATENED_CONTROL_VARIABLE,
@@ -997,8 +996,7 @@ public:
 
         threatenVariable(
             scope,
-            *access, assignment_statement_node.access.view.data(),
-            used_control_variables_);
+            *access, assignment_statement_node.access.view.data());
 
         auto expression = resolveExpression(scope, assignment_statement_node.expression);
         const auto &expression_type = expression->valueType(scope);
@@ -1179,8 +1177,7 @@ public:
 
         threatenVariable(scope,
             sem::VariableAccessVariableId(control_variable.value.name, scope_index),
-            control_variable.value.location,
-            used_control_variables_);
+            control_variable.value.location);
 
         auto initial_value = resolveExpression(scope, for_statement_node.initial_value);
         const auto &initial_value_type = initial_value->valueType(scope);
@@ -1485,8 +1482,7 @@ public:
 
                 threatenVariable(
                     scope,
-                    *access, parameter_node.value.view.data(),
-                    used_control_variables_);
+                    *access, parameter_node.value.view.data());
 
                 if (accesses.empty()) {
                     first_good_parameter_type = &access_type;
@@ -2420,8 +2416,7 @@ public:
                 if (!variable) continue;
 
                 threatenVariable(scope,
-                    *variable, parameter_node.value.view.data(),
-                    used_control_variables_);
+                    *variable, parameter_node.value.view.data());
 
                 auto &variable_type = variable->variableType(scope);
                 if (!file_type->componentType()->isAssignmentCompatibleWith(variable_type)) {
@@ -2462,8 +2457,7 @@ public:
             if (!file) return fallbackStatement();
 
             threatenVariable(scope,
-                *parameter0, actual_parameter_nodes[0].value.view.data(),
-                used_control_variables_);
+                *parameter0, actual_parameter_nodes[0].value.view.data());
 
             if (checkReadParameterValidity(actual_parameter_nodes[0], parameter0_type))
                 variables.push_back(std::move(parameter0));
@@ -2475,8 +2469,7 @@ public:
             if (!variable) continue;
 
             threatenVariable(scope,
-                *variable, parameter_node.value.view.data(),
-                used_control_variables_);
+                *variable, parameter_node.value.view.data());
 
             if (checkReadParameterValidity(parameter_node, variable->variableType(scope)))
                 variables.push_back(std::move(variable));
@@ -2523,8 +2516,7 @@ public:
             if (!file) return fallbackStatement();
 
             threatenVariable(scope,
-                *parameter0, actual_parameter_nodes[0].value.view.data(),
-                used_control_variables_);
+                *parameter0, actual_parameter_nodes[0].value.view.data());
 
             if (checkReadParameterValidity(actual_parameter_nodes[0], parameter0_type))
                 variables.push_back(std::move(parameter0));
@@ -2536,8 +2528,7 @@ public:
             if (!variable) continue;
 
             threatenVariable(scope,
-                *variable, parameter_node.value.view.data(),
-                used_control_variables_);
+                *variable, parameter_node.value.view.data());
 
             if (checkReadParameterValidity(parameter_node, variable->variableType(scope)))
                 variables.push_back(std::move(variable));
