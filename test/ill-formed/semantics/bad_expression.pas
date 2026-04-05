@@ -29,6 +29,7 @@ function f(aa: array [m..n: integer] of integer): pint;
         aa := aa[1.1];
                 {^ error:type-mismatch }
     end;
+procedure p; begin end;
 begin
     undefined := 0;
    {^ error:undefined-identifier }
@@ -36,6 +37,12 @@ begin
    {^ error:wrong-identifier-kind }
     f := nil;
    {^ error:wrong-identifier-kind }
+
+    i := rec;
+        {^ error:wrong-identifier-kind }
+
+    i := p;
+        {^ error:wrong-identifier-kind }
 
     i := c^;
          {^ error:invalid-component-access }
