@@ -10,7 +10,7 @@ var
     k: integer;
     r: rec;
 
-    threatenedInProcedure, threatenedInBody: integer;
+    threatenedInFunction, threatenedInProcedure, threatenedInBody: integer;
 procedure p(function fp: integer);
     begin
         for k := 1 to 10 do;
@@ -25,7 +25,12 @@ procedure p(function fp: integer);
         fp;
        {^ error:wrong-identifier-kind }
     end;
-function f: integer; begin f := 0 end;
+function f: integer;
+    begin
+        f := 0;
+        threatenedInFunction := 0;
+       {^ note }
+    end;
 function writerfunc(var i: integer): integer;
     begin writerfunc := 0; end;
 procedure writerproc(var i: integer);
@@ -54,6 +59,9 @@ begin
     for k := 1 to 1.1 do;
                  {^ error:type-mismatch }
 
+    for threatenedInFunction := 1 to 10 do;
+       {^ error:threatened-control-variable }
+
     for threatenedInProcedure := 1 to 10 do;
        {^ error:threatened-control-variable }
 
@@ -81,6 +89,16 @@ begin
        {^ note }
         read(input, threatenedInBody);
                    {^ error:threatened-control-variable }
+
+    for threatenedInBody := 1 to 10 do
+       {^ note }
+        readln(threatenedInBody);
+              {^ error:threatened-control-variable }
+
+    for threatenedInBody := 1 to 10 do
+       {^ note }
+        readln(input, threatenedInBody);
+                     {^ error:threatened-control-variable }
 
     goto 2;
         {^ error:undefined-label }
