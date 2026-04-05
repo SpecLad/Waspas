@@ -298,6 +298,24 @@ sem::ExpressionSetConstructor::valueType(const Scope &) const {
 }
 
 const sem::Type &
+sem::ExpressionFunctionDesignator::valueType(const Scope &scope) const {
+    const Block *block = scope.parent(reference_.scopeIndex()).block();
+    const Signature *signature;
+
+    switch (reference_.kind()) {
+        case sem::SubroutineReference::REGULAR:
+            signature = &block->subroutine(reference_.id()).signature();
+            break;
+        case sem::SubroutineReference::PARAMETER:
+            signature = &block->containingSubroutine()->signature()
+                .subroutineParameterSignature(reference_.id());
+            break;
+    }
+
+    return *signature->resultType();
+}
+
+const sem::Type &
 sem::ExpressionOperatorCommonType::valueType(const Scope &scope) const {
     const Type &left_type = left().valueType(scope);
     const Type &right_type = right().valueType(scope);

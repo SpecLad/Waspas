@@ -26,7 +26,9 @@ procedure p(function fp: integer);
        {^ error:wrong-identifier-kind }
     end;
 function f: integer; begin f := 0 end;
-procedure writer(var i: integer);
+function writerfunc(var i: integer): integer;
+    begin writerfunc := 0; end;
+procedure writerproc(var i: integer);
     begin end;
 begin
     1: ;
@@ -62,8 +64,13 @@ begin
 
     for threatenedInBody := 1 to 10 do
        {^ note }
-        writer(threatenedInBody);
-              {^ error:threatened-control-variable }
+        writerproc(threatenedInBody);
+                  {^ error:threatened-control-variable }
+
+    for threatenedInBody := 1 to 10 do
+       {^ note }
+        k := writerfunc(threatenedInBody);
+                       {^ error:threatened-control-variable }
 
     for threatenedInBody := 1 to 10 do
        {^ note }

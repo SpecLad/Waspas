@@ -12,6 +12,39 @@ export import :types;
 
 namespace sem {
 
+export
+class SubroutineReference {
+public:
+    enum Kind { REGULAR, PARAMETER };
+
+    SubroutineReference(const std::string &id, std::size_t scope_index, Kind kind)
+        : id_(id), scope_index_(scope_index), kind_(kind) {}
+
+    const std::string &
+    id() const { return id_; }
+
+    std::size_t
+    scopeIndex() const { return scope_index_; }
+
+    Kind
+    kind() const { return kind_; }
+
+private:
+    std::string id_;
+    std::size_t scope_index_;
+    Kind kind_;
+};
+
+class Expression;
+class VariableAccess;
+
+export
+using actual_parameter_section_t = std::variant<
+    std::vector<std::unique_ptr<Expression>>, // value parameters
+    std::vector<std::unique_ptr<VariableAccess>>, // variable parameters
+    SubroutineReference // procedure/function parameter
+>;
+
 class Expression {
 public:
     virtual
@@ -58,6 +91,26 @@ public:
 
 private:
     Constant::ptr_t constant_;
+};
+
+export
+class ExpressionFunctionDesignator : public Expression {
+public:
+    explicit
+    ExpressionFunctionDesignator(
+        const SubroutineReference &reference,
+        std::vector<sem::actual_parameter_section_t> &&actual_parameters
+    )
+        : reference_(reference)
+        , actual_parameters_(std::move(actual_parameters))
+    {}
+
+    const Type &
+    valueType(const Scope &scope) const override;
+
+private:
+    SubroutineReference reference_;
+    std::vector<sem::actual_parameter_section_t> actual_parameters_;
 };
 
 class ExpressionNil final : public Expression {
@@ -349,31 +402,5 @@ private:
     std::unique_ptr<Expression> index_;
 };
 
-export
-class SubroutineReference {
-public:
-    enum Kind { REGULAR, PARAMETER };
-
-    SubroutineReference(const std::string &id, std::size_t scope_index, Kind kind)
-        : id_(id), scope_index_(scope_index), kind_(kind) {}
-
-    const std::string &
-    id() const { return id_; }
-
-    std::size_t
-    scopeIndex() const { return scope_index_; }
-
-private:
-    std::string id_;
-    std::size_t scope_index_;
-    Kind kind_;
-};
-
-export
-using actual_parameter_section_t = std::variant<
-    std::vector<std::unique_ptr<Expression>>, // value parameters
-    std::vector<std::unique_ptr<VariableAccess>>, // variable parameters
-    SubroutineReference // procedure/function parameter
->;
 
 }

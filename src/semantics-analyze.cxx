@@ -444,6 +444,13 @@ public:
             resolveVariableOrFdIdentifier, "variable or field designator");
     }
 
+    static
+    std::unique_ptr<sem::Expression>
+    fallbackExpression() {
+        return std::make_unique<sem::ExpressionConstant>(
+            std::make_shared<sem::ConstantInteger>(0));
+    }
+
     std::unique_ptr<sem::Expression>
     resolveFactor(
         sem::Scope &scope,
@@ -568,10 +575,7 @@ public:
             resolveVariableFdConstantOrBoundIdentifier,
             "variable, field designator, constant or bound");
 
-        // apply fallback
-        if (!access)
-            access = std::make_unique<sem::ExpressionConstant>(
-                std::make_shared<sem::ConstantInteger>(0));
+        if (!access) return fallbackExpression();
 
         return access;
     }
@@ -591,11 +595,42 @@ public:
     }
 
     std::unique_ptr<sem::Expression>
-    resolveFactor(sem::Scope &, auto &factor_node) {
-        reporter_.err(factor_node.view.data(), ec::UNSUPPORTED_FEATURE,
-            "factor type not supported");
-        return std::make_unique<sem::ExpressionConstant>(
-            std::make_shared<sem::ConstantInteger>(0));
+    resolveFactor(
+        sem::Scope &scope,
+        nodes::FunctionDesignator &function_designator_node
+    ) {
+        const std::string &function_name = function_designator_node.function.spelling;
+
+        const char *actual_parameter_end_location
+            = function_designator_node.parameters.back().view.data()
+                + function_designator_node.parameters.back().view.size();
+
+        return std::visit(
+            overloaded{
+                [](const std::monostate &) {
+                    return fallbackExpression();
+                },
+                [&](const BuiltinMarker &) {
+                    return (this->*BUILTIN_FUNCTIONS.at(function_name))(
+                        scope, function_designator_node.parameters,
+                        actual_parameter_end_location);
+                },
+                [&](const std::pair<sem::SubroutineReference, const sem::Signature *> &p)
+                    -> std::unique_ptr<sem::Expression>
+                {
+                    auto &[ref, signature] = p;
+
+                    auto actual_parameters = resolveActualParameters(
+                        scope, *signature, function_designator_node.parameters,
+                        actual_parameter_end_location);
+
+                    return std::make_unique<sem::ExpressionFunctionDesignator>(
+                        ref, std::move(actual_parameters));
+                },
+            },
+            lookupSubroutineReference(
+                scope, function_designator_node.function, true)
+        );
     }
 
     std::unique_ptr<sem::Expression>
@@ -1677,6 +1712,16 @@ public:
         return actual_parameters;
     }
 
+    using builtin_function_call_f
+        = std::unique_ptr<sem::Expression>(StatementBuilder:: *)(
+            sem::Scope &scope,
+            std::span<const nodes::ActualParameter> actual_parameter_nodes,
+            const char *actual_parameter_end_location
+        );
+
+    static const std::unordered_map<std::string_view, builtin_function_call_f>
+        BUILTIN_FUNCTIONS;
+
     using builtin_procedure_call_f
         = std::unique_ptr<sem::Statement>(StatementBuilder:: *)(
             sem::Scope &scope,
@@ -1703,6 +1748,8 @@ public:
         const sem::Signature *signature = nullptr;
         sem::SubroutineReference::Kind kind;
 
+        std::string_view identifier_kind_str = need_function ? "function"sv : "procedure"sv;
+
         if (lookup_result) {
             if (auto *block = lookup_result->scope->block()) {
                 if (block->hasSubroutine(id)) {
@@ -1718,14 +1765,16 @@ public:
             }
         }
         else {
-            if (BUILTIN_PROCEDURES.contains(id)) {
+            if (BUILTIN_FUNCTIONS.contains(id)) {
+                if (need_function) return BuiltinMarker{};
+            }
+            else if (BUILTIN_PROCEDURES.contains(id)) {
                 if (!need_function) return BuiltinMarker{};
             }
-            // TODO: handle builtin functions
             else {
                 reporter_.err(id_node.view.data(),
                     ec::UNDEFINED_IDENTIFIER,
-                    "undefined procedure identifier \"{}\"", id);
+                    "undefined {} identifier \"{}\"", identifier_kind_str, id);
                 return std::monostate{};
             }
         }
@@ -1733,8 +1782,7 @@ public:
         if (!signature || bool(signature->resultType()) != need_function) {
             reporter_.err(id_node.view.data(),
                 ec::WRONG_IDENTIFIER_KIND,
-                "identifier \"{}\" is not a {} identifier",
-                id, need_function ? "function" : "procedure");
+                "identifier \"{}\" is not a {} identifier", id, identifier_kind_str);
             return std::monostate{};
         }
 
@@ -2933,6 +2981,29 @@ public:
 private:
     linked_list_ptr_t<label_set_t> allowed_goto_targets_;
     linked_list_ptr_t<ControlVariable> used_control_variables_;
+};
+
+const std::unordered_map<std::string_view, StatementBuilder::builtin_function_call_f>
+StatementBuilder::BUILTIN_FUNCTIONS = {
+    /*
+    {"abs", &StatementBuilder::resolveBuiltinCallAbsLike<sem::ExpressionFunctionAbs>},
+    {"arctan", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionArctan>},
+    {"chr", &StatementBuilder::resolveBuiltinCallChr},
+    {"cos", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionCos>},
+    {"eof", &StatementBuilder::resolveBuiltinCallEofLike<sem::ExpressionFunctionEof>},
+    {"eoln", &StatementBuilder::resolveBuiltinCallEofLike<sem::ExpressionFunctionEoln>},
+    {"exp", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionExp>},
+    {"ln", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionLn>},
+    {"odd", &StatementBuilder::resolveBuiltinCallOdd},
+    {"ord", &StatementBuilder::resolveBuiltinCallOrd},
+    {"pred", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionSucc>},
+    {"round", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionRound>},
+    {"sin", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionSin>},
+    {"sqr", &StatementBuilder::resolveBuiltinCallAbsLike<sem::ExpressionFunctionSqr>},
+    {"sqrt", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionSqrt>},
+    {"succ", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionPred>},
+    {"trunc", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionTrunc>},
+    */
 };
 
 const std::unordered_map<std::string_view, StatementBuilder::builtin_procedure_call_f>
