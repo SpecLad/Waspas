@@ -102,6 +102,8 @@ private:
     std::unordered_map<std::string, Type::ptr_t> types_;
     std::unordered_map<std::string, Variable> variables_;
     std::unordered_map<std::string, Subroutine> subroutines_;
+    std::unordered_map<std::string, builtin_function_resolve_f> builtin_functions_;
+    std::unordered_map<std::string, builtin_procedure_resolve_f> builtin_procedures_;
 
     std::unique_ptr<StatementCompound> statement_;
 

@@ -44,6 +44,9 @@ begin
     i := p;
         {^ error:wrong-identifier-kind }
 
+    i := write;
+        {^ error:wrong-identifier-kind }
+
     i := c^;
          {^ error:invalid-component-access }
 

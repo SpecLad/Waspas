@@ -414,9 +414,15 @@ struct BuiltinBlockInitializer {
         for (const auto &t : builtin_block.types_)
             builtin_block.scope_.addBuiltin(t.first, sem::DefiningOccurrence::TYPE);
 
-        // TODO:
-        // functions: abs, sqr, sin, cos, exp, ln, sqrt, arctan, trunc, round, ord, chr,
-        //   succ, pred, odd, eof, eoln
+        for (const auto &p : BUILTIN_FUNCTIONS) {
+            builtin_block.scope_.addBuiltin(std::string(p.first));
+            builtin_block.builtin_functions_.insert(p);
+        }
+
+        for (const auto &p : BUILTIN_PROCEDURES) {
+            builtin_block.scope_.addBuiltin(std::string(p.first));
+            builtin_block.builtin_procedures_.insert(p);
+        }
     }
 
     template <typename ...Ts>

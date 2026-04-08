@@ -599,8 +599,6 @@ public:
         sem::Scope &scope,
         nodes::FunctionDesignator &function_designator_node
     ) {
-        const std::string &function_name = function_designator_node.function.spelling;
-
         const char *actual_parameter_end_location
             = function_designator_node.parameters.back().view.data()
                 + function_designator_node.parameters.back().view.size();
@@ -610,8 +608,8 @@ public:
                 [](const std::monostate &) {
                     return fallbackExpression();
                 },
-                [&](const BuiltinMarker &) {
-                    return (this->*BUILTIN_FUNCTIONS.at(function_name))(
+                [&](builtin_function_resolve_f resolve) {
+                    return (this->*resolve)(
                         scope, function_designator_node.parameters,
                         actual_parameter_end_location);
                 },
@@ -628,8 +626,7 @@ public:
                         ref, std::move(actual_parameters));
                 },
             },
-            lookupSubroutineReference(
-                scope, function_designator_node.function, true)
+            lookupSubroutineReference<true>(scope, function_designator_node.function)
         );
     }
 
@@ -1588,13 +1585,13 @@ public:
         return result;
     }
 
+    template <bool NeedFunction>
     std::optional<std::pair<sem::SubroutineReference, const sem::Signature *>>
     resolveExpressionAsSubroutineReference(
         sem::Scope &scope,
-        const nodes::Expression &expression_node,
-        bool need_function
+        const nodes::Expression &expression_node
     ) {
-        std::string_view expected_construct_str = need_function
+        std::string_view expected_construct_str = NeedFunction
             ? "function identifier"sv : "procedure identifier"sv;
 
         auto *variable_access_node = checkExpressionIsVariableAccess(
@@ -1615,7 +1612,7 @@ public:
         return std::visit(
             overloaded{
                 [](const std::monostate &) { return result_t{}; },
-                [&](const BuiltinMarker &) {
+                [&](builtin_subroutine_resolve_f<NeedFunction>) {
                     reporter_.err(variable_access_node->variable.view.data(),
                         ec::DISALLOWED_PARAMETER_FORM,
                         "builtin {} passed as parameter", expected_construct_str);
@@ -1625,8 +1622,7 @@ public:
                     return result_t(p);
                 },
             },
-            lookupSubroutineReference(
-                scope, variable_access_node->variable, need_function)
+            lookupSubroutineReference<NeedFunction>(scope, variable_access_node->variable)
         );
     }
 
@@ -1649,8 +1645,9 @@ public:
         auto &parameter_node = *actual_parameter_it++;
         checkNoFormattingSpecification(parameter_node);
 
-        auto lookup_result = resolveExpressionAsSubroutineReference(
-            scope, parameter_node.value, bool(sps.signature().resultType()));
+        auto lookup_result = sps.signature().resultType()
+            ? resolveExpressionAsSubroutineReference<true>(scope, parameter_node.value)
+            : resolveExpressionAsSubroutineReference<false>(scope, parameter_node.value);
 
         if (!lookup_result)
             return std::nullopt;
@@ -1712,35 +1709,18 @@ public:
         return actual_parameters;
     }
 
-    using builtin_function_call_f
-        = std::unique_ptr<sem::Expression>(StatementBuilder:: *)(
-            sem::Scope &scope,
-            std::span<const nodes::ActualParameter> actual_parameter_nodes,
-            const char *actual_parameter_end_location
-        );
+    template <bool IsFunction>
+    using builtin_subroutine_resolve_f = std::conditional_t<
+        IsFunction, builtin_function_resolve_f, builtin_procedure_resolve_f>;
 
-    static const std::unordered_map<std::string_view, builtin_function_call_f>
-        BUILTIN_FUNCTIONS;
-
-    using builtin_procedure_call_f
-        = std::unique_ptr<sem::Statement>(StatementBuilder:: *)(
-            sem::Scope &scope,
-            std::span<const nodes::ActualParameter> actual_parameter_nodes,
-            const char *actual_parameter_end_location
-        );
-
-    static const std::unordered_map<std::string_view, builtin_procedure_call_f>
-        BUILTIN_PROCEDURES;
-
-    struct BuiltinMarker {};
-
+    template <bool NeedFunction>
     std::variant<
         std::monostate, // not found / wrong kind
-        BuiltinMarker, // builtin
+        builtin_subroutine_resolve_f<NeedFunction>, // builtin
         std::pair<sem::SubroutineReference, const sem::Signature *> // defined
     >
     lookupSubroutineReference(
-        sem::Scope &scope, const nodes::Identifier &id_node, bool need_function
+        sem::Scope &scope, const nodes::Identifier &id_node
     ) {
         const auto &id = id_node.spelling;
         auto lookup_result = scope.lookup(id);
@@ -1748,7 +1728,7 @@ public:
         const sem::Signature *signature = nullptr;
         sem::SubroutineReference::Kind kind;
 
-        std::string_view identifier_kind_str = need_function ? "function"sv : "procedure"sv;
+        std::string_view identifier_kind_str = NeedFunction ? "function"sv : "procedure"sv;
 
         if (lookup_result) {
             if (auto *block = lookup_result->scope->block()) {
@@ -1762,24 +1742,28 @@ public:
                         kind = sem::SubroutineReference::PARAMETER;
                     }
                 }
+                else if constexpr (NeedFunction) {
+                    if (
+                        auto it = block->builtin_functions_.find(id);
+                        it != block->builtin_functions_.end()
+                    ) return it->second;
+                }
+                else {
+                    if (
+                        auto it = block->builtin_procedures_.find(id);
+                        it != block->builtin_procedures_.end()
+                    ) return it->second;
+                }
             }
         }
         else {
-            if (BUILTIN_FUNCTIONS.contains(id)) {
-                if (need_function) return BuiltinMarker{};
-            }
-            else if (BUILTIN_PROCEDURES.contains(id)) {
-                if (!need_function) return BuiltinMarker{};
-            }
-            else {
-                reporter_.err(id_node.view.data(),
-                    ec::UNDEFINED_IDENTIFIER,
-                    "undefined {} identifier \"{}\"", identifier_kind_str, id);
-                return std::monostate{};
-            }
+            reporter_.err(id_node.view.data(),
+                ec::UNDEFINED_IDENTIFIER,
+                "undefined {} identifier \"{}\"", identifier_kind_str, id);
+            return std::monostate{};
         }
 
-        if (!signature || bool(signature->resultType()) != need_function) {
+        if (!signature || bool(signature->resultType()) != NeedFunction) {
             reporter_.err(id_node.view.data(),
                 ec::WRONG_IDENTIFIER_KIND,
                 "identifier \"{}\" is not a {} identifier", id, identifier_kind_str);
@@ -1797,8 +1781,6 @@ public:
         sem::Scope &scope,
         const nodes::ProcedureStatement &procedure_statement_node
     ) {
-        const std::string &procedure_name = procedure_statement_node.procedure.spelling;
-
         const char *actual_parameter_end_location
             = procedure_statement_node.parameters.empty()
                 ? procedure_statement_node.procedure.view.data()
@@ -1811,8 +1793,8 @@ public:
                 [](const std::monostate &) -> std::unique_ptr<sem::Statement> {
                     return fallbackStatement();
                 },
-                [&](const BuiltinMarker &) {
-                    return (this->*BUILTIN_PROCEDURES.at(procedure_name))(
+                [&](builtin_procedure_resolve_f resolve) {
+                    return (this->*resolve)(
                         scope, procedure_statement_node.parameters,
                         actual_parameter_end_location);
                 },
@@ -1832,8 +1814,7 @@ public:
                         ref, std::move(actual_parameters));
                 },
             },
-            lookupSubroutineReference(
-                scope, procedure_statement_node.procedure, false)
+            lookupSubroutineReference<false>(scope, procedure_statement_node.procedure)
         );
     }
 
@@ -2983,8 +2964,8 @@ private:
     linked_list_ptr_t<ControlVariable> used_control_variables_;
 };
 
-const std::unordered_map<std::string_view, StatementBuilder::builtin_function_call_f>
-StatementBuilder::BUILTIN_FUNCTIONS = {
+constexpr std::initializer_list<std::pair<const std::string_view, builtin_function_resolve_f>>
+BUILTIN_FUNCTIONS = {
     /*
     {"abs", &StatementBuilder::resolveBuiltinCallAbsLike<sem::ExpressionFunctionAbs>},
     {"arctan", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionArctan>},
@@ -3006,8 +2987,8 @@ StatementBuilder::BUILTIN_FUNCTIONS = {
     */
 };
 
-const std::unordered_map<std::string_view, StatementBuilder::builtin_procedure_call_f>
-StatementBuilder::BUILTIN_PROCEDURES = {
+constexpr std::initializer_list<std::pair<const std::string_view, builtin_procedure_resolve_f>>
+BUILTIN_PROCEDURES = {
     {"dispose"sv, &StatementBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureDispose>},
     {"get"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureGet>},
     {"new"sv, &StatementBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureNew>},

@@ -2,6 +2,7 @@ module;
 
 #include <memory>
 #include <span>
+#include <string_view>
 #include <vector>
 
 export module semantics:builtins;
@@ -209,3 +210,25 @@ public:
 };
 
 }
+
+class StatementBuilder;
+
+using builtin_function_resolve_f
+    = std::unique_ptr<sem::Expression>(StatementBuilder:: *)(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location
+    );
+
+extern const std::initializer_list<std::pair<const std::string_view, builtin_function_resolve_f>>
+    BUILTIN_FUNCTIONS;
+
+using builtin_procedure_resolve_f
+    = std::unique_ptr<sem::Statement>(StatementBuilder:: *)(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location
+    );
+
+extern const std::initializer_list<std::pair<const std::string_view, builtin_procedure_resolve_f>>
+    BUILTIN_PROCEDURES;
