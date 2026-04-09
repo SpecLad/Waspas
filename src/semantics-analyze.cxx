@@ -221,10 +221,12 @@ public:
         return StatementBuilder(reporter_, allowed_goto_targets_, new_variable);
     }
 
-    static std::unique_ptr<sem::VariableAccess>
+    std::unique_ptr<sem::VariableAccess>
     resolveVariableOrFdIdentifier(
-        sem::Scope &, sem::Scope::LookupResult &lr, const std::string &name
+        sem::Scope &, sem::Scope::LookupResult &lr, const nodes::Identifier &id_node
     ) {
+        const std::string &name = id_node.spelling;
+
         if (auto *block = lr.scope->block()) {
             if (block->variables_.contains(name)) {
                 return std::make_unique<sem::VariableAccessVariableId>(
@@ -248,14 +250,16 @@ public:
         return nullptr;
     }
 
-    static std::unique_ptr<sem::Expression>
+    std::unique_ptr<sem::Expression>
     resolveVariableFdConstantOrBoundIdentifier(
-        sem::Scope &scope, sem::Scope::LookupResult &lr, const std::string &name
+        sem::Scope &scope, sem::Scope::LookupResult &lr, const nodes::Identifier &id_node
     ) {
-        if (auto access = resolveVariableOrFdIdentifier(scope, lr, name))
+        if (auto access = resolveVariableOrFdIdentifier(scope, lr, id_node))
             return access;
 
         if (auto *block = lr.scope->block()) {
+            const std::string &name = id_node.spelling;
+
             if (auto it = block->constants_.find(name); it != block->constants_.end())
                 return std::make_unique<sem::ExpressionConstant>(it->second);
 
@@ -268,12 +272,14 @@ public:
         return nullptr;
     }
 
-    static std::unique_ptr<sem::VariableAccess>
+    std::unique_ptr<sem::VariableAccess>
     resolveVariableFdOrCurrentFunctionIdentifier(
-        sem::Scope &scope, sem::Scope::LookupResult &lr, const std::string &name
+        sem::Scope &scope, sem::Scope::LookupResult &lr, const nodes::Identifier &id_node
     ) {
-        if (auto access = resolveVariableOrFdIdentifier(scope, lr, name))
+        if (auto access = resolveVariableOrFdIdentifier(scope, lr, id_node))
             return access;
+
+        const std::string &name = id_node.spelling;
 
         if (lr.scope_index == 0) return nullptr;
 
@@ -393,8 +399,8 @@ public:
     resolveVariableAccessLike(
         sem::Scope &scope,
         const nodes::VariableAccess &access_node,
-        std::unique_ptr<T> (*resolve_identifier)(
-            sem::Scope &, sem::Scope::LookupResult &, const std::string &),
+        std::unique_ptr<T> (StatementBuilder:: *resolve_identifier)(
+            sem::Scope &, sem::Scope::LookupResult &, const nodes::Identifier &),
         std::string_view identifier_kind_str
     ) requires std::is_base_of_v<sem::Expression, T> {
         const auto &name = access_node.variable.spelling;
@@ -407,7 +413,7 @@ public:
             return nullptr;
         }
 
-        auto value = resolve_identifier(scope, *lookup_result, name);
+        auto value = (this->*resolve_identifier)(scope, *lookup_result, access_node.variable);
 
         if (!value) {
             reporter_.err(access_node.variable.view.data(), ec::WRONG_IDENTIFIER_KIND,
@@ -441,7 +447,7 @@ public:
         sem::Scope &scope, const nodes::VariableAccess &access_node
     ) {
         return resolveVariableAccessLike(scope, access_node,
-            resolveVariableOrFdIdentifier, "variable or field designator");
+            &StatementBuilder::resolveVariableOrFdIdentifier, "variable or field designator");
     }
 
     static
@@ -572,7 +578,7 @@ public:
         // TODO: support function identifiers
         auto access = resolveVariableAccessLike(
             scope, variable_access_node,
-            resolveVariableFdConstantOrBoundIdentifier,
+            &StatementBuilder::resolveVariableFdConstantOrBoundIdentifier,
             "variable, field designator, constant or bound");
 
         if (!access) return fallbackExpression();
@@ -1020,7 +1026,7 @@ public:
         const nodes::AssignmentStatement &assignment_statement_node
     ) {
         auto access = resolveVariableAccessLike(scope, assignment_statement_node.access,
-            &resolveVariableFdOrCurrentFunctionIdentifier,
+            &StatementBuilder::resolveVariableFdOrCurrentFunctionIdentifier,
             "variable, field designator or current function");
         if (!access)
             return fallbackStatement();
