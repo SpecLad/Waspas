@@ -1184,7 +1184,7 @@ public:
         return std::make_unique<sem::StatementCompound>(std::move(statements));
     }
 
-    std::unique_ptr<sem::StatementEmpty>
+    std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &, const nodes::EmptyStatement &
     ) {
@@ -1331,7 +1331,7 @@ public:
         return condition;
     }
 
-    std::unique_ptr<sem::StatementIf>
+    std::unique_ptr<sem::Statement>
     resolveUnlabeledStatement(
         sem::Scope &scope,
         const nodes::IfStatement &if_statement_node
@@ -1829,7 +1829,7 @@ public:
 
         return std::visit(
             overloaded{
-                [](const std::monostate &) -> std::unique_ptr<sem::Statement> {
+                [](const std::monostate &) {
                     return fallbackStatement();
                 },
                 [&](builtin_procedure_resolve_f resolve) {
