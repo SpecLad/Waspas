@@ -251,7 +251,7 @@ public:
     }
 
     std::unique_ptr<sem::Expression>
-    resolveVariableFdConstantOrBoundIdentifier(
+    resolveVariableFdConstantBoundOrFunctionIdentifier(
         sem::Scope &scope, sem::Scope::LookupResult &lr, const nodes::Identifier &id_node
     ) {
         if (auto access = resolveVariableOrFdIdentifier(scope, lr, id_node))
@@ -260,13 +260,47 @@ public:
         if (auto *block = lr.scope->block()) {
             const std::string &name = id_node.spelling;
 
+            const char *id_end_location = id_node.view.data() + id_node.view.size();
+
             if (auto it = block->constants_.find(name); it != block->constants_.end())
                 return std::make_unique<sem::ExpressionConstant>(it->second);
 
             if (auto *subroutine = block->containingSubroutine()) {
                 if (subroutine->signature().hasBound(name))
                     return std::make_unique<sem::ExpressionBound>(name, lr.scope_index);
+
+                if (subroutine->signature().hasSubroutineParameter(name)) {
+                    const sem::Signature &signature
+                        = subroutine->signature().subroutineParameterSignature(name);
+
+                    if (!signature.resultType()) return nullptr;
+
+                    return std::make_unique<sem::ExpressionFunctionDesignator>(
+                        sem::SubroutineReference(
+                            name, lr.scope_index, sem::SubroutineReference::PARAMETER),
+                        resolveActualParameters(
+                            scope, signature, {}, id_end_location));
+                }
             }
+
+            if (
+                auto it = block->subroutines_.find(name);
+                it != block->subroutines_.end()
+            ) {
+                const sem::Signature &signature = it->second.signature();
+                if (!signature.resultType()) return nullptr;
+
+                return std::make_unique<sem::ExpressionFunctionDesignator>(
+                    sem::SubroutineReference(
+                        name, lr.scope_index, sem::SubroutineReference::REGULAR),
+                    resolveActualParameters(scope, signature, {}, id_end_location));
+            }
+
+            if (
+                auto it = block->builtin_functions_.find(name);
+                it != block->builtin_functions_.end()
+            )
+                return (this->*it->second)(scope, {}, id_end_location);
         }
 
         return nullptr;
@@ -575,11 +609,10 @@ public:
         sem::Scope &scope,
         nodes::VariableAccess &variable_access_node
     ) {
-        // TODO: support function identifiers
         auto access = resolveVariableAccessLike(
             scope, variable_access_node,
-            &StatementBuilder::resolveVariableFdConstantOrBoundIdentifier,
-            "variable, field designator, constant or bound");
+            &StatementBuilder::resolveVariableFdConstantBoundOrFunctionIdentifier,
+            "variable, field designator, constant, bound, or function");
 
         if (!access) return fallbackExpression();
 

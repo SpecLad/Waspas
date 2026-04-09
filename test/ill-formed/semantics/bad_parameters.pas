@@ -26,13 +26,20 @@ var
 function f(i: integer; procedure r): integer;
     begin f := 0 end;
 procedure p(i: integer; procedure r);
-    begin end;
+    begin
+        r(1);
+         {^ error:parameter-count-mismatch }
+    end;
 function fvar(var i: tag): integer;
     begin fvar := 0 end;
 procedure pvar(var i: tag);
     begin end;
 function ffunc(function f(v: array [m..n: integer] of integer; procedure r): integer): integer;
-    begin ffunc := 0 end;
+    begin
+        ffunc := 0;
+        intVar := f;
+                  {^ error:parameter-count-mismatch }
+    end;
 procedure pfunc(function f(v: array [m..n: integer] of integer; procedure r): integer);
     begin end;
 function g(a, b: packed array[m..n: acceptableBound] of tag): integer;
@@ -75,7 +82,8 @@ function badFuncSignatureMismatch(v: array [m..n: integer] of integer; procedure
 function badFuncWrongResultType(v: array [m..n: integer] of integer; procedure r): real;
     begin badFuncWrongResultType := 0 end;
 begin
-    { TODO: intVar := f; }
+    intVar := f;
+              {^ error:parameter-count-mismatch }
     p;
     {^ error:parameter-count-mismatch }
     intVar := f(1);
