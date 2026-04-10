@@ -2056,24 +2056,6 @@ public:
         return factory(std::move(file_variable));
     }
 
-    template <typename T>
-    std::unique_ptr<sem::Statement>
-    resolveBuiltinCallGetLike(
-        sem::Scope &scope,
-        std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location
-    ) {
-        return resolveBuiltinCallGetLike(
-            scope,
-            actual_parameter_nodes, actual_parameter_end_location,
-            [](std::unique_ptr<sem::VariableAccess> &&file)
-                -> std::unique_ptr<sem::Statement>
-            {
-                return std::make_unique<T>(std::move(file));
-            }
-        );
-    }
-
     sem::Constant::ptr_t
     resolveExpressionAsConstant(
         sem::Scope &scope, const nodes::Expression &expression_node
@@ -2238,25 +2220,6 @@ public:
         }
 
         return factory(std::move(pointer), case_constants);
-    }
-
-    template <typename T>
-    std::unique_ptr<sem::Statement>
-    resolveBuiltinCallNewLike(
-        sem::Scope &scope,
-        std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location
-    ) {
-        return resolveBuiltinCallNewLike(
-            scope,
-            actual_parameter_nodes, actual_parameter_end_location,
-            [](
-                std::unique_ptr<sem::VariableAccess> &&pointer,
-                std::span<sem::ConstantOrdinal::ptr_t> case_constants
-            ) -> std::unique_ptr<sem::Statement> {
-                return std::make_unique<T>(std::move(pointer), case_constants);
-            }
-        );
     }
 
     std::unique_ptr<sem::Statement>
@@ -2998,6 +2961,49 @@ public:
             std::move(file), std::move(parameters));
     }
 
+    template <auto Resolver, typename Result, typename ResultBase>
+    struct ResolveBuiltinGenericHelper;
+
+    template <
+        typename... Args, typename Result, typename ResultBase,
+        std::unique_ptr<ResultBase> (StatementBuilder:: *Resolver)(
+            sem::Scope &scope,
+            std::span<const nodes::ActualParameter> actual_parameter_nodes,
+            const char *actual_parameter_end_location,
+            std::unique_ptr<ResultBase>(*factory)(Args ...args)
+        )
+    >
+    struct ResolveBuiltinGenericHelper<Resolver, Result, ResultBase> {
+        StatementBuilder &builder;
+
+        std::unique_ptr<ResultBase> operator() (
+            sem::Scope &scope,
+            std::span<const nodes::ActualParameter> actual_parameter_nodes,
+            const char *actual_parameter_end_location
+        ) {
+            return (builder.*Resolver)(
+                scope,
+                actual_parameter_nodes, actual_parameter_end_location,
+                [](Args ...args) -> std::unique_ptr<ResultBase> {
+                    return std::make_unique<Result>(std::forward<Args>(args)...);
+                }
+            );
+        }
+    };
+
+    template <auto Resolver, typename Result>
+    auto
+    resolveBuiltinGeneric(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location
+    ) {
+        using result_base_t = std::conditional_t<
+            std::is_base_of_v<sem::Statement, Result>, sem::Statement, sem::Expression>;
+        return ResolveBuiltinGenericHelper<Resolver, Result, result_base_t>{*this}(
+            scope, actual_parameter_nodes, actual_parameter_end_location);
+    }
+
 private:
     linked_list_ptr_t<label_set_t> allowed_goto_targets_;
     linked_list_ptr_t<ControlVariable> used_control_variables_;
@@ -3028,16 +3034,22 @@ BUILTIN_FUNCTIONS = {
 
 constexpr std::initializer_list<std::pair<const std::string_view, builtin_procedure_resolve_f>>
 BUILTIN_PROCEDURES = {
-    {"dispose"sv, &StatementBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureDispose>},
-    {"get"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureGet>},
-    {"new"sv, &StatementBuilder::resolveBuiltinCallNewLike<sem::StatementProcedureNew>},
+    {"dispose"sv, &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallNewLike, sem::StatementProcedureDispose>},
+    {"get"sv, &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallGetLike, sem::StatementProcedureGet>},
+    {"new"sv, &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallNewLike, sem::StatementProcedureNew>},
     {"pack"sv, &StatementBuilder::resolveBuiltinCallPack},
     {"page"sv, &StatementBuilder::resolveBuiltinCallPage},
-    {"put"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedurePut>},
+    {"put"sv, &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallGetLike, sem::StatementProcedurePut>},
     {"read"sv, &StatementBuilder::resolveBuiltinCallRead},
     {"readln"sv, &StatementBuilder::resolveBuiltinCallReadln},
-    {"reset"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureReset>},
-    {"rewrite"sv, &StatementBuilder::resolveBuiltinCallGetLike<sem::StatementProcedureRewrite>},
+    {"reset"sv, &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallGetLike, sem::StatementProcedureReset>},
+    {"rewrite"sv, &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallGetLike, sem::StatementProcedureRewrite>},
     {"unpack"sv, &StatementBuilder::resolveBuiltinCallUnpack},
     {"write"sv, &StatementBuilder::resolveBuiltinCallWrite},
     {"writeln"sv, &StatementBuilder::resolveBuiltinCallWriteln},
