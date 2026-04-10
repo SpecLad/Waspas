@@ -17,6 +17,20 @@ var
     unpackedArray: array [0..10] of integer;
     unpackedArrayWrongType: array [0..10] of real;
 begin
+    { abs }
+
+    i := abs;
+           {^ error:parameter-count-mismatch }
+
+    pi := abs(pi);
+             {^ error:non-numeric-type }
+
+    i := abs(i:3);
+             {^ error:disallowed-parameter-form }
+
+    i := abs(i, i);
+               {^ error:parameter-count-mismatch }
+
     { dispose }
 
     dispose;
@@ -221,6 +235,20 @@ begin
          {^ error:disallowed-parameter-form }
     put(fi, 1);
            {^ error:parameter-count-mismatch }
+
+    { sqr }
+
+    i := sqr;
+           {^ error:parameter-count-mismatch }
+
+    pi := sqr(pi);
+             {^ error:non-numeric-type }
+
+    i := sqr(i:3);
+             {^ error:disallowed-parameter-form }
+
+    i := sqr(i, i);
+               {^ error:parameter-count-mismatch }
 
     { unpack }
 

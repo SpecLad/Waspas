@@ -13,6 +13,32 @@ export import :statements;
 namespace sem {
 
 export
+class ExpressionFunctionAbsLike : public Expression {
+public:
+    ExpressionFunctionAbsLike(std::unique_ptr<sem::Expression> &&argument)
+        : argument_(std::move(argument)) {}
+
+    const sem::Type &valueType(const Scope &scope) const override {
+        return argument_->valueType(scope);
+    }
+
+private:
+    std::unique_ptr<sem::Expression> argument_;
+};
+
+export
+class ExpressionFunctionAbs : public ExpressionFunctionAbsLike {
+public:
+    using ExpressionFunctionAbsLike::ExpressionFunctionAbsLike;
+};
+
+export
+class ExpressionFunctionSqr : public ExpressionFunctionAbsLike {
+public:
+    using ExpressionFunctionAbsLike::ExpressionFunctionAbsLike;
+};
+
+export
 class StatementProcedureGetLike : public Statement {
 public:
     explicit

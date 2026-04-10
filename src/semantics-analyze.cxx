@@ -2017,6 +2017,39 @@ public:
         }
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveBuiltinCallAbsLike(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        std::unique_ptr<sem::Expression> (*factory)(std::unique_ptr<sem::Expression> &&argument)
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the input number");
+            return fallbackExpression();
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        auto input = resolveExpression(scope, actual_parameter_nodes[0].value);
+        auto &input_type = input->valueType(scope);
+
+        if (&input_type != &sem::TypeInteger::instance() && &input_type != &sem::TypeReal::instance())
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::NON_NUMERIC_TYPE,
+                "actual parameter type \"{}\" is neither \"integer\" nor \"real\"",
+                input_type.str());
+
+        if (actual_parameter_nodes.size() > 1)
+            reporter_.err(actual_parameter_nodes[1].view.data(),
+                ec::PARAMETER_COUNT_MISMATCH,
+                "unexpected actual parameter");
+
+        return factory(std::move(input));
+    }
+
     std::unique_ptr<sem::Statement>
     resolveBuiltinCallGetLike(
         sem::Scope &scope,
@@ -3011,8 +3044,9 @@ private:
 
 constexpr std::initializer_list<std::pair<const std::string_view, builtin_function_resolve_f>>
 BUILTIN_FUNCTIONS = {
+    {"abs", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionAbs>},
     /*
-    {"abs", &StatementBuilder::resolveBuiltinCallAbsLike<sem::ExpressionFunctionAbs>},
     {"arctan", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionArctan>},
     {"chr", &StatementBuilder::resolveBuiltinCallChr},
     {"cos", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionCos>},
@@ -3025,7 +3059,10 @@ BUILTIN_FUNCTIONS = {
     {"pred", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionSucc>},
     {"round", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionRound>},
     {"sin", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionSin>},
-    {"sqr", &StatementBuilder::resolveBuiltinCallAbsLike<sem::ExpressionFunctionSqr>},
+    */
+    {"sqr", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSqr>},
+    /*
     {"sqrt", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionSqrt>},
     {"succ", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionPred>},
     {"trunc", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionTrunc>},
