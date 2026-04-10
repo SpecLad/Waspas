@@ -139,6 +139,26 @@ begin
     pack(unpackedArray, 1, packedArray, 'abc');
                                        {^ error:parameter-count-mismatch }
 
+    { page }
+
+    page(fi);
+        {^ error:type-mismatch }
+    page(t:3);
+         {^ error:disallowed-parameter-form }
+    page(t, 1);
+           {^ error:parameter-count-mismatch }
+
+    { put }
+
+    put;
+      {^ error:parameter-count-mismatch }
+    put(i);
+       {^ error:type-mismatch }
+    put(fi:3);
+         {^ error:disallowed-parameter-form }
+    put(fi, 1);
+           {^ error:parameter-count-mismatch }
+
     { read (???) }
 
     read;
@@ -216,25 +236,6 @@ begin
              {^ error:disallowed-parameter-form }
     rewrite(fi, 1);
                {^ error:parameter-count-mismatch }
-
-    { page }
-    page(fi);
-        {^ error:type-mismatch }
-    page(t:3);
-         {^ error:disallowed-parameter-form }
-    page(t, 1);
-           {^ error:parameter-count-mismatch }
-
-    { put }
-
-    put;
-      {^ error:parameter-count-mismatch }
-    put(i);
-       {^ error:type-mismatch }
-    put(fi:3);
-         {^ error:disallowed-parameter-form }
-    put(fi, 1);
-           {^ error:parameter-count-mismatch }
 
     { sqr }
 
