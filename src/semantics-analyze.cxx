@@ -1359,6 +1359,16 @@ public:
                 "unexpected total width specification");
     }
 
+    void checkNoExtraneousParameter(
+        std::span<const nodes::ActualParameter> remaining_actual_parameter_nodes
+    ) {
+        if (!remaining_actual_parameter_nodes.empty())
+            reporter_.err(
+                remaining_actual_parameter_nodes.front().view.data(),
+                ec::PARAMETER_COUNT_MISMATCH,
+                "extraneous actual parameter");
+    }
+
     bool
     checkActualParameterIsConformable(
         const sem::Type &expression_type,
@@ -1741,10 +1751,7 @@ public:
                 actual_parameters.push_back(std::move(*actual_parameter_section));
         }
 
-        if (node_it != actual_parameter_nodes.end())
-            reporter_.err(node_it->view.data(),
-                ec::PARAMETER_COUNT_MISMATCH, "extraneous actual parameter");
-
+        checkNoExtraneousParameter({node_it, actual_parameter_nodes.end()});
         return actual_parameters;
     }
 
@@ -2042,11 +2049,7 @@ public:
                 "actual parameter type \"{}\" is neither \"integer\" nor \"real\"",
                 input_type.str());
 
-        if (actual_parameter_nodes.size() > 1)
-            reporter_.err(actual_parameter_nodes[1].view.data(),
-                ec::PARAMETER_COUNT_MISMATCH,
-                "unexpected actual parameter");
-
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
         return factory(std::move(input));
     }
 
@@ -2080,12 +2083,7 @@ public:
 
         checkNoFormattingSpecification(actual_parameter_nodes[0]);
 
-        if (actual_parameter_nodes.size() > 1) {
-            reporter_.err(actual_parameter_nodes[1].view.data(),
-                ec::PARAMETER_COUNT_MISMATCH,
-                "unexpected actual parameter");
-        }
-
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
         return factory(std::move(file_variable));
     }
 
@@ -2359,13 +2357,7 @@ public:
 
         checkNoFormattingSpecification(actual_parameter_nodes[2]);
 
-        if (actual_parameter_nodes.size() > 3) {
-            reporter_.err(actual_parameter_nodes[3].view.data(),
-                ec::PARAMETER_COUNT_MISMATCH,
-                "unexpected actual parameter");
-            return fallbackStatement();
-        }
-
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(3));
         return std::make_unique<sem::StatementProcedurePack>(
             std::move(source), std::move(start_index), std::move(dest));
     }
@@ -2399,12 +2391,7 @@ public:
 
         checkNoFormattingSpecification(actual_parameter_nodes[0]);
 
-        if (actual_parameter_nodes.size() > 1) {
-            reporter_.err(actual_parameter_nodes[1].view.data(),
-                ec::PARAMETER_COUNT_MISMATCH,
-                "unexpected actual parameter");
-        }
-
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
         return std::make_unique<sem::StatementProcedurePage>(std::move(file));
     }
 
@@ -2706,13 +2693,7 @@ public:
 
         checkNoFormattingSpecification(actual_parameter_nodes[2]);
 
-        if (actual_parameter_nodes.size() > 3) {
-            reporter_.err(actual_parameter_nodes[3].view.data(),
-                ec::PARAMETER_COUNT_MISMATCH,
-                "unexpected actual parameter");
-            return fallbackStatement();
-        }
-
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(3));
         return std::make_unique<sem::StatementProcedureUnpack>(
             std::move(source), std::move(dest), std::move(start_index));
     }
