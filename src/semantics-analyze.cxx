@@ -2029,7 +2029,7 @@ public:
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
         const char *actual_parameter_end_location,
-        std::unique_ptr<sem::Expression> (*factory)(std::unique_ptr<sem::Expression> &&argument)
+        std::unique_ptr<sem::Expression> (*factory)(std::unique_ptr<sem::Expression> &&parameter)
     ) {
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
@@ -2040,17 +2040,20 @@ public:
 
         checkNoFormattingSpecification(actual_parameter_nodes[0]);
 
-        auto input = resolveExpression(scope, actual_parameter_nodes[0].value);
-        auto &input_type = input->valueType(scope);
+        auto parameter = resolveExpression(scope, actual_parameter_nodes[0].value);
+        auto &parameter_type = parameter->valueType(scope);
 
-        if (&input_type != &sem::TypeInteger::instance() && &input_type != &sem::TypeReal::instance())
+        if (
+            &parameter_type != &sem::TypeInteger::instance()
+            && &parameter_type != &sem::TypeReal::instance()
+        )
             reporter_.err(actual_parameter_nodes[0].value.view.data(),
                 ec::NON_NUMERIC_TYPE,
                 "actual parameter type \"{}\" is neither \"integer\" nor \"real\"",
-                input_type.str());
+                parameter_type.str());
 
         checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
-        return factory(std::move(input));
+        return factory(std::move(parameter));
     }
 
     std::unique_ptr<sem::Statement>

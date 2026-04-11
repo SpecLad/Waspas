@@ -13,17 +13,25 @@ export import :statements;
 namespace sem {
 
 export
-class ExpressionFunctionAbsLike : public Expression {
+class ExpressionFunctionSingleParameter : public Expression {
 public:
-    ExpressionFunctionAbsLike(std::unique_ptr<sem::Expression> &&argument)
-        : argument_(std::move(argument)) {}
+    ExpressionFunctionSingleParameter(std::unique_ptr<sem::Expression> &&parameter)
+        : parameter_(std::move(parameter)) {}
 
-    const sem::Type &valueType(const Scope &scope) const override {
-        return argument_->valueType(scope);
-    }
+    const sem::Expression &parameter() const { return *parameter_; }
 
 private:
-    std::unique_ptr<sem::Expression> argument_;
+    std::unique_ptr<sem::Expression> parameter_;
+};
+
+export
+class ExpressionFunctionAbsLike : public ExpressionFunctionSingleParameter {
+public:
+    using ExpressionFunctionSingleParameter::ExpressionFunctionSingleParameter;
+
+    const sem::Type &valueType(const Scope &scope) const override {
+        return parameter().valueType(scope);
+    }
 };
 
 export
@@ -39,17 +47,13 @@ public:
 };
 
 export
-class ExpressionFunctionExpLike : public Expression {
+class ExpressionFunctionExpLike : public ExpressionFunctionSingleParameter {
 public:
-    ExpressionFunctionExpLike(std::unique_ptr<sem::Expression> &&argument)
-        : argument_(std::move(argument)) {}
+    using ExpressionFunctionSingleParameter::ExpressionFunctionSingleParameter;
 
     const sem::Type &valueType(const Scope &) const override {
         return sem::TypeReal::instance();
     }
-
-private:
-    std::unique_ptr<sem::Expression> argument_;
 };
 
 export
