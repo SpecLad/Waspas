@@ -9,6 +9,7 @@ var
     pi: ^integer;
     fi: file of integer;
     t: text;
+    x: real;
 
     pr: ^recType;
 
@@ -29,6 +30,34 @@ begin
              {^ error:disallowed-parameter-form }
 
     i := abs(i, i);
+               {^ error:parameter-count-mismatch }
+
+    { arctan }
+
+    x := arctan;
+              {^ error:parameter-count-mismatch }
+
+    x := arctan(pi);
+               {^ error:non-numeric-type }
+
+    x := arctan(x:3);
+                {^ error:disallowed-parameter-form }
+
+    x := arctan(x, x);
+                  {^ error:parameter-count-mismatch }
+
+    { cos }
+
+    x := cos;
+           {^ error:parameter-count-mismatch }
+
+    x := cos(pi);
+            {^ error:non-numeric-type }
+
+    x := cos(x:3);
+             {^ error:disallowed-parameter-form }
+
+    x := cos(x, x);
                {^ error:parameter-count-mismatch }
 
     { dispose }
@@ -57,6 +86,20 @@ begin
     dispose(pr, 1, 'a');
                   {^ error:parameter-count-mismatch }
 
+    { exp }
+
+    x := exp;
+           {^ error:parameter-count-mismatch }
+
+    x := exp(pi);
+            {^ error:non-numeric-type }
+
+    x := exp(x:3);
+             {^ error:disallowed-parameter-form }
+
+    x := exp(x, x);
+               {^ error:parameter-count-mismatch }
+
     { get }
 
     get;
@@ -67,6 +110,20 @@ begin
          {^ error:disallowed-parameter-form }
     get(fi, 1);
            {^ error:parameter-count-mismatch }
+
+    { ln }
+
+    x := ln;
+          {^ error:parameter-count-mismatch }
+
+    x := ln(pi);
+           {^ error:non-numeric-type }
+
+    x := ln(x:3);
+            {^ error:disallowed-parameter-form }
+
+    x := ln(x, x);
+              {^ error:parameter-count-mismatch }
 
     { new }
 
@@ -237,6 +294,20 @@ begin
     rewrite(fi, 1);
                {^ error:parameter-count-mismatch }
 
+    { sin }
+
+    x := sin;
+           {^ error:parameter-count-mismatch }
+
+    x := sin(pi);
+            {^ error:non-numeric-type }
+
+    x := sin(x:3);
+             {^ error:disallowed-parameter-form }
+
+    x := sin(x, x);
+               {^ error:parameter-count-mismatch }
+
     { sqr }
 
     i := sqr;
@@ -250,6 +321,20 @@ begin
 
     i := sqr(i, i);
                {^ error:parameter-count-mismatch }
+
+    { sqrt }
+
+    x := sqrt;
+            {^ error:parameter-count-mismatch }
+
+    x := sqrt(pi);
+             {^ error:non-numeric-type }
+
+    x := sqrt(x:3);
+              {^ error:disallowed-parameter-form }
+
+    x := sqrt(x, x);
+                {^ error:parameter-count-mismatch }
 
     { unpack }
 

@@ -3046,24 +3046,34 @@ constexpr std::initializer_list<std::pair<const std::string_view, builtin_functi
 BUILTIN_FUNCTIONS = {
     {"abs", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionAbs>},
+    {"arctan", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionArctan>},
     /*
-    {"arctan", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionArctan>},
     {"chr", &StatementBuilder::resolveBuiltinCallChr},
-    {"cos", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionCos>},
+    */
+    {"cos", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionCos>},
+    /*
     {"eof", &StatementBuilder::resolveBuiltinCallEofLike<sem::ExpressionFunctionEof>},
     {"eoln", &StatementBuilder::resolveBuiltinCallEofLike<sem::ExpressionFunctionEoln>},
-    {"exp", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionExp>},
-    {"ln", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionLn>},
+    */
+    {"exp", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionExp>},
+    {"ln", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionLn>},
+    /*
     {"odd", &StatementBuilder::resolveBuiltinCallOdd},
     {"ord", &StatementBuilder::resolveBuiltinCallOrd},
     {"pred", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionSucc>},
     {"round", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionRound>},
-    {"sin", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionSin>},
     */
+    {"sin", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSin>},
     {"sqr", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSqr>},
+    {"sqrt", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSqrt>},
     /*
-    {"sqrt", &StatementBuilder::resolveBuiltinCallExpLike<sem::ExpressionFunctionSqrt>},
     {"succ", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionPred>},
     {"trunc", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionTrunc>},
     */

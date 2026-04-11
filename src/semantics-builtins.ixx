@@ -39,6 +39,56 @@ public:
 };
 
 export
+class ExpressionFunctionExpLike : public Expression {
+public:
+    ExpressionFunctionExpLike(std::unique_ptr<sem::Expression> &&argument)
+        : argument_(std::move(argument)) {}
+
+    const sem::Type &valueType(const Scope &) const override {
+        return sem::TypeReal::instance();
+    }
+
+private:
+    std::unique_ptr<sem::Expression> argument_;
+};
+
+export
+class ExpressionFunctionArctan : public ExpressionFunctionExpLike {
+public:
+    using ExpressionFunctionExpLike::ExpressionFunctionExpLike;
+};
+
+export
+class ExpressionFunctionCos : public ExpressionFunctionExpLike {
+public:
+    using ExpressionFunctionExpLike::ExpressionFunctionExpLike;
+};
+
+export
+class ExpressionFunctionExp : public ExpressionFunctionExpLike {
+public:
+    using ExpressionFunctionExpLike::ExpressionFunctionExpLike;
+};
+
+export
+class ExpressionFunctionLn : public ExpressionFunctionExpLike {
+public:
+    using ExpressionFunctionExpLike::ExpressionFunctionExpLike;
+};
+
+export
+class ExpressionFunctionSin : public ExpressionFunctionExpLike {
+public:
+    using ExpressionFunctionExpLike::ExpressionFunctionExpLike;
+};
+
+export
+class ExpressionFunctionSqrt : public ExpressionFunctionExpLike {
+public:
+    using ExpressionFunctionExpLike::ExpressionFunctionExpLike;
+};
+
+export
 class StatementProcedureGetLike : public Statement {
 public:
     explicit

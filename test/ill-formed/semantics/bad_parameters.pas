@@ -116,9 +116,9 @@ begin
         {^ error:disallowed-parameter-form }
 
     intVar := f(1, sin);
-                  {^ error:undefined-identifier }
+                  {^ error:wrong-identifier-kind }
     p(1, sin);
-        {^ error:undefined-identifier } { TODO: change to wrong-identifier-kind }
+        {^ error:wrong-identifier-kind }
 
     intVar := fvar(intVar);
                   {^ error:type-mismatch }
@@ -217,9 +217,9 @@ begin
          {^ error:wrong-identifier-kind }
 
     intVar := ffunc(sin);
-                   {^ error:undefined-identifier }
+                   {^ error:disallowed-parameter-form }
     pfunc(sin);
-         {^ error:undefined-identifier } { TODO: change to disallowed-parameter-form }
+         {^ error:disallowed-parameter-form }
 
     intVar := ffunc(badFuncWrongNumParams);
                    {^ error:type-mismatch }
