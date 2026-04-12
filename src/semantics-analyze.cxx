@@ -2056,6 +2056,34 @@ public:
         return factory(std::move(parameter));
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveBuiltinCallChr(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the input integer");
+            return std::make_unique<sem::ExpressionFunctionChr>(nullptr);
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        auto parameter = resolveExpression(scope, actual_parameter_nodes[0].value);
+        auto &parameter_type = parameter->valueType(scope);
+
+        if (&parameter_type != &sem::TypeInteger::instance())
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::NON_INTEGER_TYPE,
+                "actual parameter has type \"{}\" instead of \"integer\"",
+                parameter_type.str());
+
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
+        return std::make_unique<sem::ExpressionFunctionChr>(std::move(parameter));
+    }
+
     std::unique_ptr<sem::Statement>
     resolveBuiltinCallGetLike(
         sem::Scope &scope,
@@ -3032,9 +3060,7 @@ BUILTIN_FUNCTIONS = {
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionAbs>},
     {"arctan", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionArctan>},
-    /*
     {"chr", &StatementBuilder::resolveBuiltinCallChr},
-    */
     {"cos", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionCos>},
     /*

@@ -93,6 +93,16 @@ public:
 };
 
 export
+class ExpressionFunctionChr : public ExpressionFunctionSingleParameter {
+public:
+    using ExpressionFunctionSingleParameter::ExpressionFunctionSingleParameter;
+
+    const sem::Type &valueType(const Scope &) const override {
+        return sem::TypeChar::instance();
+    }
+};
+
+export
 class StatementProcedureGetLike : public Statement {
 public:
     explicit

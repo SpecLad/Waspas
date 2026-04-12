@@ -5,6 +5,7 @@ type
         case tagType of 0: (); 1: ();
     end;
 var
+    c: char;
     i: integer;
     pi: ^integer;
     fi: file of integer;
@@ -45,6 +46,20 @@ begin
 
     x := arctan(x, x);
                   {^ error:parameter-count-mismatch }
+
+    { chr }
+
+    c := chr;
+           {^ error:parameter-count-mismatch }
+
+    c := chr(x);
+            {^ error:non-integer-type }
+
+    c := chr(i:3);
+             {^ error:disallowed-parameter-form }
+
+    c := chr(i, i);
+               {^ error:parameter-count-mismatch }
 
     { cos }
 
