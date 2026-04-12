@@ -2038,8 +2038,6 @@ public:
             return fallbackExpression();
         }
 
-        checkNoFormattingSpecification(actual_parameter_nodes[0]);
-
         auto parameter = resolveExpression(scope, actual_parameter_nodes[0].value);
         auto &parameter_type = parameter->valueType(scope);
 
@@ -2051,6 +2049,8 @@ public:
                 ec::NON_NUMERIC_TYPE,
                 "actual parameter type \"{}\" is neither \"integer\" nor \"real\"",
                 parameter_type.str());
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
 
         checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
         return factory(std::move(parameter));
@@ -2069,8 +2069,6 @@ public:
             return std::make_unique<sem::ExpressionFunctionChr>(nullptr);
         }
 
-        checkNoFormattingSpecification(actual_parameter_nodes[0]);
-
         auto parameter = resolveExpression(scope, actual_parameter_nodes[0].value);
         auto &parameter_type = parameter->valueType(scope);
 
@@ -2079,6 +2077,8 @@ public:
                 ec::NON_INTEGER_TYPE,
                 "actual parameter has type \"{}\" instead of \"integer\"",
                 parameter_type.str());
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
 
         checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
         return std::make_unique<sem::ExpressionFunctionChr>(std::move(parameter));
