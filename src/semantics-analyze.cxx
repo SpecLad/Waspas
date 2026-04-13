@@ -2084,6 +2084,37 @@ public:
         return std::make_unique<sem::ExpressionFunctionChr>(std::move(parameter));
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveBuiltinCallEof(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location
+    ) {
+        std::unique_ptr<sem::VariableAccess> file;
+
+        if (actual_parameter_nodes.empty()) {
+            file = resolveBuiltinFile(scope, "input", actual_parameter_end_location);
+            return std::make_unique<sem::ExpressionFunctionEof>(std::move(file));
+        }
+
+        file = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
+        if (!file) return std::make_unique<sem::ExpressionFunctionEof>(std::move(file));
+
+        auto &file_type = file->variableType(scope);
+
+        if (!dynamic_cast<const sem::TypeFileLike *>(&file_type)) {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable type is \"{}\", which is not a file type",
+                file_type.str());
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
+        return std::make_unique<sem::ExpressionFunctionEof>(std::move(file));
+    }
+
     std::unique_ptr<sem::Statement>
     resolveBuiltinCallGetLike(
         sem::Scope &scope,
@@ -3065,8 +3096,8 @@ BUILTIN_FUNCTIONS = {
     {"chr", &StatementBuilder::resolveBuiltinCallChr},
     {"cos", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionCos>},
+    {"eof", &StatementBuilder::resolveBuiltinCallEof},
     /*
-    {"eof", &StatementBuilder::resolveBuiltinCallEofLike<sem::ExpressionFunctionEof>},
     {"eoln", &StatementBuilder::resolveBuiltinCallEofLike<sem::ExpressionFunctionEoln>},
     */
     {"exp", &StatementBuilder::resolveBuiltinGeneric<

@@ -103,6 +103,26 @@ public:
 };
 
 export
+class ExpressionFunctionEofLike : public Expression {
+public:
+    ExpressionFunctionEofLike(std::unique_ptr<sem::VariableAccess> &&file)
+        : file_(std::move(file)) {}
+
+    const sem::Type &valueType(const Scope &) const override {
+        return sem::TypeBoolean::instance();
+    }
+
+private:
+    std::unique_ptr<sem::Expression> file_;
+};
+
+export
+class ExpressionFunctionEof : public ExpressionFunctionEofLike {
+public:
+    using ExpressionFunctionEofLike::ExpressionFunctionEofLike;
+};
+
+export
 class StatementProcedureGetLike : public Statement {
 public:
     explicit

@@ -3,8 +3,12 @@
 
 program bpnpp;
 var
+    b: boolean;
     i: integer;
 begin
+    b := eof;
+           {^ error:undefined-identifier }
+
     page;
        {^ error:undefined-identifier }
 

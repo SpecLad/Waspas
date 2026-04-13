@@ -5,6 +5,7 @@ type
         case tagType of 0: (); 1: ();
     end;
 var
+    b: boolean;
     c: char;
     i: integer;
     pi: ^integer;
@@ -100,6 +101,17 @@ begin
 
     dispose(pr, 1, 'a');
                   {^ error:parameter-count-mismatch }
+
+    { eof }
+
+    b := eof(0);
+            {^ error:disallowed-parameter-form }
+    b := eof(i);
+            {^ error:type-mismatch }
+    b := eof(fi:3);
+              {^ error:disallowed-parameter-form }
+    b := eof(fi, 1);
+                {^ error:parameter-count-mismatch }
 
     { exp }
 
