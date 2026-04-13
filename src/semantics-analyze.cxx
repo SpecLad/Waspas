@@ -2769,7 +2769,7 @@ public:
         const char *actual_parameter_end_location
     ) {
         // We already know that there is at least one parameter due to the check
-        // made in `resolveBuiltinWrite`.
+        // made in `resolveBuiltinCallWrite`.
 
         checkNoFormattingSpecification(actual_parameter_nodes[0]);
 
@@ -2779,7 +2779,7 @@ public:
             return fallbackStatement();
 
         // We already know that the cast will succeed due to the check made in
-        // `resolveBuiltinWrite`. The same expression cannot have different types
+        // `resolveBuiltinCallWrite`. The same expression cannot have different types
         // when resolved as an expression or as a variable reference.
         auto &file_variable_type
             = dynamic_cast<const sem::TypeFile &>(file->variableType(scope));
