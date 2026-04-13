@@ -9,6 +9,9 @@ begin
     b := eof;
            {^ error:undefined-identifier }
 
+    b := eoln;
+            {^ error:undefined-identifier }
+
     page;
        {^ error:undefined-identifier }
 

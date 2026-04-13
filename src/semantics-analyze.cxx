@@ -2115,6 +2115,37 @@ public:
         return std::make_unique<sem::ExpressionFunctionEof>(std::move(file));
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveBuiltinCallEoln(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location
+    ) {
+        std::unique_ptr<sem::VariableAccess> file;
+
+        if (actual_parameter_nodes.empty()) {
+            file = resolveBuiltinFile(scope, "input", actual_parameter_end_location);
+            return std::make_unique<sem::ExpressionFunctionEoln>(std::move(file));
+        }
+
+        file = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
+        if (!file) return std::make_unique<sem::ExpressionFunctionEoln>(std::move(file));
+
+        auto &file_type = file->variableType(scope);
+
+        if (&file_type != &sem::TypeText::instance()) {
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "variable has type \"{}\" rather than \"text\"",
+                file_type.str());
+        }
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
+        return std::make_unique<sem::ExpressionFunctionEoln>(std::move(file));
+    }
+
     std::unique_ptr<sem::Statement>
     resolveBuiltinCallGetLike(
         sem::Scope &scope,
@@ -3097,9 +3128,7 @@ BUILTIN_FUNCTIONS = {
     {"cos", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionCos>},
     {"eof", &StatementBuilder::resolveBuiltinCallEof},
-    /*
-    {"eoln", &StatementBuilder::resolveBuiltinCallEofLike<sem::ExpressionFunctionEoln>},
-    */
+    {"eoln", &StatementBuilder::resolveBuiltinCallEoln},
     {"exp", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionExp>},
     {"ln", &StatementBuilder::resolveBuiltinGeneric<

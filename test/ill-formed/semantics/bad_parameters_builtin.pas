@@ -113,6 +113,17 @@ begin
     b := eof(fi, 1);
                 {^ error:parameter-count-mismatch }
 
+    { eoln }
+
+    b := eoln(0);
+             {^ error:disallowed-parameter-form }
+    b := eoln(fi);
+             {^ error:type-mismatch }
+    b := eoln(t:3);
+              {^ error:disallowed-parameter-form }
+    b := eoln(t, 1);
+                {^ error:parameter-count-mismatch }
+
     { exp }
 
     x := exp;

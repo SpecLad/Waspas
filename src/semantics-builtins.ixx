@@ -123,6 +123,12 @@ public:
 };
 
 export
+class ExpressionFunctionEoln : public ExpressionFunctionEofLike {
+public:
+    using ExpressionFunctionEofLike::ExpressionFunctionEofLike;
+};
+
+export
 class StatementProcedureGetLike : public Statement {
 public:
     explicit
