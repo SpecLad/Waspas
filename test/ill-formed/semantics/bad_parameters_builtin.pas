@@ -119,6 +119,8 @@ begin
 
     get;
       {^ error:parameter-count-mismatch }
+    get(0);
+       {^ error:disallowed-parameter-form }
     get(i);
        {^ error:type-mismatch }
     get(fi:3);
@@ -213,6 +215,8 @@ begin
 
     { page }
 
+    page(0);
+        {^ error:disallowed-parameter-form }
     page(fi);
         {^ error:type-mismatch }
     page(t:3);
@@ -224,6 +228,8 @@ begin
 
     put;
       {^ error:parameter-count-mismatch }
+    put(0);
+       {^ error:disallowed-parameter-form }
     put(i);
        {^ error:type-mismatch }
     put(fi:3);
@@ -244,6 +250,9 @@ begin
     read(fi:3, i);
           {^ error:disallowed-parameter-form }
 
+    read(fi, 0);
+            {^ error:disallowed-parameter-form }
+
     read(fi, pi);
             {^ error:type-mismatch }
 
@@ -257,6 +266,9 @@ begin
 
     read(t:3, i);
          {^ error:disallowed-parameter-form }
+
+    read(t, 0);
+           {^ error:disallowed-parameter-form }
 
     read(t, t);
            {^ error:type-mismatch }
@@ -275,6 +287,9 @@ begin
     readln(t:3);
            {^ error:disallowed-parameter-form }
 
+    readln(t, 0);
+             {^ error:disallowed-parameter-form }
+
     readln(t, t);
              {^ error:type-mismatch }
 
@@ -291,6 +306,8 @@ begin
 
     reset;
         {^ error:parameter-count-mismatch }
+    reset(0);
+         {^ error:disallowed-parameter-form }
     reset(i);
          {^ error:type-mismatch }
     reset(fi:3);
@@ -302,6 +319,8 @@ begin
 
     rewrite;
           {^ error:parameter-count-mismatch }
+    rewrite(0);
+           {^ error:disallowed-parameter-form }
     rewrite(i);
            {^ error:type-mismatch }
     rewrite(fi:3);

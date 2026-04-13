@@ -2410,6 +2410,8 @@ public:
         }
 
         file = resolveExpressionAsVariableAccess(scope, actual_parameter_nodes[0].value);
+        if (!file) return fallbackStatement();
+
         auto &file_type = file->variableType(scope);
 
         if (&file_type != &sem::TypeText::instance()) {
