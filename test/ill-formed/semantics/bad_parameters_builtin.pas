@@ -24,13 +24,10 @@ begin
 
     i := abs;
            {^ error:parameter-count-mismatch }
-
     pi := abs(pi);
              {^ error:non-numeric-type }
-
     i := abs(i:3);
              {^ error:disallowed-parameter-form }
-
     i := abs(i, i);
                {^ error:parameter-count-mismatch }
 
@@ -38,13 +35,10 @@ begin
 
     x := arctan;
               {^ error:parameter-count-mismatch }
-
     x := arctan(pi);
                {^ error:non-numeric-type }
-
     x := arctan(x:3);
                 {^ error:disallowed-parameter-form }
-
     x := arctan(x, x);
                   {^ error:parameter-count-mismatch }
 
@@ -52,13 +46,10 @@ begin
 
     c := chr;
            {^ error:parameter-count-mismatch }
-
     c := chr(x);
             {^ error:non-integer-type }
-
     c := chr(i:3);
              {^ error:disallowed-parameter-form }
-
     c := chr(i, i);
                {^ error:parameter-count-mismatch }
 
@@ -66,13 +57,10 @@ begin
 
     x := cos;
            {^ error:parameter-count-mismatch }
-
     x := cos(pi);
             {^ error:non-numeric-type }
-
     x := cos(x:3);
              {^ error:disallowed-parameter-form }
-
     x := cos(x, x);
                {^ error:parameter-count-mismatch }
 
@@ -80,25 +68,18 @@ begin
 
     dispose;
           {^ error:parameter-count-mismatch }
-
     dispose(i);
            {^ error:type-mismatch }
-
     dispose(pi:3);
              {^ error:disallowed-parameter-form }
-
     dispose(pi, 1);
                {^ error:parameter-count-mismatch }
-
     dispose(pr, 1.1);
                {^ error:type-mismatch }
-
     dispose(pr, 2);
                {^ error:out-of-range }
-
     dispose(pr, 1:3);
                 {^ error:disallowed-parameter-form }
-
     dispose(pr, 1, 'a');
                   {^ error:parameter-count-mismatch }
 
@@ -128,13 +109,10 @@ begin
 
     x := exp;
            {^ error:parameter-count-mismatch }
-
     x := exp(pi);
             {^ error:non-numeric-type }
-
     x := exp(x:3);
              {^ error:disallowed-parameter-form }
-
     x := exp(x, x);
                {^ error:parameter-count-mismatch }
 
@@ -155,13 +133,10 @@ begin
 
     x := ln;
           {^ error:parameter-count-mismatch }
-
     x := ln(pi);
            {^ error:non-numeric-type }
-
     x := ln(x:3);
             {^ error:disallowed-parameter-form }
-
     x := ln(x, x);
               {^ error:parameter-count-mismatch }
 
@@ -169,25 +144,18 @@ begin
 
     new;
       {^ error:parameter-count-mismatch }
-
     new(i);
        {^ error:type-mismatch }
-
     new(pi:3);
          {^ error:disallowed-parameter-form }
-
     new(pi, 1);
            {^ error:parameter-count-mismatch }
-
     new(pr, 1.1);
            {^ error:type-mismatch }
-
     new(pr, 2);
            {^ error:out-of-range }
-
     new(pr, 1:3);
             {^ error:disallowed-parameter-form }
-
     new(pr, 1, 'a');
               {^ error:parameter-count-mismatch }
 
@@ -269,16 +237,12 @@ begin
 
     read(fi);
           {^ error:parameter-count-mismatch }
-
     read(fi:3, i);
           {^ error:disallowed-parameter-form }
-
     read(fi, 0);
             {^ error:disallowed-parameter-form }
-
     read(fi, pi);
             {^ error:type-mismatch }
-
     read(fi, i:3);
              {^ error:disallowed-parameter-form }
 
@@ -286,22 +250,16 @@ begin
 
     read(t);
          {^ error:parameter-count-mismatch }
-
     read(t:3, i);
          {^ error:disallowed-parameter-form }
-
     read(t, 0);
            {^ error:disallowed-parameter-form }
-
     read(t, t);
            {^ error:type-mismatch }
-
     read(t, i:3);
             {^ error:disallowed-parameter-form }
-
     read(pi);
         {^ error:type-mismatch }
-
     read(i:3);
          {^ error:disallowed-parameter-form }
 
@@ -309,19 +267,14 @@ begin
 
     readln(t:3);
            {^ error:disallowed-parameter-form }
-
     readln(t, 0);
              {^ error:disallowed-parameter-form }
-
     readln(t, t);
              {^ error:type-mismatch }
-
     readln(t, i:3);
               {^ error:disallowed-parameter-form }
-
     readln(fi);
           {^ error:type-mismatch }
-
     readln(i:3);
            {^ error:disallowed-parameter-form }
 
@@ -355,13 +308,10 @@ begin
 
     x := sin;
            {^ error:parameter-count-mismatch }
-
     x := sin(pi);
             {^ error:non-numeric-type }
-
     x := sin(x:3);
              {^ error:disallowed-parameter-form }
-
     x := sin(x, x);
                {^ error:parameter-count-mismatch }
 
@@ -369,13 +319,10 @@ begin
 
     i := sqr;
            {^ error:parameter-count-mismatch }
-
     pi := sqr(pi);
              {^ error:non-numeric-type }
-
     i := sqr(i:3);
              {^ error:disallowed-parameter-form }
-
     i := sqr(i, i);
                {^ error:parameter-count-mismatch }
 
@@ -383,13 +330,10 @@ begin
 
     x := sqrt;
             {^ error:parameter-count-mismatch }
-
     x := sqrt(pi);
              {^ error:non-numeric-type }
-
     x := sqrt(x:3);
               {^ error:disallowed-parameter-form }
-
     x := sqrt(x, x);
                 {^ error:parameter-count-mismatch }
 
@@ -434,16 +378,12 @@ begin
 
     write(fi);
            {^ error:parameter-count-mismatch }
-
     write(fi.x, 1);
            {^ error:non-record-type } { testing that the error is only emitted once }
-
     write(fi:3, 1);
            {^ error:disallowed-parameter-form }
-
     write(fi, 1:3);
               {^ error:disallowed-parameter-form }
-
     write(fi, 1.1);
              {^ error:type-mismatch }
 
@@ -451,34 +391,24 @@ begin
 
     write(t);
           {^ error:parameter-count-mismatch }
-
     write(t.x, 1);
           {^ error:non-record-type } { testing that the error is only emitted once }
-
     write(t:3, 1);
           {^ error:disallowed-parameter-form }
-
     write(t, t);
             {^ error:type-mismatch }
-
     write(t, 1:1.1);
               {^ error:non-integer-type }
-
     write(t, 1:1:1.1);
                 {^ error:disallowed-parameter-form }
-
     write(t, 1.1:1:1.1);
                   {^ error:non-integer-type }
-
     write(pi);
          {^ error:type-mismatch }
-
     write(1:1.1);
            {^ error:non-integer-type }
-
     write(1:1:1.1);
              {^ error:disallowed-parameter-form }
-
     write(1.1:1:1.1);
                {^ error:non-integer-type }
 
@@ -486,31 +416,22 @@ begin
 
     writeln(t.x);
             {^ error:non-record-type } { testing that the error is only emitted once }
-
     writeln(t:3);
             {^ error:disallowed-parameter-form }
-
     writeln(t, t);
               {^ error:type-mismatch }
-
     writeln(t, 1:1.1);
                 {^ error:non-integer-type }
-
     writeln(t, 1:1:1.1);
                   {^ error:disallowed-parameter-form }
-
     writeln(t, 1.1:1:1.1);
                     {^ error:non-integer-type }
-
     writeln(fi);
            {^ error:type-mismatch }
-
     writeln(1:1.1);
              {^ error:non-integer-type }
-
     writeln(1:1:1.1);
                {^ error:disallowed-parameter-form }
-
     writeln(1.1:1:1.1);
                  {^ error:non-integer-type }
 end.
