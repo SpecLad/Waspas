@@ -139,6 +139,22 @@ public:
 };
 
 export
+class ExpressionFunctionOrdLike : public ExpressionFunctionSingleParameter {
+public:
+    using ExpressionFunctionSingleParameter::ExpressionFunctionSingleParameter;
+
+    const sem::Type &valueType(const Scope &) const override {
+        return sem::TypeInteger::instance();
+    }
+};
+
+export
+class ExpressionFunctionOrd : public ExpressionFunctionOrdLike {
+public:
+    using ExpressionFunctionOrdLike::ExpressionFunctionOrdLike;
+};
+
+export
 class StatementProcedureGetLike : public Statement {
 public:
     explicit

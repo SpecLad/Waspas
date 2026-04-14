@@ -2147,6 +2147,34 @@ public:
         return std::make_unique<sem::ExpressionFunctionEoln>(std::move(file));
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveBuiltinCallOrd(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the input ordinal");
+            return std::make_unique<sem::ExpressionFunctionOrd>(nullptr);
+        }
+
+        auto parameter = resolveExpression(scope, actual_parameter_nodes[0].value);
+        auto &parameter_type = parameter->valueType(scope);
+
+        if (!dynamic_cast<const sem::TypeOrdinal *>(&parameter_type))
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::NON_ORDINAL_TYPE,
+                "actual parameter has non-ordinal type \"{}\"",
+                parameter_type.str());
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
+        return std::make_unique<sem::ExpressionFunctionOrd>(std::move(parameter));
+    }
+
     std::unique_ptr<sem::Statement>
     resolveBuiltinCallGetLike(
         sem::Scope &scope,
@@ -3137,8 +3165,8 @@ BUILTIN_FUNCTIONS = {
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionLn>},
     {"odd", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallChrLike, sem::ExpressionFunctionOdd>},
-    /*
     {"ord", &StatementBuilder::resolveBuiltinCallOrd},
+    /*
     {"pred", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionSucc>},
     {"round", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionRound>},
     */

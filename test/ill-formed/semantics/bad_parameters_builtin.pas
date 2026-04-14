@@ -183,6 +183,17 @@ begin
     b := odd(i, i);
                {^ error:parameter-count-mismatch }
 
+    { ord }
+
+    i := ord;
+           {^ error:parameter-count-mismatch }
+    i := ord(x);
+            {^ error:non-ordinal-type }
+    i := ord(c:3);
+             {^ error:disallowed-parameter-form }
+    i := ord(c, c);
+               {^ error:parameter-count-mismatch }
+
     { pack }
 
     pack;
