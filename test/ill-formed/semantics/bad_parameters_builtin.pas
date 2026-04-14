@@ -172,6 +172,17 @@ begin
     new(pr, (1));
            {^ error:disallowed-parameter-form }
 
+    { odd }
+
+    b := odd;
+           {^ error:parameter-count-mismatch }
+    b := odd(x);
+            {^ error:non-integer-type }
+    b := odd(i:3);
+             {^ error:disallowed-parameter-form }
+    b := odd(i, i);
+               {^ error:parameter-count-mismatch }
+
     { pack }
 
     pack;

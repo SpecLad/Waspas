@@ -2057,16 +2057,17 @@ public:
     }
 
     std::unique_ptr<sem::Expression>
-    resolveBuiltinCallChr(
+    resolveBuiltinCallChrLike(
         sem::Scope &scope,
         std::span<const nodes::ActualParameter> actual_parameter_nodes,
-        const char *actual_parameter_end_location
+        const char *actual_parameter_end_location,
+        std::unique_ptr<sem::Expression> (*factory)(std::unique_ptr<sem::Expression> &&parameter)
     ) {
         if (actual_parameter_nodes.empty()) {
             reporter_.err(actual_parameter_end_location,
                 ec::PARAMETER_COUNT_MISMATCH,
                 "missing parameter specifying the input integer");
-            return std::make_unique<sem::ExpressionFunctionChr>(nullptr);
+            return factory(nullptr);
         }
 
         auto parameter = resolveExpression(scope, actual_parameter_nodes[0].value);
@@ -2081,7 +2082,7 @@ public:
         checkNoFormattingSpecification(actual_parameter_nodes[0]);
 
         checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
-        return std::make_unique<sem::ExpressionFunctionChr>(std::move(parameter));
+        return factory(std::move(parameter));
     }
 
     std::unique_ptr<sem::Expression>
@@ -3124,7 +3125,8 @@ BUILTIN_FUNCTIONS = {
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionAbs>},
     {"arctan", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionArctan>},
-    {"chr", &StatementBuilder::resolveBuiltinCallChr},
+    {"chr", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallChrLike, sem::ExpressionFunctionChr>},
     {"cos", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionCos>},
     {"eof", &StatementBuilder::resolveBuiltinCallEof},
@@ -3133,8 +3135,9 @@ BUILTIN_FUNCTIONS = {
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionExp>},
     {"ln", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionLn>},
+    {"odd", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallChrLike, sem::ExpressionFunctionOdd>},
     /*
-    {"odd", &StatementBuilder::resolveBuiltinCallOdd},
     {"ord", &StatementBuilder::resolveBuiltinCallOrd},
     {"pred", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionSucc>},
     {"round", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionRound>},
