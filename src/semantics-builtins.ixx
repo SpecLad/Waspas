@@ -41,7 +41,19 @@ public:
 };
 
 export
+class ExpressionFunctionPred : public ExpressionFunctionAbsLike {
+public:
+    using ExpressionFunctionAbsLike::ExpressionFunctionAbsLike;
+};
+
+export
 class ExpressionFunctionSqr : public ExpressionFunctionAbsLike {
+public:
+    using ExpressionFunctionAbsLike::ExpressionFunctionAbsLike;
+};
+
+export
+class ExpressionFunctionSucc : public ExpressionFunctionAbsLike {
 public:
     using ExpressionFunctionAbsLike::ExpressionFunctionAbsLike;
 };

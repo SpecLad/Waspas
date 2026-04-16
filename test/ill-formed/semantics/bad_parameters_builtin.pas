@@ -237,6 +237,17 @@ begin
     page(t, 1);
            {^ error:parameter-count-mismatch }
 
+    { pred }
+
+    i := pred;
+            {^ error:parameter-count-mismatch }
+    x := pred(x);
+             {^ error:non-ordinal-type }
+    c := pred(c:3);
+              {^ error:disallowed-parameter-form }
+    c := pred(c, c);
+                {^ error:parameter-count-mismatch }
+
     { put }
 
     put;
@@ -357,6 +368,17 @@ begin
     x := sqrt(x:3);
               {^ error:disallowed-parameter-form }
     x := sqrt(x, x);
+                {^ error:parameter-count-mismatch }
+
+    { succ }
+
+    i := succ;
+            {^ error:parameter-count-mismatch }
+    x := succ(x);
+             {^ error:non-ordinal-type }
+    c := succ(c:3);
+              {^ error:disallowed-parameter-form }
+    c := succ(c, c);
                 {^ error:parameter-count-mismatch }
 
     { unpack }

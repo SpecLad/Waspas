@@ -2209,6 +2209,35 @@ public:
         return factory(std::move(file_variable));
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveBuiltinCallPredLike(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        std::unique_ptr<sem::Expression> (*factory)(std::unique_ptr<sem::Expression> &&parameter)
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the input ordinal");
+            return fallbackExpression();
+        }
+
+        auto parameter = resolveExpression(scope, actual_parameter_nodes[0].value);
+        auto &parameter_type = parameter->valueType(scope);
+
+        if (!dynamic_cast<const sem::TypeOrdinal *>(&parameter_type))
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::NON_ORDINAL_TYPE,
+                "actual parameter has non-ordinal type \"{}\"",
+                parameter_type.str());
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
+        return factory(std::move(parameter));
+    }
+
     sem::Constant::ptr_t
     resolveExpressionAsConstant(
         sem::Scope &scope, const nodes::Expression &expression_node
@@ -3166,8 +3195,9 @@ BUILTIN_FUNCTIONS = {
     {"odd", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallChrLike, sem::ExpressionFunctionOdd>},
     {"ord", &StatementBuilder::resolveBuiltinCallOrd},
+    {"pred", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallPredLike, sem::ExpressionFunctionPred>},
     /*
-    {"pred", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionSucc>},
     {"round", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionRound>},
     */
     {"sin", &StatementBuilder::resolveBuiltinGeneric<
@@ -3176,8 +3206,9 @@ BUILTIN_FUNCTIONS = {
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSqr>},
     {"sqrt", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSqrt>},
+    {"succ", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallPredLike, sem::ExpressionFunctionSucc>},
     /*
-    {"succ", &StatementBuilder::resolveBuiltinCallPredLike<sem::ExpressionFunctionPred>},
     {"trunc", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionTrunc>},
     */
 };
