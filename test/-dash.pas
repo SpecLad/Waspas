@@ -1,0 +1,3 @@
+program dash;
+begin
+end.

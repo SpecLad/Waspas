@@ -27,7 +27,7 @@ dumpAstHelper(
     Locus locus_end = line_indexer.getLocusForOffset(
         root.view.data() + root.view.size() - source_start);
 
-    printError("{}({}:{}-{}:{})", root.type(),
+    printOutput("{}({}:{}-{}:{})", root.type(),
         locus_start.line() + 1, locus_start.column() + 1,
         locus_end.line() + 1, locus_end.column() + 1);
 
@@ -48,7 +48,7 @@ dumpAstHelper(
         void
         printFieldName(std::string_view name) {
             if (first) {
-                printError(":");
+                printOutput(":");
                 first = false;
             }
             else {
@@ -56,33 +56,33 @@ dumpAstHelper(
             }
 
             if (atomic)
-                printError(" "); // omit the name, since atomic nodes only have one member
+                printOutput(" "); // omit the name, since atomic nodes only have one member
             else
-                printError("\n{:{}}{} = ", "", indent + INDENT_SIZE, name);
+                printOutput("\n{:{}}{} = ", "", indent + INDENT_SIZE, name);
         }
 
         void
         receiveIdField(std::string_view name, std::string_view value) override {
             printFieldName(name);
-            printError("{}", value);
+            printOutput("{}", value);
         }
 
         void
         receiveBooleanField(std::string_view name, bool value) override {
             printFieldName(name);
-            printError("{}", value);
+            printOutput("{}", value);
         }
 
         void
         receiveIntField(std::string_view name, pascal_integer_t value) override {
             printFieldName(name);
-            printError("{}", value);
+            printOutput("{}", value);
         }
 
         void
         receiveRealField(std::string_view name, pascal_real_t value) override {
             printFieldName(name);
-            printError("{}", value);
+            printOutput("{}", value);
         }
 
         void
@@ -97,7 +97,7 @@ dumpAstHelper(
                 if (c == '\'') value_with_escapes += c;
             }
 
-            printError("'{}'", value_with_escapes);
+            printOutput("'{}'", value_with_escapes);
         }
 
         void
@@ -109,18 +109,18 @@ dumpAstHelper(
         void
         receiveNodeListField(std::string_view name, std::span<const Node *> value) {
             printFieldName(name);
-            printError("[");
+            printOutput("[");
 
             for (const auto &p_node : value) {
-                printError("\n{:{}}", "", indent + INDENT_SIZE * 2);
+                printOutput("\n{:{}}", "", indent + INDENT_SIZE * 2);
                 dumpAstHelper(*p_node, indent + INDENT_SIZE * 2,
                     source_start, line_indexer);
             }
 
             if (!value.empty())
-                printError("\n{:{}}", "", indent + INDENT_SIZE);
+                printOutput("\n{:{}}", "", indent + INDENT_SIZE);
 
-            printError("]");
+            printOutput("]");
         }
 
         int indent;
@@ -136,25 +136,34 @@ dumpAstHelper(
 void
 dumpAst(const Node &root, const char *source_start, LineIndexer &line_indexer) {
     dumpAstHelper(root, 0, source_start, line_indexer);
-    printError("\n");
+    printOutput("\n");
 }
 
 int
 main(int, char **argv) {
     char **pp_arg = argv + 1;
+    bool dump_ast = false;
 
-    if (*pp_arg) {
+    for (; *pp_arg; ++pp_arg) {
         if (!std::strcmp(*pp_arg, "--")) {
             ++pp_arg;
+            break;
+        }
+
+        if (!std::strcmp(*pp_arg, "--dump-ast")) {
+            dump_ast = true;
         }
         else if (**pp_arg == '-') {
             printError("unknown option: {}\n", *pp_arg);
             return 1;
         }
+        else {
+            break;
+        }
     }
 
     if (!pp_arg[0] || pp_arg[1]) {
-        printError("usage: {} source.pas\n", argv[0]);
+        printError("usage: {} [--dump-ast] source.pas\n", argv[0]);
         return 1;
     }
 
@@ -209,6 +218,11 @@ main(int, char **argv) {
 
     if (reporter.hadErrors())
         return 1;
+
+    if (dump_ast) {
+        dumpAst(ast, source_text.data(), line_indexer);
+        return 0;
+    }
 
     auto program = analyze(ast, reporter);
 

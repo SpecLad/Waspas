@@ -4,6 +4,7 @@ import functools
 import re
 import os
 import subprocess
+import textwrap
 import unittest
 
 from dataclasses import dataclass
@@ -34,8 +35,11 @@ class TestBasicErrors(unittest.TestCase):
 
         self.assertEqual(cp.returncode, 1);
 
-    def test_no_args(self):
+    def test_no_path_default(self):
         self._test([])
+
+    def test_no_path_dump_ast(self):
+        self._test(['--dump-ast'])
 
     def test_bad_path(self):
         self._test(['--', str(TEST_CASE_DIR / 'nonexistent.pas')])
@@ -118,6 +122,43 @@ class TestErrorMessages(unittest.TestCase):
 
         self.assertIn(ErrorMessage(1, 1, 'unexpected-token'), messages)
 
+class TestDumpAst(unittest.TestCase):
+    def test_minimal(self):
+        file_path_arg = str(TEST_CASE_DIR / 'minimal.pas')
+
+        cp = subprocess.run(
+            [str(EXE_PATH), '--dump-ast', file_path_arg],
+            stdout=subprocess.PIPE, text=True,
+        )
+
+        self.assertEqual(cp.returncode, 0)
+
+        self.assertEqual(cp.stdout, textwrap.dedent('''\
+            Program(1:1-3:5):
+                name = Identifier(1:9-1:16): minimal
+                parameter_declarations = []
+                block = Block(2:1-3:4):
+                    label_declarations = []
+                    constant_definitions = []
+                    type_definitions = []
+                    variable_declarations = []
+                    subroutine_declarations = []
+                    statement = CompoundStatement(2:1-3:4):
+                        statements = [
+                            Statement(3:1-3:1):
+                                label = []
+                                unlabeled = EmptyStatement(3:1-3:1)
+                        ]
+        '''))
+
+    def test_file_with_dash(self):
+        cp = subprocess.run(
+            [str(EXE_PATH.resolve()), '--dump-ast', '--', '-dash.pas'],
+            stdout=subprocess.PIPE, text=True, cwd=TEST_CASE_DIR,
+        )
+
+        self.assertEqual(cp.returncode, 0)
+        self.assertIn('dash', cp.stdout)
 
 if __name__ == '__main__':
     EXE_PATH = Path(os.environ['WASPAS_TEST_EXE_PATH'])
