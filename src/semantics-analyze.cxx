@@ -2238,6 +2238,35 @@ public:
         return factory(std::move(parameter));
     }
 
+    std::unique_ptr<sem::Expression>
+    resolveBuiltinCallRoundLike(
+        sem::Scope &scope,
+        std::span<const nodes::ActualParameter> actual_parameter_nodes,
+        const char *actual_parameter_end_location,
+        std::unique_ptr<sem::Expression> (*factory)(std::unique_ptr<sem::Expression> &&parameter)
+    ) {
+        if (actual_parameter_nodes.empty()) {
+            reporter_.err(actual_parameter_end_location,
+                ec::PARAMETER_COUNT_MISMATCH,
+                "missing parameter specifying the input number");
+            return fallbackExpression();
+        }
+
+        auto parameter = resolveExpression(scope, actual_parameter_nodes[0].value);
+        auto &parameter_type = parameter->valueType(scope);
+
+        if (&parameter_type != &sem::TypeReal::instance())
+            reporter_.err(actual_parameter_nodes[0].value.view.data(),
+                ec::TYPE_MISMATCH,
+                "actual parameter has type \"{}\" instead of \"real\"",
+                parameter_type.str());
+
+        checkNoFormattingSpecification(actual_parameter_nodes[0]);
+
+        checkNoExtraneousParameter(actual_parameter_nodes.subspan(1));
+        return factory(std::move(parameter));
+    }
+
     sem::Constant::ptr_t
     resolveExpressionAsConstant(
         sem::Scope &scope, const nodes::Expression &expression_node
@@ -3197,9 +3226,8 @@ BUILTIN_FUNCTIONS = {
     {"ord", &StatementBuilder::resolveBuiltinCallOrd},
     {"pred", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallPredLike, sem::ExpressionFunctionPred>},
-    /*
-    {"round", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionRound>},
-    */
+    {"round", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallRoundLike, sem::ExpressionFunctionRound>},
     {"sin", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSin>},
     {"sqr", &StatementBuilder::resolveBuiltinGeneric<
@@ -3208,9 +3236,8 @@ BUILTIN_FUNCTIONS = {
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSqrt>},
     {"succ", &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallPredLike, sem::ExpressionFunctionSucc>},
-    /*
-    {"trunc", &StatementBuilder::resolveBuiltinCallRoundLike<sem::ExpressionFunctionTrunc>},
-    */
+    {"trunc", &StatementBuilder::resolveBuiltinGeneric<
+        &StatementBuilder::resolveBuiltinCallRoundLike, sem::ExpressionFunctionTrunc>},
 };
 
 constexpr std::initializer_list<std::pair<const std::string_view, builtin_procedure_resolve_f>>

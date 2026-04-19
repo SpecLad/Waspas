@@ -167,6 +167,18 @@ public:
 };
 
 export
+class ExpressionFunctionRound : public ExpressionFunctionOrdLike {
+public:
+    using ExpressionFunctionOrdLike::ExpressionFunctionOrdLike;
+};
+
+export
+class ExpressionFunctionTrunc : public ExpressionFunctionOrdLike {
+public:
+    using ExpressionFunctionOrdLike::ExpressionFunctionOrdLike;
+};
+
+export
 class StatementProcedureGetLike : public Statement {
 public:
     explicit

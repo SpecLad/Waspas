@@ -337,6 +337,17 @@ begin
     rewrite(fi, 1);
                {^ error:parameter-count-mismatch }
 
+    { round }
+
+    i := round;
+             {^ error:parameter-count-mismatch }
+    i := round(i);
+              {^ error:type-mismatch }
+    i := round(x:3);
+               {^ error:disallowed-parameter-form }
+    i := round(x, x);
+                 {^ error:parameter-count-mismatch }
+
     { sin }
 
     x := sin;
@@ -380,6 +391,17 @@ begin
               {^ error:disallowed-parameter-form }
     c := succ(c, c);
                 {^ error:parameter-count-mismatch }
+
+    { trunc }
+
+    i := trunc;
+             {^ error:parameter-count-mismatch }
+    i := trunc(i);
+              {^ error:type-mismatch }
+    i := trunc(x:3);
+               {^ error:disallowed-parameter-form }
+    i := trunc(x, x);
+                 {^ error:parameter-count-mismatch }
 
     { unpack }
 
