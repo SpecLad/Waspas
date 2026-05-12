@@ -16,7 +16,7 @@ type Grammar = CharClass | Concat | Either | Maybe | OneOrMore
 class CharClass:
     codes: set[str]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.codes = {c.upper() for c in self.codes}
 
 @dataclasses.dataclass
@@ -319,7 +319,7 @@ def minimize_dfa(start: DfaState) -> None:
             if cid is not None:
                 state.transitions[c] = id_to_state[cid]
 
-def todotstr(s: str):
+def todotstr(s: str) -> str:
     return '"' + s.replace('\\', '\\\\').replace('"', r'\"') + '"'
 
 def rangify(chars: set[str]) -> str:
@@ -330,7 +330,7 @@ def rangify(chars: set[str]) -> str:
     range_start = None
     prev = None
 
-    def add_range():
+    def add_range() -> None:
         nonlocal range_start
         if range_start:
             if range_start == prev:
@@ -443,22 +443,25 @@ def generate_tables(name: str, start: DfaState) -> None:
         state_id_to_index[id(state)] = next_index
         next_index += 1
 
-        result_factory_ptr = f"&makeToken<Token{state.result}>" if state.result else 'nullptr'
+        min_c_repr: object
+        max_c_repr: object
 
         if state.transitions:
             min_c = min(c for c in state.transitions.keys())
-            min_c_str = c_char(min_c)
+            min_c_repr = c_char(min_c)
             max_c = max(c for c in state.transitions.keys())
-            max_c_str = c_char(max_c)
+            max_c_repr = c_char(max_c)
             num_transitions = ord(max_c) - ord(min_c) + 1
         else:
-            min_c_str = 1
-            max_c_str = 0
+            min_c_repr = 1
+            max_c_repr = 0
             num_transitions = 0
 
-        transitions_offset = next_transition_offset if num_transitions else 0
-
-        print(f"    {{{min_c_str:3}, {max_c_str:3}, {transitions_offset:4}, {result_factory_ptr}}},")
+        print("    {{{:3}, {:3}, {:4}, {}}},".format(
+            min_c_repr, max_c_repr,
+            next_transition_offset if num_transitions else 0,
+            f"&makeToken<Token{state.result}>" if state.result else 'nullptr',
+        ))
         next_transition_offset += num_transitions
 
         transitions = [DEAD_END] * num_transitions
@@ -488,7 +491,7 @@ def generate_tables(name: str, start: DfaState) -> None:
 
     print("};")
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     stage_args = parser.add_mutually_exclusive_group()
     stage_args.add_argument('--grammars', action='store_true', help="dump the grammars")
