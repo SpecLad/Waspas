@@ -3,13 +3,22 @@ cmake_minimum_required(VERSION 4.2 FATAL_ERROR)
 project(Waspas LANGUAGES CXX)
 include(CTest)
 
-find_package(Python COMPONENTS Interpreter)
+find_package(Python 3.12 COMPONENTS Interpreter)
 
 set(CMAKE_CXX_STANDARD 23)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "^GNU$|Clang$")
 add_compile_options(-Wall -Wextra)
 endif()
+
+add_custom_command(
+    OUTPUT lexing-tables.cxx
+    COMMAND Python::Interpreter --
+        "${CMAKE_CURRENT_SOURCE_DIR}/generate-lexing-tables.py" > lexing-tables.cxx
+    MAIN_DEPENDENCY generate-lexing-tables.py
+    VERBATIM
+    CODEGEN
+)
 
 add_custom_command(
     OUTPUT parsing-nodes.ixx
@@ -35,6 +44,8 @@ target_sources(waspas
     FILES
         src/io.ixx
         src/lexing.ixx
+        src/lexing-tokens.ixx
+        "${CMAKE_CURRENT_BINARY_DIR}/lexing-tables.cxx"
         src/parsing.ixx
         src/parsing-core.ixx
         "${CMAKE_CURRENT_BINARY_DIR}/parsing-nodes.ixx"
