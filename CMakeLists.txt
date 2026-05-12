@@ -23,8 +23,8 @@ add_custom_command(
 add_custom_command(
     OUTPUT parsing-nodes.ixx
     COMMAND Python::Interpreter --
-        "${CMAKE_CURRENT_SOURCE_DIR}/generate-nodes.py" > parsing-nodes.ixx
-    MAIN_DEPENDENCY generate-nodes.py
+        "${CMAKE_CURRENT_SOURCE_DIR}/generate-parsing-nodes.py" > parsing-nodes.ixx
+    MAIN_DEPENDENCY generate-parsing-nodes.py
     VERBATIM
     CODEGEN
 )
