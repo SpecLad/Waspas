@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import graphlib
 
-from collections.abc import Collection
+from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Union
 
 @dataclass
 class Enumeration:
     name: str
     enumerators: Collection[str] = field(default_factory=tuple)
 
-    def generate(self):
+    def generate(self) -> None:
         print('export')
         print(f'enum class {self.name} {{')
 
@@ -35,76 +36,82 @@ class Enumeration:
 class Field:
     name: str
 
-    def get_dependencies(self, node_types):
+    def get_dependencies(self, node_types: NodeTypeMap) -> tuple[str, ...]:
         return ()
+
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
+        raise NotImplementedError
+
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
+        raise NotImplementedError
 
 @dataclass
 class IdentifierField(Field):
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         print(f'    std::string {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         print(f'    receiver.receiveIdField("{self.name}", {self.name});')
 
 @dataclass
 class BooleanField(Field):
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         print(f'    bool {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         print(f'    receiver.receiveBooleanField("{self.name}", {self.name});')
 
 @dataclass
 class IntegerField(Field):
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         print(f'    pascal_integer_t {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         print(f'    receiver.receiveIntField("{self.name}", {self.name});')
 
 @dataclass
 class RealField(Field):
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         print(f'    pascal_real_t {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         print(f'    receiver.receiveRealField("{self.name}", {self.name});')
 
 @dataclass
 class EnumField(Field):
     enum_type: str
 
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         print(f'    {self.enum_type} {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         print(f'    receiver.receiveIdField("{self.name}", asString({self.name}));')
 
 @dataclass
 class StringField(Field):
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         print(f'    std::string {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         print(f'    receiver.receiveStringField("{self.name}", {self.name});')
 
 @dataclass
 class NodeField(Field):
     node_type: str
 
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         if node_types[self.node_type].abstract:
             print(f'    std::unique_ptr<{self.node_type}> {self.name};')
         else:
             print(f'    {self.node_type} {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         if node_types[self.node_type].abstract:
             print(f'    receiver.receiveNodeField("{self.name}", *{self.name});')
         else:
             print(f'    receiver.receiveNodeField("{self.name}", {self.name});')
 
-    def get_dependencies(self, node_types):
+    def get_dependencies(self, node_types: NodeTypeMap) -> tuple[str, ...]:
         if node_types[self.node_type].abstract:
             return ()
         else:
@@ -114,55 +121,55 @@ class NodeField(Field):
 class NodeListField(Field):
     component_node_type: str
 
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         if node_types[self.component_node_type].abstract:
             print(f'    std::vector<std::unique_ptr<{self.component_node_type}>> {self.name};')
         else:
             print(f'    std::vector<{self.component_node_type}> {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         print(f'    describeNodeListField(receiver, "{self.name}", {self.name});')
 
 @dataclass
 class OptionalNodeField(Field):
     component_node_type: str
 
-    def generate_declaration(self, node_types):
+    def generate_declaration(self, node_types: NodeTypeMap) -> None:
         assert not node_types[self.component_node_type].abstract
         print(f'    std::optional<{self.component_node_type}> {self.name};')
 
-    def generate_describe_call(self, node_types):
+    def generate_describe_call(self, node_types: NodeTypeMap) -> None:
         print(f'    describeOptionalNodeField(receiver, "{self.name}", {self.name});')
 
-    def get_dependencies(self, node_types):
+    def get_dependencies(self, node_types: NodeTypeMap) -> tuple[str, ...]:
         return (self.component_node_type,)
 
 
 @dataclass
 class NodeType:
     name: str
-    bases: Collection[str] = field(default_factory=tuple)
+    bases: Sequence[str] = field(default_factory=tuple)
     fields: Collection[Field] = field(default_factory=tuple)
     atomic: bool = False
     abstract: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert all(
             self.bases[i] < self.bases[i + 1]
             for i in range(len(self.bases) - 1)
         )
 
-    def get_dependencies(self, node_types):
+    def get_dependencies(self, node_types: NodeTypeMap) -> tuple[str, ...]:
         return tuple(self.bases) + tuple(dep
             for field in self.fields
             for dep in field.get_dependencies(node_types)
         )
 
-    def generate_forward_declaration(self):
+    def generate_forward_declaration(self) -> None:
         print('export')
         print(f'class {self.name};')
 
-    def generate_definition(self, node_types):
+    def generate_definition(self, node_types: NodeTypeMap) -> None:
         print('export')
 
         if len(self.bases) == 0:
@@ -193,7 +200,9 @@ class NodeType:
         print('    describeFields(NodeFieldReceiver &receiver) const override;')
         print('};')
 
-    def generate_out_of_line_members(self, node_types, derived_node_types):
+    def generate_out_of_line_members(
+        self, node_types: NodeTypeMap, derived_node_types: dict[str, list[str]]
+    ) -> None:
         print('void')
         param_name = "receiver" if self.bases or self.fields else ""
         print(f'{self.name}::describeFields(NodeFieldReceiver &{param_name}) const {{')
@@ -215,7 +224,7 @@ class NodeType:
             print('auto')
             print(f'visit({self.name} &node, const T &visitor) {{')
 
-            def derived_leaf_types(node_type_name):
+            def derived_leaf_types(node_type_name: str) -> Iterator[str]:
                 if node_type_name not in derived_node_types:
                     yield node_type_name
                 else:
@@ -230,8 +239,9 @@ class NodeType:
             print('    std::abort();')
             print('}')
 
+type NodeTypeMap = dict[str, NodeType]
 
-def generate(enumerations, node_types):
+def generate(enumerations: Sequence[Enumeration], node_types: Sequence[NodeType]) -> None:
     assert all(
         enumerations[i].name < enumerations[i + 1].name
         for i in range(len(enumerations) - 1)
@@ -260,7 +270,7 @@ def generate(enumerations, node_types):
         print()
         enumeration.generate()
 
-    derived_node_type_map = {}
+    derived_node_type_map: dict[str, list[str]] = {}
 
     for node_type in node_types:
         print()
@@ -658,7 +668,7 @@ NODE_TYPES = (
     )),
 )
 
-def main():
+def main() -> None:
     generate(ENUMERATIONS, NODE_TYPES)
 
 if __name__ == '__main__':
