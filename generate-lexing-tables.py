@@ -10,7 +10,8 @@ import textwrap
 from collections.abc import Iterable
 from typing import Protocol
 
-type Grammar = CharClass | Concat | Either | Maybe | OneOrMore
+type Expression = CharClass | Concat | Either | Maybe | OneOrMore
+type Grammar = dict[str, Expression]
 
 @dataclasses.dataclass
 class CharClass:
@@ -21,31 +22,31 @@ class CharClass:
 
 @dataclasses.dataclass
 class Concat:
-    left: Grammar
-    right: Grammar
+    left: Expression
+    right: Expression
 
     @classmethod
-    def many(cls, first: Grammar, *rest: Grammar) -> Grammar:
+    def many(cls, first: Expression, *rest: Expression) -> Expression:
         return functools.reduce(cls, rest, first)
 
 @dataclasses.dataclass
 class Either:
-    top: Grammar
-    bottom: Grammar
+    top: Expression
+    bottom: Expression
 
 @dataclasses.dataclass
 class Maybe:
-    element: Grammar
+    element: Expression
 
 @dataclasses.dataclass
 class OneOrMore:
-    element: Grammar
+    element: Expression
 
-def lit(spelling: str) -> Grammar:
-    def char_grammar(c: str) -> Grammar:
+def lit(spelling: str) -> Expression:
+    def char_expression(c: str) -> Expression:
         return CharClass({c.upper()})
 
-    return functools.reduce(Concat, map(char_grammar, spelling))
+    return functools.reduce(Concat, map(char_expression, spelling))
 
 LETTER = CharClass({*string.ascii_letters})
 DIGIT = CharClass({*string.digits})
@@ -57,7 +58,7 @@ STRING_ELEMENT = Either(
     lit("''"),
 )
 
-TOKENS: dict[str, Grammar] = {
+TOKENS: Grammar = {
     "Identifier": Concat(LETTER, Maybe(OneOrMore(LETTER_OR_DIGIT))),
     "UnsignedInteger": OneOrMore(DIGIT),
     "UnsignedReal": Concat(
@@ -157,8 +158,8 @@ class DfaState:
     def transition_iter(self) -> Iterable[tuple[str, DfaState]]:
         return self.transitions.items()
 
-def convert_grammar_to_enfa(start: NfaState, grammar: Grammar) -> NfaState:
-    match grammar:
+def convert_expression_to_enfa(start: NfaState, expression: Expression) -> NfaState:
+    match expression:
         case CharClass(chars):
             end = NfaState()
             for c in sorted(chars): # sort to get deterministic ordering
@@ -166,26 +167,26 @@ def convert_grammar_to_enfa(start: NfaState, grammar: Grammar) -> NfaState:
             return end
 
         case Concat(left, right):
-            middle = convert_grammar_to_enfa(start, left)
-            return convert_grammar_to_enfa(middle, right)
+            middle = convert_expression_to_enfa(start, left)
+            return convert_expression_to_enfa(middle, right)
 
         case Either(top, bottom):
-            top_end = convert_grammar_to_enfa(start, top)
-            bottom_end = convert_grammar_to_enfa(start, bottom)
+            top_end = convert_expression_to_enfa(start, top)
+            bottom_end = convert_expression_to_enfa(start, bottom)
             end = NfaState()
             top_end.transitions.append(("", end))
             bottom_end.transitions.append(("", end))
             return end
 
         case Maybe(element):
-            end = convert_grammar_to_enfa(start, element)
+            end = convert_expression_to_enfa(start, element)
             start.transitions.append(("", end))
             return end
 
         case OneOrMore(element):
             middle = NfaState()
             start.transitions.append(("", middle))
-            end = convert_grammar_to_enfa(middle, element)
+            end = convert_expression_to_enfa(middle, element)
             end.transitions.append(("", middle))
             return end
 
@@ -357,30 +358,30 @@ def dump_grammars() -> None:
 
     next_node_id = 0
 
-    def dump_grammar(node_id: int, grammar: Grammar) -> None:
+    def dump_expression(node_id: int, expression: Expression) -> None:
         nonlocal next_node_id
 
-        match grammar:
+        match expression:
             case CharClass(codes):
                 print(f"    {node_id} [label={todotstr(rangify(codes))}]")
             case _:
-                print(f"    {node_id} [label={todotstr(grammar.__class__.__name__)}]")
+                print(f"    {node_id} [label={todotstr(expression.__class__.__name__)}]")
 
-                for field in dataclasses.fields(grammar):
-                    child = getattr(grammar, field.name)
+                for field in dataclasses.fields(expression):
+                    child = getattr(expression, field.name)
 
                     child_node_id = next_node_id
                     next_node_id += 1
 
                     print(f"    {node_id} -> {child_node_id} [label={todotstr(field.name)}]")
-                    dump_grammar(child_node_id, child)
+                    dump_expression(child_node_id, child)
 
-    for token_name, grammar in TOKENS.items():
+    for token_name, expression in TOKENS.items():
         print(f'    {token_name} [shape="rectangle"]')
         node_id = next_node_id
         next_node_id += 1
         print(f"    {token_name} -> {node_id}")
-        dump_grammar(node_id, grammar)
+        dump_expression(node_id, expression)
 
     print("}")
 
@@ -507,8 +508,8 @@ def main() -> None:
 
     enfa_start = NfaState()
 
-    for token_name, token_grammar in TOKENS.items():
-        token_end = convert_grammar_to_enfa(enfa_start, token_grammar)
+    for token_name, token_expression in TOKENS.items():
+        token_end = convert_expression_to_enfa(enfa_start, token_expression)
         token_end.result = token_name
 
     if args.enfa:
