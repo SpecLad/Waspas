@@ -7,7 +7,7 @@ import dataclasses
 import functools
 import string
 import textwrap
-from collections.abc import Iterable
+from collections.abc import Iterable, Set
 from typing import Protocol
 
 type Expression = CharClass | Concat | Either | Maybe | OneOrMore
@@ -15,10 +15,11 @@ type Grammar = dict[str, Expression]
 
 @dataclasses.dataclass
 class CharClass:
-    codes: set[str]
+    codes: Set[str]
 
-    def __post_init__(self) -> None:
-        self.codes = {c.upper() for c in self.codes}
+    @classmethod
+    def of(cls, codes: Iterable[str]) -> CharClass:
+        return CharClass(frozenset(c.upper() for c in codes))
 
 @dataclasses.dataclass
 class Concat:
@@ -43,18 +44,16 @@ class OneOrMore:
     element: Expression
 
 def lit(spelling: str) -> Expression:
-    def char_expression(c: str) -> Expression:
-        return CharClass({c.upper()})
+    char_classes: Iterable[Expression] = map(CharClass.of, spelling)
+    return functools.reduce(Concat, char_classes)
 
-    return functools.reduce(Concat, map(char_expression, spelling))
-
-LETTER = CharClass({*string.ascii_letters})
-DIGIT = CharClass({*string.digits})
-LETTER_OR_DIGIT = CharClass({*string.ascii_letters, *string.digits})
+LETTER = CharClass.of(string.ascii_letters)
+DIGIT = CharClass.of(string.digits)
+LETTER_OR_DIGIT = CharClass.of(string.ascii_letters + string.digits)
 DIGITS = OneOrMore(DIGIT)
-EXPONENT = Concat.many(lit("e"), Maybe(CharClass({"+", "-"})), DIGITS)
+EXPONENT = Concat.many(lit("e"), Maybe(CharClass.of("+-")), DIGITS)
 STRING_ELEMENT = Either(
-    CharClass({*string.ascii_letters, *string.digits, *string.punctuation, " "} - {"'"}),
+    CharClass.of({*string.ascii_letters, *string.digits, *string.punctuation, " "} - {"'"}),
     lit("''"),
 )
 
@@ -323,7 +322,7 @@ def minimize_dfa(start: DfaState) -> None:
 def todotstr(s: str) -> str:
     return '"' + s.replace('\\', '\\\\').replace('"', r'\"') + '"'
 
-def rangify(chars: set[str]) -> str:
+def rangify(chars: Set[str]) -> str:
     ranges = []
     if '' in chars:
         ranges.append("\N{GREEK LUNATE EPSILON SYMBOL}")
