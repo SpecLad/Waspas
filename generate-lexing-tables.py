@@ -135,6 +135,24 @@ add_word_symbol("Var")
 add_word_symbol("While")
 add_word_symbol("With")
 
+# If we start supporting non-ASCII characters, this will need to be adjusted.
+ALL_CHARS = frozenset(map(chr, range(128)))
+
+SEPARATORS: Grammar = {
+    "Whitespace": CharClass.of(string.whitespace),
+    "Comment": Concat.many(
+        Either(lit("{"), lit("(*")),
+        Maybe(OneOrMore(Either(
+            CharClass.of(ALL_CHARS - {"*", "}"}),
+            Concat(OneOrMore(lit("*")), CharClass.of(ALL_CHARS - {"*", ")", "}"})),
+        ))),
+        Maybe(OneOrMore(lit("*"))),
+        Either(lit("}"), lit("*)")),
+    ),
+}
+
+GRAMMARS = {"Token": TOKENS, "Separator": SEPARATORS}
+
 class FaState(Protocol):
     @property
     def result(self) -> str | None: ...
@@ -188,6 +206,15 @@ def convert_expression_to_enfa(start: NfaState, expression: Expression) -> NfaSt
             end = convert_expression_to_enfa(middle, element)
             end.transitions.append(("", middle))
             return end
+
+def convert_grammar_to_enfa(grammar: Grammar) -> NfaState:
+    enfa_start = NfaState()
+
+    for token_name, token_expression in grammar.items():
+        token_end = convert_expression_to_enfa(enfa_start, token_expression)
+        token_end.result = token_name
+
+    return enfa_start
 
 def eliminate_epsilons(estart: NfaState) -> NfaState:
     # Maps id(state) in the e-NFA to the pair of:
@@ -339,7 +366,7 @@ def rangify(chars: Set[str]) -> str:
                 ranges.append(repr(range_start) + '..' + repr(prev))
             range_start = None
 
-    for n in range(0x20, 0x7f):
+    for n in range(0, 0x7f):
         cur = chr(n)
         if cur in chars:
             if not range_start:
@@ -375,16 +402,17 @@ def dump_grammars() -> None:
                     print(f"    {node_id} -> {child_node_id} [label={todotstr(field.name)}]")
                     dump_expression(child_node_id, child)
 
-    for token_name, expression in TOKENS.items():
-        print(f'    {token_name} [shape="rectangle"]')
-        node_id = next_node_id
-        next_node_id += 1
-        print(f"    {token_name} -> {node_id}")
-        dump_expression(node_id, expression)
+    for grammar in GRAMMARS.values():
+        for token_name, expression in grammar.items():
+            print(f'    {token_name} [shape="rectangle"]')
+            node_id = next_node_id
+            next_node_id += 1
+            print(f"    {token_name} -> {node_id}")
+            dump_expression(node_id, expression)
 
     print("}")
 
-def dump_fa(start: FaState) -> None:
+def dump_fas(starts: Iterable[FaState]) -> None:
     print("digraph {")
     print("    rankdir=LR;")
 
@@ -417,12 +445,14 @@ def dump_fa(start: FaState) -> None:
 
         return node_id
 
-    dump_state(start)
+    for start in starts:
+        dump_state(start)
 
     print("}")
 
 def generate_tables(name: str, start: DfaState) -> None:
-    print(f"constexpr State {name}_STATES[] = {{")
+    print()
+    print(f"constexpr State<Grammar{name}::result_type> {name.upper()}_STATES[] = {{")
 
     state_id_to_index: dict[int, int] = {}
     next_index = 0
@@ -431,7 +461,11 @@ def generate_tables(name: str, start: DfaState) -> None:
 
     def c_char(c: str) -> str:
         if c == "'": return r"'\''"
-        return "'" + c + "'"
+
+        n = ord(c)
+        if 0x20 <= n < 0x7f:
+            return f"'{c}'"
+        return rf"'\x{n:02x}'"
 
     DEAD_END = 255
 
@@ -460,7 +494,7 @@ def generate_tables(name: str, start: DfaState) -> None:
         print("    {{{:3}, {:3}, {:4}, {}}},".format(
             min_c_repr, max_c_repr,
             next_transition_offset if num_transitions else 0,
-            f"&makeToken<Token{state.result}>" if state.result else 'nullptr',
+            f"&Grammar{name}::makeResult<{name}{state.result}>" if state.result else 'nullptr',
         ))
         next_transition_offset += num_transitions
 
@@ -478,7 +512,7 @@ def generate_tables(name: str, start: DfaState) -> None:
     print("};")
     print()
 
-    print(f"constexpr std::uint8_t {name}_TRANSITIONS[] = {{")
+    print(f"constexpr std::uint8_t {name.upper()}_TRANSITIONS[] = {{")
 
     for state_index in range(len(state_id_to_index)):
         transitions = all_transitions.get(state_index)
@@ -495,42 +529,39 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     stage_args = parser.add_mutually_exclusive_group()
     stage_args.add_argument('--grammars', action='store_true', help="dump the grammars")
-    stage_args.add_argument('--enfa', action='store_true', help="dump the e-NFA")
-    stage_args.add_argument('--nfa', action='store_true', help="dump the NFA")
-    stage_args.add_argument('--dfa', action='store_true', help="dump the DFA")
-    stage_args.add_argument('--min-dfa', action='store_true', help="dump the minimized DFA")
+    stage_args.add_argument('--enfas', action='store_true', help="dump the e-NFAs")
+    stage_args.add_argument('--nfas', action='store_true', help="dump the NFAs")
+    stage_args.add_argument('--dfas', action='store_true', help="dump the DFAs")
+    stage_args.add_argument('--min-dfas', action='store_true', help="dump the minimized DFAs")
     args = parser.parse_args()
 
     if args.grammars:
         dump_grammars()
         return
 
-    enfa_start = NfaState()
+    enfa_starts = {name: convert_grammar_to_enfa(grammar) for name, grammar in GRAMMARS.items()}
 
-    for token_name, token_expression in TOKENS.items():
-        token_end = convert_expression_to_enfa(enfa_start, token_expression)
-        token_end.result = token_name
-
-    if args.enfa:
-        dump_fa(enfa_start)
+    if args.enfas:
+        dump_fas(enfa_starts.values())
         return
 
-    nfa_start = eliminate_epsilons(enfa_start)
+    nfa_starts = {name: eliminate_epsilons(enfa_start) for name, enfa_start in enfa_starts.items()}
 
-    if args.nfa:
-        dump_fa(nfa_start)
+    if args.nfas:
+        dump_fas(nfa_starts.values())
         return
 
-    dfa_start = convert_nfa_to_dfa(nfa_start)
+    dfa_starts = {name: convert_nfa_to_dfa(nfa_start) for name, nfa_start in nfa_starts.items()}
 
-    if args.dfa:
-        dump_fa(dfa_start)
+    if args.dfas:
+        dump_fas(dfa_starts.values())
         return
 
-    minimize_dfa(dfa_start)
+    for dfa_start in dfa_starts.values():
+        minimize_dfa(dfa_start)
 
-    if args.min_dfa:
-        dump_fa(dfa_start)
+    if args.min_dfas:
+        dump_fas(dfa_starts.values())
         return
 
     print(textwrap.dedent("""\
@@ -543,15 +574,16 @@ def main() -> None:
 
         import :tokens;
 
+        template <typename R>
         struct State {
             unsigned char transition_min_c, transition_max_c;
             std::uint16_t transitions_offset;
-            std::unique_ptr<Token> (*result_factory)(std::string_view view);
+            R (*result_factory)(std::string_view view);
         };
-
     """), end='')
 
-    generate_tables("TOKEN", dfa_start)
+    for name, dfa_start in dfa_starts.items():
+        generate_tables(name, dfa_start)
 
 if __name__ == '__main__':
     main()

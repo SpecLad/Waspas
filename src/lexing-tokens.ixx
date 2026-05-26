@@ -266,7 +266,25 @@ public:
     static const std::string HUMAN_REPRESENTATION;
 };
 
-template <typename T>
-std::unique_ptr<Token> makeToken(std::string_view view) {
-    return std::make_unique<T>(view);
-}
+struct GrammarToken {
+    using result_type = std::unique_ptr<Token>;
+
+    template <typename T>
+    static result_type
+    makeResult(std::string_view view) {
+        return std::make_unique<T>(view);
+    }
+};
+
+struct SeparatorWhitespace {};
+struct SeparatorComment {};
+
+struct GrammarSeparator {
+    using result_type = std::size_t;
+
+    template <typename T>
+    static result_type
+    makeResult(std::string_view view) {
+        return view.size();
+    }
+};
