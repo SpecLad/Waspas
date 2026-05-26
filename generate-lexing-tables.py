@@ -451,13 +451,26 @@ def dump_fas(starts: Iterable[FaState]) -> None:
     print("}")
 
 def generate_tables(name: str, start: DfaState) -> None:
+    state_id_to_index: dict[int, int] = {}
+    states_by_index: list[DfaState] = []
+
+    DEAD_END = 255
+
+    def assign_state_index(state: DfaState) -> None:
+        if id(state) in state_id_to_index: return
+
+        next_index = len(states_by_index)
+        assert next_index < DEAD_END
+        state_id_to_index[id(state)] = next_index
+        states_by_index.append(state)
+
+        for dest in state.transitions.values():
+            assign_state_index(dest)
+
+    assign_state_index(start)
+
     print()
     print(f"constexpr State<Grammar{name}::result_type> {name.upper()}_STATES[] = {{")
-
-    state_id_to_index: dict[int, int] = {}
-    next_index = 0
-    next_transition_offset = 0
-    all_transitions: dict[int, list[int]] = {}
 
     def c_char(c: str) -> str:
         if c == "'": return r"'\''"
@@ -467,16 +480,10 @@ def generate_tables(name: str, start: DfaState) -> None:
             return f"'{c}'"
         return rf"'\x{n:02x}'"
 
-    DEAD_END = 255
+    next_transition_offset = 0
+    transitions_to_offset: dict[tuple[int, ...], int] = {}
 
-    def generate_state(state: DfaState) -> None:
-        nonlocal next_index, next_transition_offset
-        if id(state) in state_id_to_index: return
-
-        assert next_index < DEAD_END
-        state_id_to_index[id(state)] = next_index
-        next_index += 1
-
+    for state in states_by_index:
         min_c_repr: object
         max_c_repr: object
 
@@ -486,38 +493,34 @@ def generate_tables(name: str, start: DfaState) -> None:
             max_c = max(c for c in state.transitions.keys())
             max_c_repr = c_char(max_c)
             num_transitions = ord(max_c) - ord(min_c) + 1
+
+            transitions_list = [DEAD_END] * num_transitions
+
+            for c, dest in state.transition_iter():
+                transitions_list[ord(c) - ord(min_c)] = state_id_to_index[id(dest)]
+
+            transitions = tuple(transitions_list)
+
+            transition_offset = transitions_to_offset.get(transitions)
+            if transition_offset is None:
+                transitions_to_offset[transitions] = transition_offset = next_transition_offset
+                next_transition_offset += num_transitions
         else:
             min_c_repr = 1
             max_c_repr = 0
-            num_transitions = 0
+            transition_offset = 0
 
         print("    {{{:3}, {:3}, {:4}, {}}},".format(
-            min_c_repr, max_c_repr,
-            next_transition_offset if num_transitions else 0,
+            min_c_repr, max_c_repr, transition_offset,
             f"&Grammar{name}::makeResult<{name}{state.result}>" if state.result else 'nullptr',
         ))
-        next_transition_offset += num_transitions
-
-        transitions = [DEAD_END] * num_transitions
-
-        for c, dest in state.transition_iter():
-            generate_state(dest)
-            transitions[ord(c) - ord(min_c)] = state_id_to_index[id(dest)]
-
-        if transitions:
-            all_transitions[state_id_to_index[id(state)]] = transitions
-
-    generate_state(start)
 
     print("};")
     print()
 
     print(f"constexpr std::uint8_t {name.upper()}_TRANSITIONS[] = {{")
 
-    for state_index in range(len(state_id_to_index)):
-        transitions = all_transitions.get(state_index)
-        if not transitions: continue
-
+    for transitions in transitions_to_offset:
         print("    ", end='')
         for transition in transitions:
             print(f"{transition}, ", end='')
