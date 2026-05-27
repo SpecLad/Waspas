@@ -124,7 +124,7 @@ public:
         const nodes::Identifier &applied_occurrence_node
     ) {
         return lookupIdentifier(scope, applied_occurrence_node,
-            &sem::Block::constants_, "constant");
+            &sem::Block::constants_, "constant"sv);
     }
 
     sem::Constant::ptr_t
@@ -3390,7 +3390,7 @@ public:
         const nodes::Identifier &applied_occurrence_node
     ) {
         return lookupIdentifier(scope, applied_occurrence_node,
-            &sem::Block::types_, "type");
+            &sem::Block::types_, "type"sv);
     }
 
     void
