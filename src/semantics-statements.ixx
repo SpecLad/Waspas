@@ -79,7 +79,7 @@ export
 class StatementFor final : public Statement {
 public:
     StatementFor(
-        const std::string &control_variable,
+        const Cisref &control_variable,
         std::unique_ptr<Expression> &&initial_value,
         nodes::RangeDirection direction,
         std::unique_ptr<Expression> &&final_value,
@@ -93,7 +93,7 @@ public:
     {}
 
 private:
-    std::string control_variable_;
+    Cisref control_variable_;
     std::unique_ptr<Expression> initial_value_;
     nodes::RangeDirection direction_;
     std::unique_ptr<Expression> final_value_;

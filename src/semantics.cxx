@@ -58,12 +58,12 @@ sem::VariantPart::addVariant(
 sem::TypeEnumerated::~TypeEnumerated() = default;
 
 std::shared_ptr<const sem::TypeEnumerated>
-sem::TypeEnumerated::make(std::span<const std::string> constant_names) {
+sem::TypeEnumerated::make(std::span<const Cisref> constant_names) {
     return std::shared_ptr<sem::TypeEnumerated>(new TypeEnumerated(constant_names));
 }
 
 sem::TypeEnumerated::TypeEnumerated(
-    std::span<const std::string> constant_names
+    std::span<const Cisref> constant_names
 ) {
     assert(!constant_names.empty());
     assert(constant_names.size() - 1 <= std::size_t(PASCAL_INTEGER_MAX));
@@ -159,10 +159,10 @@ sem::TypeArray::isEquivalent(const Type &type) const {
     return false;
 }
 
-std::vector<std::string>
+std::vector<Cisref>
 sem::FieldList::fieldNames() const {
     auto keys = std::views::keys(field_descriptions_);
-    return std::vector<std::string>(keys.begin(), keys.end());
+    return std::vector<Cisref>(keys.begin(), keys.end());
 }
 
 void
@@ -394,13 +394,13 @@ sem::Program::Program() : block_(&builtin_block, this) {}
 
 struct BuiltinBlockInitializer {
     BuiltinBlockInitializer() {
-        builtin_block.constants_.emplace("maxint",
+        builtin_block.constants_.emplace("maxint"_ci,
             staticPtr(sem::ConstantInteger::instanceMax()));
 
-        builtin_block.constants_.emplace("false",
+        builtin_block.constants_.emplace("false"_ci,
             staticPtr(sem::ConstantBoolean::instanceFalse()));
 
-        builtin_block.constants_.emplace("true",
+        builtin_block.constants_.emplace("true"_ci,
             staticPtr(sem::ConstantBoolean::instanceTrue()));
 
         for (const auto &c : builtin_block.constants_)
@@ -415,12 +415,12 @@ struct BuiltinBlockInitializer {
             builtin_block.scope_.addBuiltin(t.first, sem::DefiningOccurrence::TYPE);
 
         for (const auto &p : BUILTIN_FUNCTIONS) {
-            builtin_block.scope_.addBuiltin(std::string(p.first));
+            builtin_block.scope_.addBuiltin(p.first);
             builtin_block.builtin_functions_.insert(p);
         }
 
         for (const auto &p : BUILTIN_PROCEDURES) {
-            builtin_block.scope_.addBuiltin(std::string(p.first));
+            builtin_block.scope_.addBuiltin(p.first);
             builtin_block.builtin_procedures_.insert(p);
         }
     }

@@ -52,7 +52,7 @@ public:
     public:
         InvalidDirective(
             TokenReader &reader,
-            std::string_view expected_directive
+            const Cisref &expected_directive
         )
             : Error(reader), expected_directive_(expected_directive)
         {}
@@ -67,7 +67,7 @@ public:
         }
 
     private:
-        std::string_view expected_directive_;
+        const Cisref &expected_directive_;
     };
 
     class InvalidLabel : public Error {
@@ -184,7 +184,7 @@ public:
         throw UnexpectedToken(*this);
     }
 
-    std::string
+    Cisref
     consumeId() {
         return consume<TokenIdentifier>().spelling();
     }
@@ -193,7 +193,7 @@ public:
     consumeDirectiveForward() {
         auto maybe_directive = consume<TokenIdentifier>().spelling();
 
-        static constexpr std::string_view FORWARD("forward");
+        static constexpr Cisref FORWARD = "forward"_ci;
 
         if (maybe_directive != FORWARD) {
             --tokens_it_;

@@ -62,19 +62,19 @@ public:
     containingSubroutine() const { return container<Subroutine>(); }
 
     Type::ptr_t
-    type(const std::string &name) const { return types_.at(name); }
+    type(const Cisref &name) const { return types_.at(name); }
 
     Type::ptr_t
-    variableType(const std::string &name) const { return variables_.at(name).type; }
+    variableType(const Cisref &name) const { return variables_.at(name).type; }
 
     bool
-    hasSubroutine(const std::string &name) const { return subroutines_.contains(name); }
+    hasSubroutine(const Cisref &name) const { return subroutines_.contains(name); }
 
     Subroutine &
-    subroutine(const std::string &name) { return subroutines_.at(name); }
+    subroutine(const Cisref &name) { return subroutines_.at(name); }
 
     const Subroutine &
-    subroutine(const std::string &name) const { return subroutines_.at(name); }
+    subroutine(const Cisref &name) const { return subroutines_.at(name); }
 
 private:
     template <typename T>
@@ -98,12 +98,12 @@ private:
     };
 
     std::unordered_map<pascal_integer_t, Label> labels_;
-    std::unordered_map<std::string, Constant::ptr_t> constants_;
-    std::unordered_map<std::string, Type::ptr_t> types_;
-    std::unordered_map<std::string, Variable> variables_;
-    std::unordered_map<std::string, Subroutine> subroutines_;
-    std::unordered_map<std::string, builtin_function_resolve_f> builtin_functions_;
-    std::unordered_map<std::string, builtin_procedure_resolve_f> builtin_procedures_;
+    std::unordered_map<Cisref, Constant::ptr_t> constants_;
+    std::unordered_map<Cisref, Type::ptr_t> types_;
+    std::unordered_map<Cisref, Variable> variables_;
+    std::unordered_map<Cisref, Subroutine> subroutines_;
+    std::unordered_map<Cisref, builtin_function_resolve_f> builtin_functions_;
+    std::unordered_map<Cisref, builtin_procedure_resolve_f> builtin_procedures_;
 
     std::unique_ptr<StatementCompound> statement_;
 
@@ -127,32 +127,32 @@ public:
     resultType() const { return result_type_; }
 
     bool
-    hasRegularParameter(const std::string &name) const {
+    hasRegularParameter(const Cisref &name) const {
         return regular_parameter_types_.contains(name);
     }
 
     Type::ptr_t
-    regularParameterType(const std::string &name) const {
+    regularParameterType(const Cisref &name) const {
         return regular_parameter_types_.at(name);
     }
 
     bool
-    hasBound(const std::string &name) const {
+    hasBound(const Cisref &name) const {
         return bound_types_.contains(name);
     }
 
     TypeOrdinal::ptr_t
-    boundType(const std::string &name) const {
+    boundType(const Cisref &name) const {
         return bound_types_.at(name);
     }
 
     bool
-    hasSubroutineParameter(const std::string &name) const {
+    hasSubroutineParameter(const Cisref &name) const {
         return subroutine_parameter_signatures_.contains(name);
     }
 
     const Signature &
-    subroutineParameterSignature(const std::string &name) const {
+    subroutineParameterSignature(const Cisref &name) const {
         return *subroutine_parameter_signatures_.at(name);
     }
 
@@ -164,9 +164,9 @@ public:
 
 private:
     std::vector<FormalParameterSection> parameters_;
-    std::unordered_map<std::string, Type::ptr_t> regular_parameter_types_;
-    std::unordered_map<std::string, TypeOrdinal::ptr_t> bound_types_;
-    std::unordered_map<std::string, const Signature *> subroutine_parameter_signatures_;
+    std::unordered_map<Cisref, Type::ptr_t> regular_parameter_types_;
+    std::unordered_map<Cisref, TypeOrdinal::ptr_t> bound_types_;
+    std::unordered_map<Cisref, const Signature *> subroutine_parameter_signatures_;
     Type::ptr_t result_type_;
 };
 
@@ -175,7 +175,7 @@ class RegularParameterSection {
 public:
     RegularParameterSection(
         bool is_variable,
-        std::span<std::string> names,
+        std::span<Cisref> names,
         Type::ptr_t type
     )
         : is_variable_(is_variable)
@@ -188,7 +188,7 @@ public:
     bool
     isVariable() const { return is_variable_; }
 
-    const std::vector<std::string> &
+    const std::vector<Cisref> &
     names() const { return names_; }
 
     Type::ptr_t
@@ -201,7 +201,7 @@ private:
     // but the Pascal signature matching rules require the parameter sections
     // to match, so we have to remember which names were originally in which
     // sections.
-    std::vector<std::string> names_;
+    std::vector<Cisref> names_;
     Type::ptr_t type_;
 };
 
@@ -209,17 +209,17 @@ export
 class SubroutineParameterSpecification {
 public:
     SubroutineParameterSpecification(
-        const std::string &name, const Signature &signature
+        const Cisref &name, const Signature &signature
     ) : name_(name), signature_(signature) {}
 
-    const std::string &
+    Cisref
     name() const { return name_; }
 
     const Signature &
     signature() const { return signature_; }
 
 private:
-    std::string name_;
+    Cisref name_;
     Signature signature_;
 };
 
@@ -268,7 +268,7 @@ public:
     Program();
 
 private:
-    std::unordered_map<std::string, const char *> parameters_;
+    std::unordered_map<Cisref, const char *> parameters_;
     Block block_;
 
     friend class ::ProgramBuilder;

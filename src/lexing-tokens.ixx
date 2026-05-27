@@ -11,6 +11,8 @@ module;
 
 export module lexing:tokens;
 
+import utilities;
+
 export
 class Token {
 public:
@@ -183,7 +185,7 @@ public:
     bool
     requiresSeparation() override { return true; }
 
-    std::string
+    Cisref
     spelling() const;
 };
 

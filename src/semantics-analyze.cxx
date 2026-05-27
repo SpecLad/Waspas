@@ -43,6 +43,9 @@ using label_set_t = std::unordered_set<pascal_integer_t>;
 
 class Builder {
 public:
+    static constexpr Cisref BUILTIN_INPUT = "input"_ci;
+    static constexpr Cisref BUILTIN_OUTPUT = "output"_ci;
+
     Builder(Reporter &reporter) : reporter_(reporter)
     {}
 
@@ -70,7 +73,7 @@ public:
     lookupIdentifier(
         sem::Scope &scope,
         const nodes::Identifier &applied_occurrence_node,
-        std::unordered_map<std::string, T> sem::Block::*map_member,
+        std::unordered_map<Cisref, T> sem::Block::*map_member,
         std::string_view identifier_kind_str
     ) {
         const auto &spelling = applied_occurrence_node.spelling;
@@ -197,7 +200,7 @@ protected:
 class StatementBuilder : public Builder {
 public:
     struct ControlVariable {
-        std::string name;
+        Cisref name;
         const char *location;
     };
 
@@ -225,7 +228,7 @@ public:
     resolveVariableOrFdIdentifier(
         sem::Scope &, sem::Scope::LookupResult &lr, const nodes::Identifier &id_node
     ) {
-        const std::string &name = id_node.spelling;
+        const Cisref &name = id_node.spelling;
 
         if (auto *block = lr.scope->block()) {
             if (block->variables_.contains(name)) {
@@ -258,7 +261,7 @@ public:
             return access;
 
         if (auto *block = lr.scope->block()) {
-            const std::string &name = id_node.spelling;
+            const Cisref &name = id_node.spelling;
 
             const char *id_end_location = id_node.view.data() + id_node.view.size();
 
@@ -313,7 +316,7 @@ public:
         if (auto access = resolveVariableOrFdIdentifier(scope, lr, id_node))
             return access;
 
-        const std::string &name = id_node.spelling;
+        const Cisref &name = id_node.spelling;
 
         if (lr.scope_index == 0) return nullptr;
 
@@ -1998,7 +2001,7 @@ public:
 
     std::unique_ptr<sem::VariableAccess>
     resolveBuiltinFile(
-        sem::Scope &scope, const std::string &id, const char *location
+        sem::Scope &scope, const Cisref &id, const char *location
     ) {
         sem::Scope *lookup_scope = &scope;
         std::size_t scope_index = 0;
@@ -2094,7 +2097,7 @@ public:
         std::unique_ptr<sem::VariableAccess> file;
 
         if (actual_parameter_nodes.empty()) {
-            file = resolveBuiltinFile(scope, "input", actual_parameter_end_location);
+            file = resolveBuiltinFile(scope, BUILTIN_INPUT, actual_parameter_end_location);
             return std::make_unique<sem::ExpressionFunctionEof>(std::move(file));
         }
 
@@ -2125,7 +2128,7 @@ public:
         std::unique_ptr<sem::VariableAccess> file;
 
         if (actual_parameter_nodes.empty()) {
-            file = resolveBuiltinFile(scope, "input", actual_parameter_end_location);
+            file = resolveBuiltinFile(scope, BUILTIN_INPUT, actual_parameter_end_location);
             return std::make_unique<sem::ExpressionFunctionEoln>(std::move(file));
         }
 
@@ -2552,7 +2555,7 @@ public:
 
         if (actual_parameter_nodes.empty()) {
             file = resolveBuiltinFile(
-                scope, "output", actual_parameter_end_location);
+                scope, BUILTIN_OUTPUT, actual_parameter_end_location);
             if (!file) return fallbackStatement();
 
             return std::make_unique<sem::StatementProcedurePage>(std::move(file));
@@ -2686,7 +2689,7 @@ public:
         }
         else {
             file = resolveBuiltinFile(
-                scope, "input", actual_parameter_nodes[0].view.data());
+                scope, BUILTIN_INPUT, actual_parameter_nodes[0].view.data());
             if (!file) return fallbackStatement();
 
             threatenVariable(scope,
@@ -2726,7 +2729,7 @@ public:
 
         if (actual_parameter_nodes.empty()) {
             file = resolveBuiltinFile(
-                scope, "input", actual_parameter_end_location);
+                scope, BUILTIN_INPUT, actual_parameter_end_location);
             if (!file) return fallbackStatement();
 
             return std::make_unique<sem::StatementProcedureReadln>(
@@ -2745,7 +2748,7 @@ public:
         }
         else {
             file = resolveBuiltinFile(
-                scope, "input", actual_parameter_nodes[0].view.data());
+                scope, BUILTIN_INPUT, actual_parameter_nodes[0].view.data());
             if (!file) return fallbackStatement();
 
             threatenVariable(scope,
@@ -3088,7 +3091,7 @@ public:
             reporter_.unhold();
 
             file = resolveBuiltinFile(
-                scope, "output", actual_parameter_nodes[0].view.data());
+                scope, BUILTIN_OUTPUT, actual_parameter_nodes[0].view.data());
             if (!file) return fallbackStatement();
 
             finishResolvingWriteParameter(scope, actual_parameter_nodes[0],
@@ -3118,7 +3121,7 @@ public:
         std::vector<sem::WriteParameter> parameters;
 
         if (actual_parameter_nodes.empty()) {
-            file = resolveBuiltinFile(scope, "output", actual_parameter_end_location);
+            file = resolveBuiltinFile(scope, BUILTIN_OUTPUT, actual_parameter_end_location);
             if (!file) return fallbackStatement();
 
             return std::make_unique<sem::StatementProcedureWriteln>(
@@ -3141,7 +3144,7 @@ public:
             reporter_.unhold();
 
             file = resolveBuiltinFile(
-                scope, "output", actual_parameter_nodes[0].view.data());
+                scope, BUILTIN_OUTPUT, actual_parameter_nodes[0].view.data());
             if (!file) return fallbackStatement();
 
             finishResolvingWriteParameter(scope, actual_parameter_nodes[0],
@@ -3205,62 +3208,62 @@ private:
     linked_list_ptr_t<ControlVariable> used_control_variables_;
 };
 
-constexpr std::initializer_list<std::pair<const std::string_view, builtin_function_resolve_f>>
+constexpr std::initializer_list<std::pair<const Cisref, builtin_function_resolve_f>>
 BUILTIN_FUNCTIONS = {
-    {"abs", &StatementBuilder::resolveBuiltinGeneric<
+    {"abs"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionAbs>},
-    {"arctan", &StatementBuilder::resolveBuiltinGeneric<
+    {"arctan"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionArctan>},
-    {"chr", &StatementBuilder::resolveBuiltinGeneric<
+    {"chr"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallChrLike, sem::ExpressionFunctionChr>},
-    {"cos", &StatementBuilder::resolveBuiltinGeneric<
+    {"cos"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionCos>},
-    {"eof", &StatementBuilder::resolveBuiltinCallEof},
-    {"eoln", &StatementBuilder::resolveBuiltinCallEoln},
-    {"exp", &StatementBuilder::resolveBuiltinGeneric<
+    {"eof"_ci, &StatementBuilder::resolveBuiltinCallEof},
+    {"eoln"_ci, &StatementBuilder::resolveBuiltinCallEoln},
+    {"exp"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionExp>},
-    {"ln", &StatementBuilder::resolveBuiltinGeneric<
+    {"ln"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionLn>},
-    {"odd", &StatementBuilder::resolveBuiltinGeneric<
+    {"odd"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallChrLike, sem::ExpressionFunctionOdd>},
-    {"ord", &StatementBuilder::resolveBuiltinCallOrd},
-    {"pred", &StatementBuilder::resolveBuiltinGeneric<
+    {"ord"_ci, &StatementBuilder::resolveBuiltinCallOrd},
+    {"pred"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallPredLike, sem::ExpressionFunctionPred>},
-    {"round", &StatementBuilder::resolveBuiltinGeneric<
+    {"round"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallRoundLike, sem::ExpressionFunctionRound>},
-    {"sin", &StatementBuilder::resolveBuiltinGeneric<
+    {"sin"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSin>},
-    {"sqr", &StatementBuilder::resolveBuiltinGeneric<
+    {"sqr"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSqr>},
-    {"sqrt", &StatementBuilder::resolveBuiltinGeneric<
+    {"sqrt"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallAbsLike, sem::ExpressionFunctionSqrt>},
-    {"succ", &StatementBuilder::resolveBuiltinGeneric<
+    {"succ"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallPredLike, sem::ExpressionFunctionSucc>},
-    {"trunc", &StatementBuilder::resolveBuiltinGeneric<
+    {"trunc"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallRoundLike, sem::ExpressionFunctionTrunc>},
 };
 
-constexpr std::initializer_list<std::pair<const std::string_view, builtin_procedure_resolve_f>>
+constexpr std::initializer_list<std::pair<const Cisref, builtin_procedure_resolve_f>>
 BUILTIN_PROCEDURES = {
-    {"dispose"sv, &StatementBuilder::resolveBuiltinGeneric<
+    {"dispose"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallNewLike, sem::StatementProcedureDispose>},
-    {"get"sv, &StatementBuilder::resolveBuiltinGeneric<
+    {"get"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallGetLike, sem::StatementProcedureGet>},
-    {"new"sv, &StatementBuilder::resolveBuiltinGeneric<
+    {"new"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallNewLike, sem::StatementProcedureNew>},
-    {"pack"sv, &StatementBuilder::resolveBuiltinCallPack},
-    {"page"sv, &StatementBuilder::resolveBuiltinCallPage},
-    {"put"sv, &StatementBuilder::resolveBuiltinGeneric<
+    {"pack"_ci, &StatementBuilder::resolveBuiltinCallPack},
+    {"page"_ci, &StatementBuilder::resolveBuiltinCallPage},
+    {"put"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallGetLike, sem::StatementProcedurePut>},
-    {"read"sv, &StatementBuilder::resolveBuiltinCallRead},
-    {"readln"sv, &StatementBuilder::resolveBuiltinCallReadln},
-    {"reset"sv, &StatementBuilder::resolveBuiltinGeneric<
+    {"read"_ci, &StatementBuilder::resolveBuiltinCallRead},
+    {"readln"_ci, &StatementBuilder::resolveBuiltinCallReadln},
+    {"reset"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallGetLike, sem::StatementProcedureReset>},
-    {"rewrite"sv, &StatementBuilder::resolveBuiltinGeneric<
+    {"rewrite"_ci, &StatementBuilder::resolveBuiltinGeneric<
         &StatementBuilder::resolveBuiltinCallGetLike, sem::StatementProcedureRewrite>},
-    {"unpack"sv, &StatementBuilder::resolveBuiltinCallUnpack},
-    {"write"sv, &StatementBuilder::resolveBuiltinCallWrite},
-    {"writeln"sv, &StatementBuilder::resolveBuiltinCallWriteln},
+    {"unpack"_ci, &StatementBuilder::resolveBuiltinCallUnpack},
+    {"write"_ci, &StatementBuilder::resolveBuiltinCallWrite},
+    {"writeln"_ci, &StatementBuilder::resolveBuiltinCallWriteln},
 };
 
 class ProgramBuilder : public Builder {
@@ -3639,7 +3642,7 @@ public:
             return nullptr;
         }
 
-        std::vector<std::string> constant_names;
+        std::vector<Cisref> constant_names;
 
         for (auto &id_node : enumerated_type_node.constants) {
             if (checkDuplicateIdentifier(scope, id_node))
@@ -3654,7 +3657,7 @@ public:
         auto enumerated_type = sem::TypeEnumerated::make(constant_names);
 
         for (const auto &constant : enumerated_type->constants())
-            scope.closestContainingBlock().constants_.emplace(constant->str(), constant);
+            scope.closestContainingBlock().constants_.emplace(constant->name(), constant);
 
         return enumerated_type;
     }
@@ -3679,7 +3682,7 @@ public:
     resolveTypeDenoter(
         sem::Scope &scope, nodes::NewPointerType &pointer_type_node
     ) {
-        const std::string &domain_type_name
+        const Cisref &domain_type_name
             = pointer_type_node.domain_type.spelling;
 
         // Pointer types can refer to types that haven't been defined
@@ -3947,7 +3950,7 @@ public:
                             heading_node.name.spelling, sws.signature)});
                 },
                 [&](nodes::RegularParameterSection &rps_node) {
-                    std::vector<std::string> names;
+                    std::vector<Cisref> names;
 
                     for (auto &id_node : rps_node.parameter_names) {
                         if (checkDuplicateIdentifier(parameter_list_scope, id_node))
@@ -4014,7 +4017,7 @@ public:
         sem::Block &block,
         const label_set_t &allowed_goto_targets
     ) {
-        std::unordered_set<std::string> forward_declarations;
+        std::unordered_set<Cisref> forward_declarations;
 
         for (auto &subr_decl_node : block_node.subroutine_declarations) {
             const auto &subr_name_node = subr_decl_node.heading->name;
@@ -4206,7 +4209,7 @@ public:
                 continue;
             }
 
-            if (parameter_name == "input"sv || parameter_name == "output"sv) {
+            if (parameter_name == BUILTIN_INPUT || parameter_name == BUILTIN_OUTPUT) {
                 program.block_.scope_.add(parameter_node);
                 program.block_.variables_.try_emplace(
                     parameter_name,

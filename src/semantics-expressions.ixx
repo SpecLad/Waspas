@@ -17,10 +17,10 @@ class SubroutineReference {
 public:
     enum Kind { REGULAR, PARAMETER };
 
-    SubroutineReference(const std::string &id, std::size_t scope_index, Kind kind)
+    SubroutineReference(const Cisref &id, std::size_t scope_index, Kind kind)
         : id_(id), scope_index_(scope_index), kind_(kind) {}
 
-    const std::string &
+    Cisref
     id() const { return id_; }
 
     std::size_t
@@ -30,7 +30,7 @@ public:
     kind() const { return kind_; }
 
 private:
-    std::string id_;
+    Cisref id_;
     std::size_t scope_index_;
     Kind kind_;
 };
@@ -58,17 +58,17 @@ export // export to work around VC++ ICE
 template <typename Base = Expression>
 class ExpressionId : public Base {
 public:
-    ExpressionId(const std::string &id, std::size_t scope_index)
+    ExpressionId(const Cisref &id, std::size_t scope_index)
         : id_(id), scope_index_(scope_index) {}
 
-    const std::string &
+    Cisref
     id() const { return id_; }
 
     std::size_t
     scopeIndex() const { return scope_index_; }
 
 private:
-    std::string id_;
+    Cisref id_;
     std::size_t scope_index_;
 };
 
@@ -367,7 +367,7 @@ class VariableAccessField final : public VariableAccess {
 public:
     VariableAccessField(
         std::unique_ptr<VariableAccess> &&record,
-        const std::string &field_name
+        const Cisref &field_name
     ) : record_(std::move(record)), field_name_(field_name) {}
 
     const Type &
@@ -376,12 +376,12 @@ public:
     const VariableAccess &
     record() const { return *record_; }
 
-    const std::string &
+    Cisref
     fieldName() const { return field_name_; }
 
 private:
     std::unique_ptr<VariableAccess> record_;
-    std::string field_name_;
+    Cisref field_name_;
 };
 
 class VariableAccessIndexed final : public VariableAccess {

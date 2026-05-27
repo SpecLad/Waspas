@@ -1,6 +1,7 @@
 module;
 
 #include <cassert>
+#include <format>
 #include <memory>
 #include <optional>
 #include <span>
@@ -27,15 +28,21 @@ public:
 
     static const T &
     instance();
+};
+
+template <typename T, typename Base = Type>
+class TypeBuiltinAccessible : public TypeBuiltin<T, Base> {
+public:
+    using TypeBuiltin<T, Base>::TypeBuiltin;
 
     std::string
-    str() const override { return std::string(T::NAME); }
+    str() const override { return T::NAME.str(); }
 };
 
 export
-class TypeBoolean final : public TypeBuiltin<TypeBoolean, TypeOrdinal> {
+class TypeBoolean final : public TypeBuiltinAccessible<TypeBoolean, TypeOrdinal> {
 public:
-    static inline constexpr std::string_view NAME = "boolean"sv;
+    static inline constexpr Cisref NAME = "boolean"_ci;
 
     pascal_integer_t
     smallestOrdinal() const override { return 0; }
@@ -49,9 +56,9 @@ private:
 };
 
 export
-class TypeChar final : public TypeBuiltin<TypeChar, TypeOrdinal> {
+class TypeChar final : public TypeBuiltinAccessible<TypeChar, TypeOrdinal> {
 public:
-    static inline constexpr std::string_view NAME = "char"sv;
+    static inline constexpr Cisref NAME = "char"_ci;
 
     pascal_integer_t
     smallestOrdinal() const override { return 0; }
@@ -67,9 +74,9 @@ private:
 };
 
 export
-class TypeInteger final : public TypeBuiltin<TypeInteger, TypeOrdinal> {
+class TypeInteger final : public TypeBuiltinAccessible<TypeInteger, TypeOrdinal> {
 public:
-    static inline constexpr std::string_view NAME = "integer"sv;
+    static inline constexpr Cisref NAME = "integer"_ci;
 
     pascal_integer_t
     smallestOrdinal() const override { return -PASCAL_INTEGER_MAX; }
@@ -86,9 +93,9 @@ private:
 };
 
 export
-class TypeReal final : public TypeBuiltin<TypeReal> {
+class TypeReal final : public TypeBuiltinAccessible<TypeReal> {
 public:
-    static inline constexpr std::string_view NAME = "real"sv;
+    static inline constexpr Cisref NAME = "real"_ci;
 
 private:
     TypeReal() = default;
@@ -106,7 +113,7 @@ public:
     ~TypeEnumerated();
 
     static std::shared_ptr<const TypeEnumerated>
-    make(std::span<const std::string> constant_names);
+    make(std::span<const Cisref> constant_names);
 
     std::vector<std::shared_ptr<const ConstantEnumerated>>
     constants() const;
@@ -122,7 +129,7 @@ public:
 
 private:
     explicit
-    TypeEnumerated(std::span<const std::string> constant_names);
+    TypeEnumerated(std::span<const Cisref> constant_names);
 
     std::vector<ConstantEnumerated> constants_;
 };
@@ -170,8 +177,8 @@ export
 class TypeSubrangeDynamic : public TypeOrdinalDynamic {
 public:
     TypeSubrangeDynamic(
-        const std::string &smallest_bound_id,
-        const std::string &largest_bound_id,
+        const Cisref &smallest_bound_id,
+        const Cisref &largest_bound_id,
         TypeOrdinal::ptr_t bound_type
     )
         : smallest_bound_id_(smallest_bound_id)
@@ -181,8 +188,7 @@ public:
 
     std::string
     str() const override {
-        return smallest_bound_id_ + ".." + largest_bound_id_
-            + ": " + bound_type_->str();
+        return std::format("{}..{}: {}", smallest_bound_id_, largest_bound_id_, bound_type_->str());
     };
 
     const TypeOrdinal &
@@ -192,17 +198,17 @@ public:
         return bound_type_->fullRange();
     }
 
-    const std::string &
+    Cisref
     smallestBoundId() const { return smallest_bound_id_; }
 
-    const std::string &
+    Cisref
     largestBoundId() const { return largest_bound_id_; }
 
     TypeOrdinal::ptr_t
     boundType() const { return bound_type_; }
 
 private:
-    std::string smallest_bound_id_, largest_bound_id_;
+    Cisref smallest_bound_id_, largest_bound_id_;
     TypeOrdinal::ptr_t bound_type_;
 };
 
@@ -313,9 +319,9 @@ private:
 };
 
 export
-class TypeText final : public TypeBuiltin<TypeText, TypeFileLike> {
+class TypeText final : public TypeBuiltinAccessible<TypeText, TypeFileLike> {
 public:
-    static inline constexpr std::string_view NAME = "text"sv;
+    static inline constexpr Cisref NAME = "text"_ci;
 
     Type::ptr_t
     componentType() const override {
@@ -341,11 +347,11 @@ public:
     TypeOrdinal::ptr_t
     tagType() const { return tag_type_; }
 
-    const std::optional<std::string> &
+    const std::optional<Cisref> &
     tagField() const { return tag_field_; }
 
     void
-    setTagField(const std::string &tag_field) {
+    setTagField(const Cisref &tag_field) {
         tag_field_ = tag_field;
     }
 
@@ -363,7 +369,7 @@ public:
 
 private:
     TypeOrdinal::ptr_t tag_type_;
-    std::optional<std::string> tag_field_;
+    std::optional<Cisref> tag_field_;
     std::vector<Variant> variants_;
 
     std::unordered_map<pascal_integer_t, std::size_t> variant_indexes_by_ordinal_;
@@ -376,26 +382,26 @@ public:
 
     // Returns all fields' names (including the ones from the variant part)
     // in an arbitrary order.
-    std::vector<std::string>
+    std::vector<Cisref>
     fieldNames() const;
 
     bool
-    hasField(const std::string &name) const {
+    hasField(const Cisref &name) const {
         return field_descriptions_.contains(name);
     }
 
     Type::ptr_t
-    fieldType(const std::string &name) const {
+    fieldType(const Cisref &name) const {
         return field_descriptions_.at(name).type;
     }
 
     bool
-    fieldIsTag(const std::string &name) const {
+    fieldIsTag(const Cisref &name) const {
         return field_descriptions_.at(name).is_tag;
     }
 
     void
-    addField(const std::string &name, Type::ptr_t type) {
+    addField(const Cisref &name, Type::ptr_t type) {
         own_field_names_.push_back(name);
         field_descriptions_.emplace(name, type);
     }
@@ -415,8 +421,8 @@ private:
         bool is_tag = false;
     };
 
-    std::vector<std::string> own_field_names_;
-    std::unordered_map<std::string, FieldDescription> field_descriptions_;
+    std::vector<Cisref> own_field_names_;
+    std::unordered_map<Cisref, FieldDescription> field_descriptions_;
     std::optional<VariantPart> variant_part_;
 };
 
@@ -580,7 +586,8 @@ private:
 export
 class TypeSetAny final : public TypeBuiltin<TypeSetAny> {
 public:
-    static inline constexpr std::string_view NAME = "[packed] set of <??\?>"sv;
+    std::string
+    str() const override { return "[packed] set of <??\?>"s; }
 
     bool
     isAssignmentCompatibleWith(const Type &other) const override {
@@ -598,7 +605,7 @@ export
 class TypePointer final : public Type {
 public:
     TypePointer(
-        const Block &domain_type_block, const std::string &domain_type_name
+        const Block &domain_type_block, const Cisref &domain_type_name
     ) : domain_type_block_(domain_type_block), domain_type_name_(domain_type_name)
     {}
 
@@ -606,7 +613,7 @@ public:
     str() const override {
         // We must not resolve the domain type and call `str` on it, since we
         // might get into a recursive loop.
-        return '^' + domain_type_name_;
+        return std::format("^{}", domain_type_name_);
     }
 
     Type::ptr_t
@@ -614,14 +621,15 @@ public:
 
 private:
     const Block &domain_type_block_;
-    std::string domain_type_name_;
+    Cisref domain_type_name_;
 };
 
 // A synthetic type created to be the type of the `nil` expression.
 export
 class TypePointerAny final : public TypeBuiltin<TypePointerAny> {
 public:
-    static inline constexpr std::string_view NAME = "^<??\?>"sv;
+    std::string
+    str() const override { return "^<??\?>"s; }
 
     bool
     isAssignmentCompatibleWith(const Type &other) const override {

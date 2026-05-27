@@ -156,24 +156,27 @@ public:
     typeOrdinal() const override { return type_.shared_from_this(); }
 
     std::string
-    str() const override { return name_; }
+    str() const override { return name_.str(); }
 
     pascal_integer_t
     ordinalNumber() const override { return ordinal_number_; }
+
+    Cisref
+    name() const { return name_; }
 
 private:
     explicit
     ConstantEnumerated(
         const TypeEnumerated &type,
         pascal_integer_t ordinal_number,
-        const std::string &name
+        const Cisref &name
     )
         : type_(type), ordinal_number_(ordinal_number), name_(name)
     {}
 
     const TypeEnumerated &type_;
     pascal_integer_t ordinal_number_;
-    std::string name_;
+    Cisref name_;
 
     friend class TypeEnumerated;
 };

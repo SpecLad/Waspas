@@ -386,7 +386,7 @@ using builtin_function_resolve_f
         const char *actual_parameter_end_location
     );
 
-extern const std::initializer_list<std::pair<const std::string_view, builtin_function_resolve_f>>
+extern const std::initializer_list<std::pair<const Cisref, builtin_function_resolve_f>>
     BUILTIN_FUNCTIONS;
 
 using builtin_procedure_resolve_f
@@ -396,5 +396,5 @@ using builtin_procedure_resolve_f
         const char *actual_parameter_end_location
     );
 
-extern const std::initializer_list<std::pair<const std::string_view, builtin_procedure_resolve_f>>
+extern const std::initializer_list<std::pair<const Cisref, builtin_procedure_resolve_f>>
     BUILTIN_PROCEDURES;

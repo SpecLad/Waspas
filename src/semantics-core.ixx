@@ -10,6 +10,7 @@ module;
 export module semantics:core;
 
 import parsing;
+import utilities;
 
 namespace sem {
 
@@ -158,7 +159,7 @@ public:
 
     void
     add(
-        const std::string &id,
+        const Cisref &id,
         const char *location,
         DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
     ) {
@@ -177,7 +178,7 @@ public:
 
     void
     addBuiltin(
-        const std::string &id,
+        const Cisref &id,
         DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
     ) {
         auto [it, success]
@@ -230,7 +231,7 @@ public:
     }
 
     std::optional<LookupResult>
-    lookup(const std::string &id) {
+    lookup(const Cisref &id) {
         std::size_t scope_index = 0;
 
         for (
@@ -247,12 +248,12 @@ public:
     }
 
     bool
-    containsShallow(const std::string &id) const {
+    containsShallow(const Cisref &id) const {
         return dos_.contains(id);
     }
 
     DefiningOccurrence
-    lookupShallowUnsafe(const std::string &id) const {
+    lookupShallowUnsafe(const Cisref &id) const {
         return dos_.at(id);
     }
 
@@ -267,7 +268,7 @@ private:
     Scope *parent_;
     region_t region_;
 
-    std::unordered_map<std::string, DefiningOccurrence> dos_;
+    std::unordered_map<Cisref, DefiningOccurrence> dos_;
 };
 
 }

@@ -35,12 +35,10 @@ TokenCharacterString::value() const {
 
 const std::string TokenIdentifier::HUMAN_REPRESENTATION = "ID"s;
 
-std::string
+Cisref
 TokenIdentifier::spelling() const {
-    std::string s(view());
-    for (auto &&c: s)
-        c = std::tolower(c);
-    return s;
+    std::string_view v = view();
+    return Cisref(v.data(), v.size());
 }
 
 const std::string TokenUnsignedInteger::HUMAN_REPRESENTATION = "INT"s;

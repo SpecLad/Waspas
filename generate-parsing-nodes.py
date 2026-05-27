@@ -46,12 +46,12 @@ class Field:
         raise NotImplementedError
 
 @dataclass
-class IdentifierField(Field):
+class CisrefField(Field):
     def generate_declaration(self, node_types: NodeTypeMap) -> None:
-        print(f'    std::string {self.name};')
+        print(f'    Cisref {self.name};')
 
     def generate_describe_call(self, node_types: NodeTypeMap) -> None:
-        print(f'    receiver.receiveIdField("{self.name}", {self.name});')
+        print(f'    receiver.receiveIdField("{self.name}", {self.name}.view());')
 
 @dataclass
 class BooleanField(Field):
@@ -261,6 +261,7 @@ def generate(enumerations: Sequence[Enumeration], node_types: Sequence[NodeType]
     print('#include <vector>')
     print('export module parsing:nodes;')
     print('export import :core;')
+    print('import utilities;')
     print('using namespace std::literals;')
     print()
 
@@ -462,7 +463,7 @@ NODE_TYPES = (
         'OrdinalType',
         'SignableConstant',
     ), fields=(
-        IdentifierField('spelling'),
+        CisrefField('spelling'),
     )),
 
     NodeType('IfStatement', bases=('UnlabeledStatement',), fields=(
