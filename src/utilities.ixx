@@ -1,5 +1,6 @@
 module;
 
+#include <algorithm>
 #include <cctype>
 #include <format>
 #include <memory>
