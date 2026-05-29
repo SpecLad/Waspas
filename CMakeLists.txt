@@ -8,7 +8,12 @@ find_package(Python 3.12 COMPONENTS Interpreter)
 set(CMAKE_CXX_STANDARD 23)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "^GNU$|Clang$")
-add_compile_options(-Wall -Wextra)
+    add_compile_options(-Wall -Wextra)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    # If we don't use this option, sizeof(builtin_{function,procedure}_resolve_f)
+    # varies in different compilation units depending on whether StatementBuilder
+    # is a complete type. The resulting program then crashes at runtime.
+    add_compile_options(/vmg)
 endif()
 
 add_custom_command(
