@@ -54,7 +54,6 @@ public:
     valueType(const Scope &scope) const = 0;
 };
 
-export // export to work around VC++ ICE
 template <typename Base = Expression>
 class ExpressionId : public Base {
 public:
@@ -118,10 +117,11 @@ public:
     ExpressionNil() = default;
 
     const Type &
-    valueType(const Scope &) const override;
+    valueType(const Scope &) const override {
+        return TypePointerAny::instance();
+    }
 };
 
-export
 class ExpressionOperatorBinary : public Expression {
 public:
     ExpressionOperatorBinary(
@@ -140,7 +140,6 @@ private:
     std::unique_ptr<sem::Expression> right_;
 };
 
-export
 template <typename T>
 class ExpressionOperatorSingleType : public ExpressionOperatorBinary {
     using ExpressionOperatorBinary::ExpressionOperatorBinary;
@@ -196,7 +195,6 @@ class ExpressionOperatorOr : public ExpressionOperatorBoolean {
     using ExpressionOperatorBoolean::ExpressionOperatorBoolean;
 };
 
-export
 class ExpressionOperatorCommonType : public ExpressionOperatorBinary {
     using ExpressionOperatorBinary::ExpressionOperatorBinary;
 
@@ -234,7 +232,6 @@ class ExpressionOperatorModulo : public ExpressionOperatorSingleType<TypeInteger
     using ExpressionOperatorSingleType::ExpressionOperatorSingleType;
 };
 
-export
 class ExpressionOperatorUnary : public Expression {
 public:
     explicit
@@ -287,7 +284,10 @@ public:
     {}
 
     const Type &
-    valueType(const Scope &scope) const override;
+    valueType(const Scope &scope) const override {
+        if (type_) return *type_;
+        return TypeSetAny::instance();
+    }
 
 private:
     std::vector<member_designator_t> members_;

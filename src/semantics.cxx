@@ -17,16 +17,6 @@ using namespace std::literals;
 const sem::TypeOrdinalDynamic &
 sem::TypeOrdinalDynamic::promoted() const { return fullRange(); }
 
-// This should really be defined inline, but doing that
-// makes VC++ generate multiple definitions for the t symbol.
-// TODO: report compiler bug
-template <typename T, typename Base>
-const T &
-sem::TypeBuiltin<T, Base>::instance() {
-    static constexpr T t;
-    return t;
-}
-
 bool
 sem::TypeInteger::isAssignmentCompatibleWith(const Type &other) const {
     if (&other == &TypeReal::instance()) return true;
@@ -282,19 +272,6 @@ sem::ExpressionBound::valueType(const Scope &scope) const {
     auto *subroutine = block->containingSubroutine();
     assert(subroutine);
     return subroutine->signature().boundType(id())->promoted();
-}
-
-// this is only defined out-of-line because TypeBuiltin::instance is.
-const sem::Type &
-sem::ExpressionNil::valueType(const Scope &) const {
-    return TypePointerAny::instance();
-}
-
-// ditto
-const sem::Type &
-sem::ExpressionSetConstructor::valueType(const Scope &) const {
-    if (type_) return *type_;
-    return TypeSetAny::instance();
 }
 
 const sem::Type &

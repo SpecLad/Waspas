@@ -65,16 +65,12 @@ template <typename T>
 const std::string TokenWithQuotedHR<T>::HUMAN_REPRESENTATION
     = quoteStringLiteral(T::REPRESENTATION);
 
-// The export is not needed, but without it, VC++ produces an ICE. See
-// <https://developercommunity.visualstudio.com/t/Internal-compiler-error-when-an-exported/1452361>.
-export
 template<typename T>
 class TokenSpecialSymbol : public TokenWithQuotedHR<T> {
 public:
     using TokenWithQuotedHR<T>::TokenWithQuotedHR;
 };
 
-export // same as for the previous export
 template<typename T>
 class TokenSpecialSymbolWithAlt : public TokenWithQuotedHR<T> {
 public:
@@ -111,7 +107,6 @@ DECLARE_SPECIAL_SYMBOL(GreaterThanOrEqual, ">=")
 DECLARE_SPECIAL_SYMBOL(Assign, ":=")
 DECLARE_SPECIAL_SYMBOL(DotDot, "..")
 
-export
 template<typename T>
 class TokenWordSymbol : public TokenWithQuotedHR<T> {
 public:
@@ -165,7 +160,6 @@ DECLARE_WORD_SYMBOL(Var)
 DECLARE_WORD_SYMBOL(While)
 DECLARE_WORD_SYMBOL(With)
 
-export
 template <typename T>
 class TokenWithCustomHR : public Token {
     using Token::Token;

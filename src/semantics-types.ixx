@@ -27,7 +27,10 @@ public:
     using Base::Base;
 
     static const T &
-    instance();
+    instance() {
+        static constexpr T t;
+        return t;
+    }
 };
 
 template <typename T, typename Base = Type>
