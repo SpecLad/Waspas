@@ -14,6 +14,8 @@ elseif(MSVC)
     # varies in different compilation units depending on whether StatementBuilder
     # is a complete type. The resulting program then crashes at runtime.
     add_compile_options(/vmg)
+
+    add_compile_options(/W3)
 endif()
 
 add_custom_command(

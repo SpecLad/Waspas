@@ -61,7 +61,7 @@ sem::TypeEnumerated::TypeEnumerated(
     constants_.reserve(constant_names.size());
 
     for (auto i : std::views::iota(std::size_t(0), constant_names.size()))
-        constants_.push_back(ConstantEnumerated(*this, i, constant_names[i]));
+        constants_.push_back(ConstantEnumerated(*this, pascal_integer_t(i), constant_names[i]));
 }
 
 std::vector<std::shared_ptr<const sem::ConstantEnumerated>>
@@ -90,7 +90,7 @@ sem::TypeEnumerated::str() const {
 
 pascal_integer_t
 sem::TypeEnumerated::largestOrdinal() const {
-    return constants_.size() - 1;
+    return pascal_integer_t(constants_.size() - 1);
 }
 
 bool
