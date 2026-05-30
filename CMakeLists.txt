@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 23)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "^GNU$|Clang$")
     add_compile_options(-Wall -Wextra)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+elseif(MSVC)
     # If we don't use this option, sizeof(builtin_{function,procedure}_resolve_f)
     # varies in different compilation units depending on whether StatementBuilder
     # is a complete type. The resulting program then crashes at runtime.
@@ -64,6 +64,10 @@ target_sources(waspas
         src/semantics-types.ixx
         src/utilities.ixx
 )
+
+if(MSVC AND WIN32)
+    target_sources(waspas PRIVATE utf-8.manifest)
+endif()
 
 add_test(
     NAME "Python tests"
