@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
+#
+# SPDX-License-Identifier: MPL-2.0
+
 from __future__ import annotations
 
 import argparse

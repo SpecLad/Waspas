@@ -1,3 +1,9 @@
+{
+SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
+
+SPDX-License-Identifier: MPL-2.0
+}
+
 { This test is for builtin procedure calls that are invalid due to a missing
   program parameter. }
 

@@ -1,11 +1,3 @@
-{
 SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
 
 SPDX-License-Identifier: MPL-2.0
-}
-
-program junkafterend;
-begin
-end.
- foobar
-{^ error:unexpected-token }

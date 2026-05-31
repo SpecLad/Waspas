@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
+#
+# SPDX-License-Identifier: MPL-2.0
+
 import functools
 import re
 import os
@@ -134,20 +138,20 @@ class TestDumpAst(unittest.TestCase):
         self.assertEqual(cp.returncode, 0)
 
         self.assertEqual(cp.stdout, textwrap.dedent('''\
-            Program(1:1-3:5):
-                name = Identifier(1:9-1:16): minimal
+            Program(7:1-9:5):
+                name = Identifier(7:9-7:16): minimal
                 parameter_declarations = []
-                block = Block(2:1-3:4):
+                block = Block(8:1-9:4):
                     label_declarations = []
                     constant_definitions = []
                     type_definitions = []
                     variable_declarations = []
                     subroutine_declarations = []
-                    statement = CompoundStatement(2:1-3:4):
+                    statement = CompoundStatement(8:1-9:4):
                         statements = [
-                            Statement(3:1-3:1):
+                            Statement(9:1-9:1):
                                 label = []
-                                unlabeled = EmptyStatement(3:1-3:1)
+                                unlabeled = EmptyStatement(9:1-9:1)
                         ]
         '''))
 

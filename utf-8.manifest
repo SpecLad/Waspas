@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<!--
+SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
     <application>
         <windowsSettings>

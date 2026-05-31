@@ -1,3 +1,9 @@
+{
+SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
+
+SPDX-License-Identifier: MPL-2.0
+}
+
 program bpb(input, output);
 type
     tagType = 0..1;

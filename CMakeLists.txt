@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
+#
+# SPDX-License-Identifier: MPL-2.0
+
 cmake_minimum_required(VERSION 4.2 FATAL_ERROR)
 
 project(Waspas LANGUAGES CXX)

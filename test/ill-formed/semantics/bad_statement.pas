@@ -1,3 +1,9 @@
+{
+SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
+
+SPDX-License-Identifier: MPL-2.0
+}
+
 program badstmt(input);
 label 1, 3, 4;
         {^ error:unused-label }
