@@ -284,7 +284,7 @@ public:
     {}
 
     const Type &
-    valueType(const Scope &scope) const override {
+    valueType(const Scope &) const override {
         if (type_) return *type_;
         return TypeSetAny::instance();
     }
