@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: (C) Roman Donchenko <rdonchen@outlook.com>
+#
+# SPDX-License-Identifier: MPL-2.0
+
+.gitattributes text
+
+*.cxx text
+*.ixx text
+*.license text
+*.manifest text
+*.pas text
+*.py  text
+*.txt text
+*.yaml text
