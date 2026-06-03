@@ -14,6 +14,12 @@ repos:
     -   id: fix-byte-order-marker
     -   id: trailing-whitespace
 
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.1.0
+    hooks:
+    -   id: mypy
+        args: [--strict]
+
 -   repo: https://codeberg.org/fsfe/reuse-tool
     rev: v6.2.0
     hooks:
