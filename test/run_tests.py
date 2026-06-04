@@ -97,7 +97,7 @@ class TestErrorMessages(unittest.TestCase):
     def get_expected_diagnostics_from_source(self, source_path: StrPath) -> list[DiagnosticMessage]:
         expected_diagnostics: list[DiagnosticMessage] = []
 
-        with open(source_path) as f:
+        with open(source_path, encoding='UTF-8') as f:
             for line_num, line in enumerate(f):
                 for match in re.finditer(r'\{(\^+)(.*?)\}', line):
                     num_diagnostics = len(match.group(1))
