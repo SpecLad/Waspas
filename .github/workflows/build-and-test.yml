@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: (C) Roman Donchenko
+#
+# SPDX-License-Identifier: MPL-2.0
+
+name: Build and test
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    windows:
+        runs-on: windows-latest
+
+    steps:
+    -   uses: actions/checkout@v4
+
+    -   uses: actions/setup-python@v6
+        with:
+            python-version: '3.12'
+
+    -   name: Install CMake
+        run: pipx install cmake==4.2
+
+    -   name: Configure
+        run: cmake -B build -G "Visual Studio 18 2026"
+
+    -   name: Build
+        run: cmake --build build --config Release
+
+    -   name: Test
+        run: ctest --test-dir build --build-config Release
