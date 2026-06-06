@@ -633,7 +633,7 @@ public:
 
         if (&expression_type != &sem::TypeBoolean::instance()) {
             reporter_.err(not_expression_node.operand->view.data(),
-                ec::NON_BOOLEAN_TYPE, "operand has non-boolean type \"{}\"",
+                ec::NON_BOOLEAN_TYPE, "operand has non-Boolean type \"{}\"",
                 expression_type.str());
         }
 
@@ -714,7 +714,7 @@ public:
                     if (type != &sem::TypeBoolean::instance())
                         reporter_.err(node->view.data(),
                             ec::NON_BOOLEAN_TYPE,
-                            "operand has non-boolean type \"{}\"",
+                            "operand has non-Boolean type \"{}\"",
                             type->str());
 
                 expression = std::make_unique<sem::ExpressionOperatorAnd>(
@@ -834,7 +834,7 @@ public:
                     if (type != &sem::TypeBoolean::instance())
                         reporter_.err(node.view.data(),
                             ec::NON_BOOLEAN_TYPE,
-                            "operand has non-boolean type \"{}\"",
+                            "operand has non-Boolean type \"{}\"",
                             type->str());
 
                 expression = std::make_unique<sem::ExpressionOperatorOr>(
@@ -1329,7 +1329,7 @@ public:
         if (&condition_type != &sem::TypeBoolean::instance()) {
             reporter_.err(expression_node.view.data(),
                 ec::NON_BOOLEAN_TYPE,
-                "condition has non-boolean type \"{}\"", condition_type.str());
+                "condition has non-Boolean type \"{}\"", condition_type.str());
 
             return std::make_unique<sem::ExpressionConstant>(
                 staticPtr(sem::ConstantBoolean::instanceFalse()));
@@ -2982,7 +2982,7 @@ public:
             reporter_.err(parameter_node.value.view.data(),
                 ec::TYPE_MISMATCH,
                 "value type \"{}\" is not \"integer\", \"real\", \"char\","
-                    " \"boolean\" or a string type",
+                    " \"Boolean\" or a string type",
                 value_type.str());
             return;
         }

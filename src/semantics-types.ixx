@@ -49,7 +49,7 @@ public:
 export
 class TypeBoolean final : public TypeBuiltinAccessible<TypeBoolean, TypeOrdinal> {
 public:
-    static inline constexpr Cisref NAME = "boolean"_ci;
+    static inline constexpr Cisref NAME = "Boolean"_ci;
 
     pascal_integer_t
     smallestOrdinal() const override { return 0; }
