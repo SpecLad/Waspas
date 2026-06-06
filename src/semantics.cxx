@@ -231,7 +231,7 @@ sem::Signature::Signature(
             },
             [this](const SubroutineParameterSpecification &sps) {
                 subroutine_parameter_signatures_.try_emplace(
-                    sps.name(), &sps.signature());
+                    sps.name(), sps.signature());
             },
         }, parameter.v);
     }
@@ -258,9 +258,9 @@ sem::Signature::isCongruousWith(const Signature &other) const {
                         auto &other_sps = std::get<SubroutineParameterSpecification>(
                             other.parameters_[i].v);
 
-                        return sps.signature().isCongruousWith(other_sps.signature())
-                            && sps.signature().resultType()
-                                == other_sps.signature().resultType();
+                        return sps.signature()->isCongruousWith(*other_sps.signature())
+                            && sps.signature()->resultType()
+                                == other_sps.signature()->resultType();
                     },
                 }, parameters_[i].v);
         }

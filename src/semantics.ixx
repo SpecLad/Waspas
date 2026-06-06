@@ -122,10 +122,19 @@ struct FormalParameterSection;
 export
 class Signature {
 public:
+    using ptr_t = std::shared_ptr<Signature>;
+
     Signature(
         std::span<FormalParameterSection> parameters,
         Type::ptr_t result_type
     );
+
+    // We could make this class copyable, but these methods would have to be defined out-of-line
+    // because one of the members is a vector of an incomplete type FormalParameterSection.
+    // We'll postpone defining them until they are needed.
+    Signature(const Signature &) = delete;
+    Signature &
+    operator =(const Signature &) = delete;
 
     Type::ptr_t
     resultType() const { return result_type_; }
@@ -170,7 +179,7 @@ private:
     std::vector<FormalParameterSection> parameters_;
     std::unordered_map<Cisref, Type::ptr_t> regular_parameter_types_;
     std::unordered_map<Cisref, TypeOrdinal::ptr_t> bound_types_;
-    std::unordered_map<Cisref, const Signature *> subroutine_parameter_signatures_;
+    std::unordered_map<Cisref, Signature::ptr_t> subroutine_parameter_signatures_;
     Type::ptr_t result_type_;
 };
 
@@ -213,18 +222,18 @@ export
 class SubroutineParameterSpecification {
 public:
     SubroutineParameterSpecification(
-        const Cisref &name, const Signature &signature
+        const Cisref &name, Signature::ptr_t signature
     ) : name_(name), signature_(signature) {}
 
     Cisref
     name() const { return name_; }
 
-    const Signature &
+    Signature::ptr_t
     signature() const { return signature_; }
 
 private:
     Cisref name_;
-    Signature signature_;
+    Signature::ptr_t signature_;
 };
 
 // Ugly, but we can't just alias FormalParameterSection to std::variant,
@@ -239,7 +248,7 @@ class Subroutine {
 public:
     Subroutine(
         const char *declaration_location,
-        const Signature &signature,
+        Signature::ptr_t signature,
         Block &parent_block
     )
         : last_declaration_location_(declaration_location)
@@ -249,7 +258,7 @@ public:
     {}
 
     const Signature &
-    signature() const { return signature_; }
+    signature() const { return *signature_; }
 
     const Block &
     block() const { return block_; }
@@ -257,7 +266,7 @@ public:
 private:
     const char *last_declaration_location_;
 
-    Signature signature_;
+    Signature::ptr_t signature_;
     Block block_;
 
     bool contains_result_assignment_;

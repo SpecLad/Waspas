@@ -1701,7 +1701,7 @@ public:
         auto &parameter_node = *actual_parameter_it++;
         checkNoFormattingSpecification(parameter_node);
 
-        auto lookup_result = sps.signature().resultType()
+        auto lookup_result = sps.signature()->resultType()
             ? resolveExpressionAsSubroutineReference<true>(scope, parameter_node.value)
             : resolveExpressionAsSubroutineReference<false>(scope, parameter_node.value);
 
@@ -1710,7 +1710,7 @@ public:
 
         auto &[ref, signature] = *lookup_result;
 
-        if (!signature->isCongruousWith(sps.signature())) {
+        if (!signature->isCongruousWith(*sps.signature())) {
             reporter_.err(parameter_node.value.view.data(),
                 ec::TYPE_MISMATCH,
                 "formal parameter list of the actual parameter "
@@ -1718,7 +1718,7 @@ public:
             return std::nullopt;
         }
 
-        if (signature->resultType() != sps.signature().resultType()) {
+        if (signature->resultType() != sps.signature()->resultType()) {
             reporter_.err(parameter_node.value.view.data(),
                 ec::TYPE_MISMATCH,
                 "result type of the actual parameter "
@@ -3899,7 +3899,7 @@ public:
     }
 
     struct SignatureWithScope {
-        sem::Signature signature;
+        sem::Signature::ptr_t signature;
         sem::Scope scope;
     };
 
@@ -4010,7 +4010,7 @@ public:
         }
 
         return {
-            sem::Signature(parameters, result_type),
+            std::make_shared<sem::Signature>(parameters, result_type),
             parameter_list_scope,
         };
     }
@@ -4127,7 +4127,7 @@ public:
                     *subr_decl_node.block, subroutine->block_, allowed_goto_targets);
 
                 if (
-                    subroutine->signature_.resultType()
+                    subroutine->signature_->resultType()
                     && !subroutine->contains_result_assignment_
                 )
                     reporter_.err(subr_decl_node.block->view.data(),
