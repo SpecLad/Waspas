@@ -185,7 +185,7 @@ public:
         const Cisref &id,
         DefiningOccurrence::Kind kind = DefiningOccurrence::NOT_TYPE
     ) {
-        auto [it, success]
+        [[maybe_unused]] auto [it, success]
             = dos_.try_emplace(id, DefiningOccurrence{nullptr, kind});
         assert(success); // builtins should not be duplicated
     }

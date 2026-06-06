@@ -9,6 +9,7 @@ module;
 #include <memory>
 #include <ranges>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -315,6 +316,8 @@ sem::ExpressionFunctionDesignator::valueType(const Scope &scope) const {
             signature = &block->containingSubroutine()->signature()
                 .subroutineParameterSignature(reference_.id());
             break;
+        default:
+            std::unreachable();
     }
 
     return *signature->resultType();
