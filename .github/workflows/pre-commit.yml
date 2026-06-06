@@ -21,8 +21,10 @@ jobs:
         steps:
         -   uses: actions/checkout@v6
 
-        -   name: Install pre-commit
-            run: pipx install pre-commit
+        -   name: Install dependencies
+            run: |
+                pipx install pre-commit
+                pre-commit install-hooks
 
         -   name: Run pre-commit
             run: pre-commit run --all-files --verbose
