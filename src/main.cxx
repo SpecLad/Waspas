@@ -105,13 +105,13 @@ dumpAstHelper(
         }
 
         void
-        receiveNodeField(std::string_view name, const Node &value) {
+        receiveNodeField(std::string_view name, const Node &value) override {
             printFieldName(name);
             dumpAstHelper(value, indent + INDENT_SIZE, source_start, line_indexer);
         }
 
         void
-        receiveNodeListField(std::string_view name, std::span<const Node *> value) {
+        receiveNodeListField(std::string_view name, std::span<const Node *> value) override {
             printFieldName(name);
             printOutput("[");
 
