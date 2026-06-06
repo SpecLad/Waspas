@@ -103,10 +103,9 @@ public:
     ExpressionFunctionDesignator(
         const SubroutineReference &reference,
         std::vector<sem::actual_parameter_section_t> &&actual_parameters
-    )
-        : reference_(reference)
-        , actual_parameters_(std::move(actual_parameters))
-    {}
+    );
+
+    ~ExpressionFunctionDesignator();
 
     const Type &
     valueType(const Scope &scope) const override;

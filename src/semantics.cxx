@@ -27,6 +27,18 @@ sem::TypeInteger::isAssignmentCompatibleWith(const Type &other) const {
     return Type::isAssignmentCompatibleWith(other);
 }
 
+sem::VariantPart::VariantPart(TypeOrdinal::ptr_t tag_type) : tag_type_(tag_type) {}
+
+sem::VariantPart::VariantPart(const VariantPart &) = default;
+
+sem::VariantPart &
+sem::VariantPart::operator =(const VariantPart &) = default;
+
+sem::VariantPart::~VariantPart() = default;
+
+std::span<const sem::Variant>
+sem::VariantPart::variants() const { return variants_; }
+
 const sem::FieldList &
 sem::VariantPart::variantByOrdinal(pascal_integer_t ordinal) const {
     std::size_t variant_index = variant_indexes_by_ordinal_.at(ordinal);
@@ -237,6 +249,8 @@ sem::Signature::Signature(
     }
 }
 
+sem::Signature::~Signature() = default;
+
 bool
 sem::Signature::isCongruousWith(const Signature &other) const {
     if (parameters_.size() != other.parameters_.size())
@@ -277,6 +291,16 @@ sem::ExpressionBound::valueType(const Scope &scope) const {
     assert(subroutine);
     return subroutine->signature().boundType(id())->promoted();
 }
+
+sem::ExpressionFunctionDesignator::ExpressionFunctionDesignator(
+    const SubroutineReference &reference,
+    std::vector<sem::actual_parameter_section_t> &&actual_parameters
+)
+    : reference_(reference)
+    , actual_parameters_(std::move(actual_parameters))
+{}
+
+sem::ExpressionFunctionDesignator::~ExpressionFunctionDesignator() = default;
 
 const sem::Type &
 sem::ExpressionFunctionDesignator::valueType(const Scope &scope) const {

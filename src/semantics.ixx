@@ -136,6 +136,8 @@ public:
     Signature &
     operator =(const Signature &) = delete;
 
+    ~Signature();
+
     Type::ptr_t
     resultType() const { return result_type_; }
 

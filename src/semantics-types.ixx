@@ -347,9 +347,13 @@ struct Variant;
 export
 class VariantPart {
 public:
-    explicit VariantPart(TypeOrdinal::ptr_t tag_type)
-        : tag_type_(tag_type)
-    {}
+    explicit VariantPart(TypeOrdinal::ptr_t tag_type);
+
+    VariantPart(const VariantPart &);
+    VariantPart &
+    operator =(const VariantPart &);
+
+    ~VariantPart();
 
     TypeOrdinal::ptr_t
     tagType() const { return tag_type_; }
@@ -363,7 +367,7 @@ public:
     }
 
     std::span<const Variant>
-    variants() const { return variants_; }
+    variants() const;
 
     const FieldList &
     variantByOrdinal(pascal_integer_t ordinal) const;
