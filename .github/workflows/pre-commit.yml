@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: (C) Roman Donchenko
+#
+# SPDX-License-Identifier: MPL-2.0
+
+name: pre-commit
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    main:
+        runs-on: ubuntu-slim
+
+        steps:
+        -   uses: actions/checkout@v6
+
+        -   name: Install pre-commit
+            run: pipx install pre-commit
+
+        -   name: Run pre-commit
+            run: pre-commit run --all-files --verbose
