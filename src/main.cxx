@@ -20,7 +20,7 @@ import reporting;
 import semantics;
 
 void
-dumpAstHelper(
+dumpParseTreeHelper(
     const Node &root, int indent,
     const char *source_start, LineIndexer &line_indexer
 ) {
@@ -107,7 +107,7 @@ dumpAstHelper(
         void
         receiveNodeField(std::string_view name, const Node &value) override {
             printFieldName(name);
-            dumpAstHelper(value, indent + INDENT_SIZE, source_start, line_indexer);
+            dumpParseTreeHelper(value, indent + INDENT_SIZE, source_start, line_indexer);
         }
 
         void
@@ -117,7 +117,7 @@ dumpAstHelper(
 
             for (const auto &p_node : value) {
                 printOutput("\n{:{}}", "", indent + INDENT_SIZE * 2);
-                dumpAstHelper(*p_node, indent + INDENT_SIZE * 2,
+                dumpParseTreeHelper(*p_node, indent + INDENT_SIZE * 2,
                     source_start, line_indexer);
             }
 
@@ -138,15 +138,15 @@ dumpAstHelper(
 }
 
 void
-dumpAst(const Node &root, const char *source_start, LineIndexer &line_indexer) {
-    dumpAstHelper(root, 0, source_start, line_indexer);
+dumpParseTree(const Node &root, const char *source_start, LineIndexer &line_indexer) {
+    dumpParseTreeHelper(root, 0, source_start, line_indexer);
     printOutput("\n");
 }
 
 int
 main(int, char **argv) {
     char **pp_arg = argv + 1;
-    bool dump_ast = false;
+    bool dump_parse_tree = false;
 
     for (; *pp_arg; ++pp_arg) {
         if (!std::strcmp(*pp_arg, "--")) {
@@ -154,8 +154,8 @@ main(int, char **argv) {
             break;
         }
 
-        if (!std::strcmp(*pp_arg, "--dump-ast")) {
-            dump_ast = true;
+        if (!std::strcmp(*pp_arg, "--dump-parse-tree")) {
+            dump_parse_tree = true;
         }
         else if (**pp_arg == '-') {
             printError("unknown option: {}\n", *pp_arg);
@@ -167,7 +167,7 @@ main(int, char **argv) {
     }
 
     if (!pp_arg[0] || pp_arg[1]) {
-        printError("usage: {} [--dump-ast] source.pas\n", argv[0]);
+        printError("usage: {} [--dump-parse-tree] source.pas\n", argv[0]);
         return 1;
     }
 
@@ -218,17 +218,17 @@ main(int, char **argv) {
     if (reporter.hadErrors())
         return 1;
 
-    auto ast = parse(tokens, reporter);
+    auto parse_tree = parse(tokens, reporter);
 
     if (reporter.hadErrors())
         return 1;
 
-    if (dump_ast) {
-        dumpAst(ast, source_text.data(), line_indexer);
+    if (dump_parse_tree) {
+        dumpParseTree(parse_tree, source_text.data(), line_indexer);
         return 0;
     }
 
-    auto program = analyze(ast, reporter);
+    auto program = analyze(parse_tree, reporter);
 
     if (reporter.hadErrors())
         return 1;

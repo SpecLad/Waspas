@@ -54,8 +54,8 @@ class TestBasicErrors(unittest.TestCase):
     def test_no_path_default(self) -> None:
         self._test([])
 
-    def test_no_path_dump_ast(self) -> None:
-        self._test(['--dump-ast'])
+    def test_no_path_dump_parse_tree(self) -> None:
+        self._test(['--dump-parse-tree'])
 
     def test_bad_path(self) -> None:
         self._test(['--', str(TEST_CASE_DIR / 'nonexistent.pas')])
@@ -141,12 +141,12 @@ class TestErrorMessages(unittest.TestCase):
 
         self.assertIn(ErrorMessage(1, 1, 'unexpected-token'), messages)
 
-class TestDumpAst(unittest.TestCase):
+class TestDumpParseTree(unittest.TestCase):
     def test_minimal(self) -> None:
         file_path_arg = str(TEST_CASE_DIR / 'minimal.pas')
 
         cp = subprocess.run(
-            [str(EXE_PATH), '--dump-ast', file_path_arg],
+            [str(EXE_PATH), '--dump-parse-tree', file_path_arg],
             stdout=subprocess.PIPE, text=True,
         )
 
@@ -172,7 +172,7 @@ class TestDumpAst(unittest.TestCase):
 
     def test_file_with_dash(self) -> None:
         cp = subprocess.run(
-            [str(EXE_PATH.resolve()), '--dump-ast', '--', '-dash.pas'],
+            [str(EXE_PATH.resolve()), '--dump-parse-tree', '--', '-dash.pas'],
             stdout=subprocess.PIPE, text=True, cwd=TEST_CASE_DIR,
         )
 

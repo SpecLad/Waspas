@@ -10,7 +10,7 @@ I/O functionality.
 
 ... or at least, that's what it's supposed to be eventually. Currently,
 the frontend is feature-complete, and the backend is nonexistent. You can dump
-the abstract syntax tree, but you cannot actually compile anything.
+the parse tree, but you cannot actually compile anything.
 
 The name "Waspas" is an abbreviation for "WebAssembly Standard Pascal".
 
@@ -70,7 +70,6 @@ To compile program.pas, run:
 Currently, code generation is not implemented, so this will just check
 the syntax and exit.
 
-To print a textual representation of the abstract syntax tree of
-program.pas, run:
+To print a textual representation of the parse tree of program.pas, run:
 
-    waspas --dump-ast program.pas
+    waspas --dump-parse-tree program.pas
