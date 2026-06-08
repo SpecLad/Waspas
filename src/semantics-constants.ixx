@@ -14,6 +14,7 @@ export import :core;
 export import :types;
 
 import parsing;
+import utilities;
 
 using namespace std::literals;
 

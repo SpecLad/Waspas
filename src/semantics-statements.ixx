@@ -15,6 +15,7 @@ export import :expressions;
 export import :types;
 
 import parsing;
+import utilities;
 
 namespace sem {
 

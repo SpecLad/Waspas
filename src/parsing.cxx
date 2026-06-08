@@ -17,6 +17,8 @@ module;
 
 module parsing;
 
+import utilities;
+
 constexpr pascal_integer_t MAX_LABEL_VALUE = 9999;
 
 class TokenReader {

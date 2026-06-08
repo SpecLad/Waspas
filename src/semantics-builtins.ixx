@@ -14,6 +14,9 @@ export module semantics:builtins;
 export import :expressions;
 export import :statements;
 
+import parsing;
+import utilities;
+
 namespace sem {
 
 export

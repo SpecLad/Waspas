@@ -14,6 +14,8 @@ export module semantics:expressions;
 export import :core;
 export import :types;
 
+import utilities;
+
 namespace sem {
 
 export

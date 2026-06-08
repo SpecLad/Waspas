@@ -14,6 +14,8 @@ module lexing;
 
 import :tables;
 
+import utilities;
+
 using namespace std::literals;
 
 std::string
