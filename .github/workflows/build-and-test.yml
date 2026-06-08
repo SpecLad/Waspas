@@ -15,6 +15,30 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
+    macos:
+        runs-on: macos-26
+
+        steps:
+        -   uses: actions/checkout@v6
+
+        -   uses: actions/setup-python@v6
+            with:
+                python-version: '3.12'
+
+        -   name: Install CMake
+            run: pipx install cmake==4.2
+
+        -   name: Configure
+            run: cmake -B build -G Ninja -D CMAKE_BUILD_TYPE=Release
+                -DCMAKE_CXX_COMPILER="$(brew --prefix llvm@20)/bin/clang++"
+                -DCMAKE_CXX_FLAGS="--config-system-dir=$(brew --prefix)/etc/clang"
+
+        -   name: Build
+            run: cmake --build build
+
+        -   name: Test
+            run: ctest --test-dir build --verbose
+
     windows:
         runs-on: windows-2025-vs2026
 
