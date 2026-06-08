@@ -29,9 +29,7 @@ jobs:
             run: pipx install cmake==4.2
 
         -   name: Configure
-            run: cmake -B build -G Ninja -D CMAKE_BUILD_TYPE=Release
-                -DCMAKE_CXX_COMPILER="$(brew --prefix llvm@20)/bin/clang++"
-                -DCMAKE_CXX_FLAGS="--config-system-dir=$(brew --prefix)/etc/clang"
+            run: cmake -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-15
 
         -   name: Build
             run: cmake --build build
