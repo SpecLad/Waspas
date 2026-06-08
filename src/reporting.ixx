@@ -8,6 +8,7 @@ module;
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <string_view>
 #include <vector>
 
