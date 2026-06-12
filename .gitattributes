@@ -11,4 +11,5 @@
 *.pas text
 *.py  text
 *.txt text
+*.yml text
 *.yaml text
