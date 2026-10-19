@@ -147,18 +147,6 @@ public:
         return (*(tokens_it_ - 1)).get();
     }
 
-    // must call tryConsume at the current token at least once before this!
-    const Token *
-    consumeAny() {
-        auto *p_next_token = (*tokens_it_).get();
-        if (dynamic_cast<TokenEof *>(p_next_token)) {
-            throw UnexpectedToken(*this);
-        }
-
-        ++tokens_it_;
-        return p_next_token;
-    }
-
     template <typename T>
     const T *
     tryConsume() {
