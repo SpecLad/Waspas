@@ -40,13 +40,24 @@ add_custom_command(
     CODEGEN
 )
 
+add_custom_command(
+    OUTPUT parsingng-gen.inc
+    COMMAND Python::Interpreter --
+        "${CMAKE_CURRENT_SOURCE_DIR}/generate-parser.py" > parsingng-gen.inc
+    MAIN_DEPENDENCY generate-parser.py
+    VERBATIM
+    CODEGEN
+)
+
 add_executable(waspas
     src/io.cxx
     src/lexing.cxx
     src/main.cxx
     src/parsing.cxx
+    src/parsingng.cxx
     src/semantics.cxx
     src/semantics-analyze.cxx
+    "${CMAKE_CURRENT_BINARY_DIR}/parsingng-gen.inc"
 )
 
 target_sources(waspas
@@ -60,6 +71,7 @@ target_sources(waspas
         src/parsing.ixx
         src/parsing-core.ixx
         "${CMAKE_CURRENT_BINARY_DIR}/parsing-nodes.ixx"
+        src/parsingng.ixx
         src/reporting.ixx
         src/semantics.ixx
         src/semantics-builtins.ixx
@@ -70,6 +82,8 @@ target_sources(waspas
         src/semantics-types.ixx
         src/utilities.ixx
 )
+
+target_include_directories(waspas PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
 if(MSVC AND WIN32)
     target_sources(waspas PRIVATE utf-8.manifest)

@@ -7,6 +7,7 @@
 from collections.abc import Callable
 import dataclasses
 
+# TODO: remove duplication with generate-lexing-tables.py.
 SPECIAL_SYMBOL_NAMES = {
     "-": "Minus",
     ",": "Comma",
@@ -433,7 +434,11 @@ def visit(expr: Expression, accept: Callable[[Expression], object]) -> None:
 
     accept(expr)
 
-def main() -> None:
+def pascal_case(kebab_case: str) -> str:
+    parts = kebab_case.split("-")
+    return ''.join(part.title() for part in parts)
+
+def validate() -> None:
     unreferenced_nts = {*GRAMMAR.keys(), *TOKEN_NTS, *ALIAS_TOKEN_NTS.keys()}
 
     def check_leaves(expr: Expression) -> None:
@@ -448,6 +453,69 @@ def main() -> None:
         visit(expr, check_leaves)
 
     assert unreferenced_nts == {STARTING_RULE}
+
+def print_utility_call(name: str, subparsers: list[tuple[str, Expression]]) -> None:
+    print(f"    return parse{name}(")
+
+    for subid, _ in subparsers[:-1]:
+        print(f"        &Parser::parse{subid},")
+    if subparsers:
+        print(f"        &Parser::parse{subparsers[-1][0]}")
+
+    print("    );")
+
+def print_parser(name: str | None, identifier: str, expr: Expression) -> None:
+        print("std::unique_ptr<Node>")
+        print(f"parse{identifier}() {{")
+
+        subparsers: list[tuple[str, Expression]] = []
+
+        match expr:
+            case Alt(operands):
+                for i, op in enumerate(operands):
+                    subparsers.append((f"{identifier}_alt{i}", op))
+
+                print_utility_call("Alternation", subparsers)
+
+            case Cat(operands):
+                for i, op in enumerate(operands):
+                    subparsers.append((f"{identifier}_part{i}", op))
+
+                print_utility_call("Concatenation", subparsers)
+
+            case Opt(operand):
+                subparsers.append((f"{identifier}_item", operand))
+
+                print_utility_call("Optionality", subparsers)
+
+            case Rep(operand):
+                subparsers.append((f"{identifier}_item", operand))
+
+                print_utility_call("Repetition", subparsers)
+
+            case NT(nt_name):
+                print(f"    return parse{pascal_case(nt_name)}();")
+
+            case T(value):
+                if value.isalpha():
+                    token_name = "Ws" + pascal_case(value)
+                else:
+                    token_name = SPECIAL_SYMBOL_NAMES[value]
+
+                print(f"    return parseSpecialSymbol<Token{token_name}>();")
+
+            case _:
+                assert False
+
+        print("}")
+        print()
+
+        for subid, subexpr in subparsers:
+            print_parser(None, subid, subexpr)
+
+def main() -> None:
+    for name, expr in GRAMMAR.items():
+        print_parser(name, pascal_case(name), expr)
 
 if __name__ == '__main__':
     main()
