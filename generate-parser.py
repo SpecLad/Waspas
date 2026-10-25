@@ -317,15 +317,17 @@ GRAMMAR: dict[str, Expression] = {
         [Opt(NT("sign")), NT("term"), Rep(Cat([NT("adding-operator"), NT("term")]))]
     ),
     "simple-statement": Alt([
-        NT("empty-statement"),
         NT("assignment-statement"),
         NT("procedure-statement"),
         NT("goto-statement"),
+        NT("empty-statement"), # has to be last, or parsing will always select it
     ]),
     "simple-type-identifier": NT("type-identifier"),
-    "statement": Cat(
-        [Opt(Cat([NT("label"), T(":")])), Alt([NT("simple-statement"), NT("structured-statement")])]
-    ),
+    "statement": Cat([
+        Opt(Cat([NT("label"), T(":")])),
+        # simple-statement contains empty-statement, so it has to be last.
+        Alt([NT("structured-statement"), NT("simple-statement")])
+    ]),
     "statement-part": NT("compound-statement"),
     "statement-sequence": Cat([NT("statement"), Rep(Cat([T(";"), NT("statement")]))]),
     "structured-statement": Alt([
